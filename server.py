@@ -1,11 +1,17 @@
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for, session, flash
 import random
+import os
+from functools import wraps
+from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__, 
             static_folder="static",  # Just use the default "static" folder
             static_url_path='/static')  # And this
 
-# VSA Events dataset with added location data
+# Set a secret key for session management
+app.secret_key = os.urandom(24)
+
+# VSA Events dataset with added location data (from your original code)
 events = {
     "1": {
         "id": "1",
@@ -126,7 +132,6 @@ events = {
     }
 }
 
-# Helper function to highlight matches with bold text
 def highlight_match(text, query):
     """Highlight a query match in text with strong emphasis."""
     text_lower = text.lower()
@@ -145,7 +150,123 @@ def highlight_match(text, query):
     
     return highlighted
 
-# Routes
+# Demo user database (in a real app, this would be a database)
+users = {
+    "admin": {
+        "username": "admin",
+        "email": "admin@example.com",
+        "password": generate_password_hash("password123"),
+        "is_admin": True
+    }
+}
+
+# Login required decorator
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            flash('Please log in to access this page', 'warning')
+            return redirect(url_for('login', next=request.url))
+        return f(*args, **kwargs)
+    return decorated_function
+
+# Admin required decorator
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            flash('Please log in to access this page', 'warning')
+            return redirect(url_for('login', next=request.url))
+        if not users.get(session['user_id'], {}).get('is_admin', False):
+            flash('You need admin privileges to access this page', 'danger')
+            return redirect(url_for('home'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+# Auth routes
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    # If user is already logged in, redirect to home
+    if 'user_id' in session:
+        return redirect(url_for('home'))
+    
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '')
+        
+        user = users.get(username)
+        if user and check_password_hash(user['password'], password):
+            # Set session
+            session['user_id'] = username
+            
+            # Get next page or default to home
+            next_page = request.args.get('next', url_for('home'))
+            
+            flash(f'Welcome back, {username}!', 'success')
+            return redirect(next_page)
+        else:
+            flash('Invalid username or password', 'danger')
+    
+    return render_template('login.html')
+
+@app.route('/logout')
+def logout():
+    # Remove user from session
+    session.pop('user_id', None)
+    flash('You have been logged out', 'info')
+    return redirect(url_for('home'))
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    # If user is already logged in, redirect to home
+    if 'user_id' in session:
+        return redirect(url_for('home'))
+    
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        email = request.form.get('email', '').strip()
+        password = request.form.get('password', '')
+        confirm_password = request.form.get('confirm_password', '')
+        
+        # Validate input
+        errors = []
+        if len(username) < 3:
+            errors.append('Username must be at least 3 characters')
+        if username in users:
+            errors.append('Username already taken')
+        if '@' not in email or '.' not in email:
+            errors.append('Please enter a valid email address')
+        if len(password) < 6:
+            errors.append('Password must be at least 6 characters')
+        if password != confirm_password:
+            errors.append('Passwords do not match')
+        
+        if errors:
+            for error in errors:
+                flash(error, 'danger')
+            return render_template('register.html')
+        
+        # Create new user
+        users[username] = {
+            'username': username,
+            'email': email,
+            'password': generate_password_hash(password),
+            'is_admin': False  # Default to non-admin
+        }
+        
+        flash('Registration successful! Please log in.', 'success')
+        return redirect(url_for('login'))
+    
+    return render_template('register.html')
+
+# User profile route
+@app.route('/profile')
+@login_required
+def profile():
+    user = users.get(session['user_id'])
+    return render_template('profile.html', user=user)
+
+# Main routes (from your original code with auth added)
 @app.route('/')
 def home():
     # Home page displaying popular events
@@ -159,7 +280,7 @@ def search():
     if not query:
         return render_template('search.html', results=None, query='', count=0)
     
-    # Search for events containing the query in their title, summary, popular_activities, location, or year
+    # Search for events containing the query in their title, summary, or popular_activities
     results = {}
     for event_id, event in events.items():
         # Check if query is in title (case insensitive)
@@ -169,51 +290,55 @@ def search():
         summary_match = query in event['summary'].lower()
         
         # Check if query is in any popular activities (case insensitive)
-        # Also track which activities matched for highlighting
-        activities_match = False
-        matched_activities = []
-        
-        for activity in event['popular_activities']:
-            if query in activity.lower():
-                activities_match = True
-                # Create highlighted version with bold emphasis
-                highlighted = highlight_match(activity, query)
-                matched_activities.append((activity, highlighted))
-            else:
-                matched_activities.append((activity, activity))
+        activities_match = any(query in activity.lower() for activity in event['popular_activities'])
         
         # Check if query is in location (case insensitive)
         location_match = query in event['location'].lower()
         
-        # Check if query is in year
-        year_match = query in event['year']
-        
         # Add to results if any match is found
-        if title_match or summary_match or activities_match or location_match or year_match:
+        if title_match or summary_match or activities_match or location_match:
             # Create a copy of the event with highlighted matches
             event_copy = event.copy()
             
             # Highlight matches in title
             if title_match:
-                event_copy['highlighted_title'] = highlight_match(event['title'], query)
+                highlighted_title = event['title']
+                # Replace the matched text with the same text wrapped in highlight span
+                # Need to be case-insensitive but preserve the original case
+                search_title = event['title'].lower()
+                original_title = event['title']
+                matches = []
+                
+                # First, find all occurrences of the query
+                start_pos = 0
+                while True:
+                    pos = search_title.find(query, start_pos)
+                    if pos == -1:
+                        break
+                    matches.append((pos, pos + len(query)))
+                    start_pos = pos + 1
+                
+                # Then, highlight them all at once (starting from the end to preserve positions)
+                result = []
+                last_end = 0
+                for start, end in sorted(matches):
+                    result.append(original_title[last_end:start])
+                    result.append(f'<span class="highlight">{original_title[start:end]}</span>')
+                    last_end = end
+                
+                # Add the remaining part of the string
+                result.append(original_title[last_end:])
+                highlighted_title = ''.join(result)
+                
+                event_copy['highlighted_title'] = highlighted_title
             else:
                 event_copy['highlighted_title'] = event['title']
-            
-            # Add activities with highlighting
-            event_copy['highlighted_activities'] = matched_activities
-            
-            # Add year information with highlighting if it matches
-            if year_match:
-                event_copy['highlighted_year'] = f'<span class="highlight"><strong>{event["year"]}</strong></span>'
-            else:
-                event_copy['highlighted_year'] = event['year']
             
             # Add to results
             results[event_id] = event_copy
     
     return render_template('search.html', results=results, query=query, count=len(results))
 
-# Search by year route
 @app.route('/search/year/<year>')
 def search_by_year(year):
     # Search for events from the specified year
@@ -261,11 +386,13 @@ def search_by_activity(activity):
                           count=len(results))
 
 @app.route('/add', methods=['GET', 'POST'])
+@admin_required  # Only admins can add events
 def add():
     # This route is only accessible from the navbar
     return render_template('add.html')
 
 @app.route('/api/add_event', methods=['POST'])
+@admin_required  # Only admins can add events
 def add_event():
     # Get data from form submission
     try:
@@ -362,7 +489,10 @@ def random_event():
     # Redirect to the view page for the random event
     return redirect(url_for('view', event_id=random_id))
 
+
+# Edit routes
 @app.route('/edit/<event_id>')
+@admin_required  # Only admins can edit events
 def edit(event_id):
     # Get the event details
     event = events.get(event_id)
@@ -373,6 +503,7 @@ def edit(event_id):
         return redirect(url_for('home'))
     
 @app.route('/api/update_event', methods=['POST'])
+@admin_required  # Only admins can update events
 def update_event():
     # Get data from form submission
     try:

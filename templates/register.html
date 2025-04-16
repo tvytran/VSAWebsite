@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}Register - VSA Events{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card mb-3">
+            <div class="card-header py-2">
+                <h1 class="h4 mb-0">Create an Account</h1>
+            </div>
+            <div class="card-body">
+                <!-- Display flash messages -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }} alert-dismissible fade show py-2" role="alert">
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+                
+                <form id="register-form" method="POST" action="{{ url_for('register') }}">
+                    <div class="mb-3">
+                        <label for="username" class="form-label">Username</label>
+                        <input type="text" class="form-control" id="username" name="username" required autofocus>
+                        <div class="invalid-feedback" id="username-error"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Email</label>
+                        <input type="email" class="form-control" id="email" name="email" required>
+                        <div class="invalid-feedback" id="email-error"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Password</label>
+                        <input type="password" class="form-control" id="password" name="password" required>
+                        <div class="invalid-feedback" id="password-error"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="confirm_password" class="form-label">Confirm Password</label>
+                        <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
+                        <div class="invalid-feedback" id="confirm-password-error"></div>
+                    </div>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">Register</button>
+                    </div>
+                </form>
+                
+                <div class="mt-3 text-center">
+                    <p>Already have an account? <a href="{{ url_for('login') }}">Login here</a></p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    $(document).ready(function() {
+        // Client-side validation for registration form
+        $('#register-form').submit(function(e) {
+            let isValid = true;
+            
+            // Reset previous validation errors
+            $('.is-invalid').removeClass('is-invalid');
+            
+            // Validate username (at least 3 characters)
+            const username = $('#username').val().trim();
+            if (username.length < 3) {
+                $('#username').addClass('is-invalid');
+                $('#username-error').text('Username must be at least 3 characters');
+                isValid = false;
+            }
+            
+            // Validate email format
+            const email = $('#email').val().trim();
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+                $('#email').addClass('is-invalid');
+                $('#email-error').text('Please enter a valid email address');
+                isValid = false;
+            }
+            
+            // Validate password (at least 6 characters)
+            const password = $('#password').val();
+            if (password.length < 6) {
+                $('#password').addClass('is-invalid');
+                $('#password-error').text('Password must be at least 6 characters');
+                isValid = false;
+            }
+            
+            // Validate password confirmation
+            const confirmPassword = $('#confirm_password').val();
+            if (password !== confirmPassword) {
+                $('#confirm_password').addClass('is-invalid');
+                $('#confirm-password-error').text('Passwords do not match');
+                isValid = false;
+            }
+            
+            if (!isValid) {
+                e.preventDefault();
+                // Focus the first invalid field
+                $('.is-invalid:first').focus();
+            }
+        });
+    });
+</script>
+{% endblock %}

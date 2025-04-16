@@ -1,16 +1,17 @@
 /* Custom styles for VSA Events application with new color scheme */
 
 :root {
-    --base-color: #ffdddd; /* Light red */
-    --accent-color: #fffacd; /* Light yellow */
-    --title-red: #d44040; /* Darker red for titles */
+    --base-color: #F4E5CE;      /* Floral White as base background */
+    --accent-color: #EFB639;    /* Yellow as accent */
+    --title-red: #B02A31;       /* Red for titles */
+    --light-red: #D1555B;       /* Lighter Red for highlights */
     --light-grey: #f2f2f2;
     --medium-grey: #e0e0e0;
     --dark-grey: #555555;
     --text-color: #333333;
     --text-secondary: #777777;
-    --primary-button: #e25d5d; /* Darker red for buttons */
-    --primary-button-hover: #c74545; /* Even darker red for button hover */
+    --primary-button: #B02A31;  /* Red for primary buttons */
+    --primary-button-hover: #D1555B; /* Light Red for button hover */
     --section-padding: 1.5rem;
     --card-padding: 1.25rem;
 }
@@ -155,9 +156,9 @@ h2 {
 }
 
 .btn:hover {
-    background-color: var(--accent-color) !important;
-    border-color: var(--accent-color) !important;
-    color: var(--dark-grey) !important;
+    background-color: var(--light-red) !important;
+    border-color: var(--light-red) !important;
+    color: white !important;
     transform: translateY(-2px);
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
@@ -181,7 +182,7 @@ h2 {
 /* IMPROVED NAVBAR */
 .navbar {
     box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
-    background-color: var(--dark-grey) !important;
+    background-color: var(--title-red) !important;
     padding: 0.8rem 1rem;
 }
 
@@ -191,7 +192,7 @@ h2 {
 }
 
 .navbar-dark {
-    background-image: linear-gradient(to right, #444444, #555555);
+    background-image: linear-gradient(to right, #B02A31, #D1555B);
 }
 
 .nav-link {
@@ -202,7 +203,7 @@ h2 {
 }
 
 .nav-link.active {
-    background-color: var(--primary-button) !important;
+    background-color: var(--light-red) !important;
     border-radius: 4px;
 }
 
@@ -217,7 +218,7 @@ h2 {
 
 .form-control:focus {
     border-color: var(--primary-button);
-    box-shadow: 0 0 0 0.2rem rgba(226, 93, 93, 0.25);
+    box-shadow: 0 0 0 0.2rem rgba(209, 85, 91, 0.25);
 }
 
 .form-label {
@@ -252,79 +253,6 @@ h2 {
     background-color: var(--dark-grey) !important;
 }
 
-.badge.bg-secondary:hover {
-    background-color: var(--primary-button) !important;
-}
-
-/* Enhanced highlighting for search results */
-.highlight {
-    background-color: rgba(255, 250, 205, 0.8);  /* Lighter yellow with transparency */
-    padding: 1px 3px;
-    border-radius: 3px;
-    font-weight: 800;  /* Extra bold */
-    color: #d44040; /* Red color for highlighted text */
-    box-shadow: 0 0 3px rgba(0, 0, 0, 0.1);
-    display: inline-block;
-    letter-spacing: 0.03em; /* Slightly increased letter spacing for better readability */
-}
-
-/* Activity badge highlighting */
-.badge .highlight {
-    background-color: rgba(255, 255, 255, 0.9);  /* White with transparency for badge highlights */
-    padding: 0 2px;
-    border-radius: 2px;
-    margin: -1px 0;
-    display: inline-block;
-    font-weight: 900; /* Maximum boldness */
-    text-shadow: 0 0 1px rgba(0, 0, 0, 0.2); /* Text shadow for better contrast */
-}
-
-/* Improved badge highlighting visibility */
-a.badge.bg-primary .highlight {
-    position: relative;
-    z-index: 2; /* Ensure highlighted text is above the badge */
-}
-
-/* ACTIVITY AND YEAR LINKS */
-.activity-link, .year-link {
-    color: var(--primary-button);
-    text-decoration: none;
-    transition: all 0.2s ease;
-}
-
-.activity-link:hover, .year-link:hover {
-    color: var(--primary-button-hover);
-    text-decoration: underline;
-}
-
-/* Make year badges clickable */
-a.badge {
-    text-decoration: none;
-    cursor: pointer;
-}
-
-a.badge.bg-secondary {
-    color: white;
-    transition: all 0.3s ease;
-}
-
-a.badge.bg-secondary:hover {
-    background-color: var(--primary-button) !important;
-    transform: translateY(-2px);
-}
-
-/* Clickable activity badges */
-a.badge.bg-primary {
-    text-decoration: none;
-    transition: all 0.2s ease;
-}
-
-a.badge.bg-primary:hover {
-    background-color: #d44040 !important;
-    transform: translateY(-2px);
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
-}
-
 /* IMPROVED LIST STYLING */
 .list-group {
     border-radius: 8px;
@@ -347,6 +275,14 @@ a.badge.bg-primary:hover {
 }
 
 /* IMPROVED SEARCH RESULTS */
+.highlight {
+    background-color: var(--accent-color);
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-weight: bold;
+    color: var(--dark-grey);
+}
+
 .search-results .card {
     transition: transform 0.2s ease;
     background-color: white;
@@ -355,6 +291,18 @@ a.badge.bg-primary:hover {
 .search-results .card:hover {
     transform: translateY(-5px);
     box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+}
+
+/* ACTIVITY LINKS */
+.activity-link {
+    color: var(--primary-button);
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+
+.activity-link:hover {
+    color: var(--light-red);
+    text-decoration: underline;
 }
 
 /* RELATED EVENTS SECTION */
@@ -397,6 +345,69 @@ a.badge.bg-primary:hover {
     margin-bottom: 1rem;
     padding-bottom: 0.5rem;
     border-bottom: 1px solid var(--medium-grey);
+}
+
+/* AUTH STYLING */
+.login-container {
+    max-width: 500px;
+    margin: 0 auto;
+}
+
+.login-card {
+    border: none;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+}
+
+.login-card .card-header {
+    background-color: var(--accent-color);
+    color: var(--title-red);
+    font-weight: bold;
+}
+
+.auth-form-container {
+    padding: 2rem;
+}
+
+/* User profile styles */
+.profile-header {
+    background-color: var(--accent-color);
+    padding: 2rem;
+    border-radius: 10px;
+    margin-bottom: 2rem;
+}
+
+.profile-avatar {
+    width: 120px;
+    height: 120px;
+    background-color: var(--light-red);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 2.5rem;
+    margin: 0 auto 1rem;
+}
+
+.admin-badge {
+    background-color: var(--title-red);
+    color: white;
+}
+
+/* Footer styling */
+footer {
+    background-color: var(--title-red) !important;
+    color: white;
+}
+
+footer a {
+    color: var(--accent-color);
+    transition: all 0.2s ease;
+}
+
+footer a:hover {
+    color: white;
+    text-decoration: none;
 }
 
 /* RESPONSIVE ADJUSTMENTS */
