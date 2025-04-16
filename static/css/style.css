@@ -1,0 +1,420 @@
+/* Custom styles for VSA Events application with new color scheme */
+
+:root {
+    --base-color: #ffdddd; /* Light red */
+    --accent-color: #fffacd; /* Light yellow */
+    --title-red: #d44040; /* Darker red for titles */
+    --light-grey: #f2f2f2;
+    --medium-grey: #e0e0e0;
+    --dark-grey: #555555;
+    --text-color: #333333;
+    --text-secondary: #777777;
+    --primary-button: #e25d5d; /* Darker red for buttons */
+    --primary-button-hover: #c74545; /* Even darker red for button hover */
+    --section-padding: 1.5rem;
+    --card-padding: 1.25rem;
+}
+
+body {
+    background-color: var(--base-color);
+    font-family: Arial, sans-serif;
+    color: var(--text-color);
+    line-height: 1.6;
+}
+
+/* IMPROVED LAYOUT AND SPACING */
+.container {
+    background-color: rgba(255, 255, 255, 0.85);
+    padding: 25px;
+    border-radius: 12px;
+    margin-top: 25px;
+    margin-bottom: 25px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+    max-width: 1200px;
+}
+
+.row {
+    margin-bottom: 30px;
+}
+
+/* IMPROVED TYPOGRAPHY */
+h1, h2, h3, h4, h5 {
+    color: var(--title-red);
+    margin-bottom: 0.8em;
+    font-weight: 600;
+}
+
+h1 {
+    font-size: 2.2rem;
+    margin-bottom: 1rem;
+}
+
+h2 {
+    font-size: 1.8rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--medium-grey);
+    margin-bottom: 1.5rem;
+}
+
+/* Main title styling */
+.display-4 {
+    color: var(--title-red);
+    font-size: 2.8rem;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+    text-align: center;
+    margin-bottom: 0.5rem;
+    font-weight: 700 !important; /* Bold font weight */
+}
+
+.lead {
+    color: var(--dark-grey);
+    text-align: center;
+    font-size: 1.2rem;
+    margin-bottom: 2rem;
+}
+
+/* IMPROVED CARD STYLING */
+.card {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+    border-radius: 10px;
+    overflow: hidden;
+    background-color: white;
+    border: none;
+    margin-bottom: 25px;
+    height: 100%;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+}
+
+.card-body {
+    padding: var(--card-padding);
+}
+
+.card-title {
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: var(--title-red);
+    margin-bottom: 0.75rem;
+}
+
+.card-text {
+    margin-bottom: 1rem;
+    color: var(--text-color);
+}
+
+.text-muted {
+    color: var(--text-secondary) !important;
+    font-size: 0.9rem;
+}
+
+.card-header {
+    background-color: var(--accent-color);
+    padding: 1rem var(--card-padding);
+    border-bottom: 1px solid var(--medium-grey);
+    color: var(--dark-grey);
+    font-weight: bold;
+    font-size: 1.1rem;
+}
+
+/* IMPROVED IMAGE STYLING */
+.card-img-top {
+    height: 200px;
+    object-fit: cover;
+    transition: transform 0.5s ease;
+}
+
+.card:hover .card-img-top {
+    transform: scale(1.05);
+}
+
+/* Event detail page image */
+.col-md-8 img.img-fluid, .col-md-5 img.img-fluid {
+    width: 100%;
+    max-height: 450px;
+    object-fit: cover;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+/* IMPROVED BUTTON STYLING */
+.btn {
+    transition: all 0.3s ease;
+    border-radius: 6px;
+    font-weight: 500;
+    padding: 0.5rem 1rem;
+    margin-top: 0.5rem;
+}
+
+.btn-outline-primary, .btn-primary {
+    border-width: 2px;
+}
+
+.btn:hover {
+    background-color: var(--accent-color) !important;
+    border-color: var(--accent-color) !important;
+    color: var(--dark-grey) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.btn-primary {
+    background-color: var(--primary-button);
+    border-color: var(--primary-button);
+    color: white;
+    font-weight: 600;
+}
+
+.btn-outline-primary {
+    color: var(--primary-button);
+    border-color: var(--primary-button);
+}
+
+.text-primary {
+    color: var(--primary-button) !important;
+}
+
+/* IMPROVED NAVBAR */
+.navbar {
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
+    background-color: var(--dark-grey) !important;
+    padding: 0.8rem 1rem;
+}
+
+.navbar-brand {
+    font-size: 1.3rem;
+    font-weight: bold;
+}
+
+.navbar-dark {
+    background-image: linear-gradient(to right, #444444, #555555);
+}
+
+.nav-link {
+    font-size: 1rem;
+    font-weight: 500;
+    padding: 0.5rem 1rem !important;
+    margin: 0 0.3rem;
+}
+
+.nav-link.active {
+    background-color: var(--primary-button) !important;
+    border-radius: 4px;
+}
+
+/* IMPROVED FORM ELEMENTS */
+.form-control {
+    background-color: white;
+    border: 1px solid var(--medium-grey);
+    padding: 0.6rem 0.8rem;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+.form-control:focus {
+    border-color: var(--primary-button);
+    box-shadow: 0 0 0 0.2rem rgba(226, 93, 93, 0.25);
+}
+
+.form-label {
+    font-weight: 500;
+    color: var(--dark-grey);
+    margin-bottom: 0.5rem;
+}
+
+.form-text {
+    color: var(--text-secondary);
+    margin-top: 0.3rem;
+}
+
+/* IMPROVED BADGES AND TAGS */
+.badge {
+    font-size: 0.85rem;
+    padding: 0.4rem 0.7rem;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    border-radius: 4px;
+    margin-right: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.badge.bg-primary {
+    background-color: var(--accent-color) !important;
+    color: var(--dark-grey) !important;
+    border: 1px solid var(--primary-button);
+}
+
+.badge.bg-secondary {
+    background-color: var(--dark-grey) !important;
+}
+
+.badge.bg-secondary:hover {
+    background-color: var(--primary-button) !important;
+}
+
+/* Enhanced highlighting for search results */
+.highlight {
+    background-color: rgba(255, 250, 205, 0.8);  /* Lighter yellow with transparency */
+    padding: 1px 3px;
+    border-radius: 3px;
+    font-weight: 800;  /* Extra bold */
+    color: #d44040; /* Red color for highlighted text */
+    box-shadow: 0 0 3px rgba(0, 0, 0, 0.1);
+    display: inline-block;
+    letter-spacing: 0.03em; /* Slightly increased letter spacing for better readability */
+}
+
+/* Activity badge highlighting */
+.badge .highlight {
+    background-color: rgba(255, 255, 255, 0.9);  /* White with transparency for badge highlights */
+    padding: 0 2px;
+    border-radius: 2px;
+    margin: -1px 0;
+    display: inline-block;
+    font-weight: 900; /* Maximum boldness */
+    text-shadow: 0 0 1px rgba(0, 0, 0, 0.2); /* Text shadow for better contrast */
+}
+
+/* Improved badge highlighting visibility */
+a.badge.bg-primary .highlight {
+    position: relative;
+    z-index: 2; /* Ensure highlighted text is above the badge */
+}
+
+/* ACTIVITY AND YEAR LINKS */
+.activity-link, .year-link {
+    color: var(--primary-button);
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+
+.activity-link:hover, .year-link:hover {
+    color: var(--primary-button-hover);
+    text-decoration: underline;
+}
+
+/* Make year badges clickable */
+a.badge {
+    text-decoration: none;
+    cursor: pointer;
+}
+
+a.badge.bg-secondary {
+    color: white;
+    transition: all 0.3s ease;
+}
+
+a.badge.bg-secondary:hover {
+    background-color: var(--primary-button) !important;
+    transform: translateY(-2px);
+}
+
+/* Clickable activity badges */
+a.badge.bg-primary {
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+
+a.badge.bg-primary:hover {
+    background-color: #d44040 !important;
+    transform: translateY(-2px);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+}
+
+/* IMPROVED LIST STYLING */
+.list-group {
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+    margin-bottom: 2rem;
+}
+
+.list-group-item {
+    padding: 0.8rem 1.2rem;
+    background-color: var(--light-grey);
+    border-left: 3px solid var(--primary-button);
+    margin-bottom: 2px;
+    transition: all 0.2s ease;
+}
+
+.list-group-item:hover {
+    background-color: white;
+    transform: translateX(5px);
+}
+
+/* IMPROVED SEARCH RESULTS */
+.search-results .card {
+    transition: transform 0.2s ease;
+    background-color: white;
+}
+
+.search-results .card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+}
+
+/* RELATED EVENTS SECTION */
+.related-events-card {
+    border: none;
+    margin-bottom: 0;
+}
+
+.related-events-card .card-img-top {
+    height: 120px;
+}
+
+/* RANDOM EVENT BUTTON */
+.discover-button {
+    margin-top: 1.5rem;
+    padding: 0.5rem 1.5rem;
+}
+
+/* IMPROVED EVENT DETAILS PAGE */
+.event-details-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--medium-grey);
+}
+
+.event-details-header h1 {
+    margin-bottom: 0;
+}
+
+.event-section {
+    margin-bottom: 2rem;
+}
+
+.event-section h4 {
+    color: var(--dark-grey);
+    font-size: 1.3rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--medium-grey);
+}
+
+/* RESPONSIVE ADJUSTMENTS */
+@media (max-width: 768px) {
+    .container {
+        padding: 15px;
+    }
+    
+    .card-title {
+        font-size: 1.2rem;
+    }
+    
+    .event-details-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .event-details-header h1 {
+        margin-bottom: 1rem;
+    }
+}
