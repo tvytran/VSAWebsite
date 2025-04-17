@@ -1,0 +1,10 @@
+.vercel
+.env
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+venv/
+ENV/
+.vscode/
+*.log
