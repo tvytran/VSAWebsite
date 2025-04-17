@@ -7,7 +7,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 # Create Flask app with correct paths for Vercel
 app = Flask(__name__, 
-            static_folder="../public",  
+            static_folder="../static",  
             template_folder="../templates")
 
 # Set a secret key for session management
