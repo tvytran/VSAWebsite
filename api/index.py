@@ -4,17 +4,15 @@ import os
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
 
-# Import your logic from server.py
-# You can either copy the content or refactor to make server.py importable
-
+# Create Flask app with correct paths for Vercel
 app = Flask(__name__, 
-            static_folder="../static",  # Point to the static folder in root directory
-            template_folder="../templates")  # Point to the templates folder in root directory
+            static_folder="../static",  
+            template_folder="../templates")
 
 # Set a secret key for session management
-app.secret_key = os.environ.get("SECRET_KEY", os.urandom(24))
+app.secret_key = os.environ.get("SECRET_KEY", "vsa_default_secret_key")
 
-# Include your highlight_match function
+# Define your highlight_match function
 def highlight_match(text, query):
     """Highlight occurrences of query in text with HTML span"""
     search_text = text.lower()
@@ -42,13 +40,24 @@ def highlight_match(text, query):
     result.append(text[last_end:])
     return ''.join(result)
 
-# Copy your events dictionary and all route functions from server.py
-# ...
+# Copy your events dictionary and users dictionary here
+events = {
+    # Your events data...
+}
 
-# For Vercel deployment
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8080)
+users = {
+    "admin": {
+        "username": "admin",
+        "email": "admin@example.com",
+        "password": generate_password_hash("password123"),
+        "is_admin": True
+    }
+}
 
-# Handler for Vercel serverless function
-def handler(event, context):
-    return app
+# Copy all your route functions and decorators
+
+# Make sure the app is properly exposed for Vercel
+app.debug = False
+
+# This is important for Vercel serverless function
+index = app.wsgi_app
