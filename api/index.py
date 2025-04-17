@@ -1,12 +1,14 @@
+# api/index.py
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 import random
 import os
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
 
+# Create Flask app with correct paths for Vercel
 app = Flask(__name__, 
-            static_folder="static",  # Just use the default "static" folder
-            static_url_path='/static')  # And this
+            static_folder="../static",  
+            template_folder="../templates")
 
 # Set a secret key for session management
 app.secret_key = os.urandom(24)
