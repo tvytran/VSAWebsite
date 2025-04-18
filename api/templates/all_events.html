@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}All VSA Events{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h1 class="h3 mb-3" style="color: #B02A31;">All VSA Events</h1>
+        
+        <!-- Year filter buttons -->
+        <div class="mb-4">
+            <div class="btn-group" role="group" aria-label="Filter by year">
+                <button type="button" class="btn btn-outline-secondary filter-btn active" data-year="all">All Years</button>
+                <button type="button" class="btn btn-outline-secondary filter-btn" data-year="2025">2025</button>
+                <button type="button" class="btn btn-outline-secondary filter-btn" data-year="2024">2024</button>
+                <button type="button" class="btn btn-outline-secondary filter-btn" data-year="2023">2023</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row row-cols-1 row-cols-md-3 g-4" id="events-container">
+    {% for event in events %}
+    <div class="col event-card" data-year="{{ event.year }}">
+        <div class="card h-100 shadow-sm">
+            <img src="{{ event.image }}" class="card-img-top" alt="{{ event.title }}" style="height: 180px; object-fit: cover;">
+            <div class="card-body d-flex flex-column">
+                <div class="d-flex justify-content-between align-items-start">
+                    <h5 class="card-title">{{ event.title }}</h5>
+                    <span class="badge bg-secondary">{{ event.year }}</span>
+                </div>
+                
+                <p class="card-text small text-muted mb-2">
+                    <i class="bi bi-geo-alt"></i> {{ event.location }}
+                </p>
+                
+                <p class="card-text flex-grow-1">{{ event.summary[:100] }}...</p>
+                
+                <div class="d-flex justify-content-between align-items-center mt-auto">
+                    <div>
+                        {% for activity in event.popular_activities[:1] %}
+                        <span class="badge bg-primary">{{ activity }}</span>
+                        {% endfor %}
+                        {% if event.popular_activities|length > 1 %}
+                        <small class="text-muted">+{{ event.popular_activities|length - 1 }} more</small>
+                        {% endif %}
+                    </div>
+                    
+                    <a href="{{ url_for('view', event_id=event.id) }}" class="btn btn-outline-primary btn-sm">
+                        <i class="bi bi-eye"></i> View
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    $(document).ready(function() {
+        // Year filter functionality
+        $('.filter-btn').click(function() {
+            // Update active button
+            $('.filter-btn').removeClass('active');
+            $(this).addClass('active');
+            
+            // Get selected year
+            const selectedYear = $(this).data('year');
+            
+            // Show/hide events based on year
+            if (selectedYear === 'all') {
+                $('.event-card').show();
+            } else {
+                $('.event-card').hide();
+                $(`.event-card[data-year="${selectedYear}"]`).show();
+            }
+        });
+    });
+</script>
+{% endblock %}

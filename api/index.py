@@ -560,7 +560,15 @@ def update_event():
     except Exception as e:
         return {'success': False, 'errors': {'general': str(e)}}
     
+
+@app.route('/all-events')
+def all_events():
+    # Sort events by year (newest first)
+    sorted_events = sorted(events.values(), key=lambda x: x['year'], reverse=True)
+    return render_template('all_events.html', events=sorted_events)
+    
 #index = app.wsgi_app
+
 
 
 if __name__ == '__main__':
