@@ -36,7 +36,7 @@ body {
 
 .container.mt-3:not(:has(*:not(:empty))) {
     display: none;
-}
+}   
 
 .row {
     margin-bottom: 30px;
