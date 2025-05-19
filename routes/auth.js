@@ -2,35 +2,133 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const User = require('../models/User');
 
-// Register new user
+// @route   POST /api/auth/register
+// @desc    Register a new user
+// @access  Public
 router.post('/register', async (req, res) => {
     try {
-        const { username, email, password } = req.body;
+        const { username, email, password, family } = req.body;
 
-        // TODO: Check if user already exists
-        // TODO: Hash password
-        // TODO: Create new user in database
-        // TODO: Generate JWT token
+        // Check if user already exists
+        let user = await User.findOne({ email });
+        if (user) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'User already exists' 
+            });
+        }
 
-        res.status(201).json({ message: 'User registered successfully' });
-    } catch (error) {
-        res.status(500).json({ message: 'Server error' });
+        // Create new user
+        user = new User({
+            username,
+            email,
+            password,
+            family
+        });
+
+        // Hash password
+        const salt = await bcrypt.genSalt(10);
+        user.password = await bcrypt.hash(password, salt);
+
+        // Save user
+        await user.save();
+
+        // Create JWT token
+        const payload = {
+            user: {
+                id: user.id,
+                role: user.role
+            }
+        };
+
+        jwt.sign(
+            payload,
+            process.env.JWT_SECRET,
+            { expiresIn: process.env.JWT_EXPIRE },
+            (err, token) => {
+                if (err) throw err;
+                res.json({
+                    success: true,
+                    token,
+                    user: {
+                        id: user.id,
+                        username: user.username,
+                        email: user.email,
+                        role: user.role,
+                        family: user.family
+                    }
+                });
+            }
+        );
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Server error' 
+        });
     }
 });
 
-// Login user
+// @route   POST /api/auth/login
+// @desc    Login user
+// @access  Public
 router.post('/login', async (req, res) => {
     try {
         const { email, password } = req.body;
 
-        // TODO: Find user in database
-        // TODO: Verify password
-        // TODO: Generate JWT token
+        // Check if user exists
+        const user = await User.findOne({ email });
+        if (!user) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Invalid credentials' 
+            });
+        }
 
-        res.json({ message: 'Login successful' });
-    } catch (error) {
-        res.status(500).json({ message: 'Server error' });
+        // Check password
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Invalid credentials' 
+            });
+        }
+
+        // Create JWT token
+        const payload = {
+            user: {
+                id: user.id,
+                role: user.role
+            }
+        };
+
+        jwt.sign(
+            payload,
+            process.env.JWT_SECRET,
+            { expiresIn: process.env.JWT_EXPIRE },
+            (err, token) => {
+                if (err) throw err;
+                res.json({
+                    success: true,
+                    token,
+                    user: {
+                        id: user.id,
+                        username: user.username,
+                        email: user.email,
+                        role: user.role,
+                        family: user.family
+                    }
+                });
+            }
+        );
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Server error' 
+        });
     }
 });
 
