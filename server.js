@@ -14,19 +14,19 @@ app.use('/uploads', express.static('uploads')); // Serve uploaded files (for pho
 
 // Import routes
 const userRoutes = require('./routes/users');
-const groupRoutes = require('./routes/groups');
 const authRoutes = require('./routes/auth');
 const postRoutes = require('./routes/posts');
+const pointsRoutes = require('./routes/points');
 
 // Use routes
 app.use('/api/users', userRoutes);
-app.use('/api/groups', groupRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/posts', postRoutes);
+app.use('/api/points', pointsRoutes);
 
 // Basic test route to verify the server is running
 app.get('/', (req, res) => {
-    res.send('VSA Social Media API is running!');
+    res.send('VSA Social Platform API is running!');
   });
 
   // Connect to MongoDB database
@@ -42,8 +42,8 @@ app.use((err, req, res, next) => {
   });
 
   // Start the server
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);  // Log that server has started
+app.listen(port, () => {
+    console.log(`Server running on port ${port}`);  // Log that server has started
   });
 
 
