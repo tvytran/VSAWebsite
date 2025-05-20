@@ -89,25 +89,6 @@ VSAWebsite/
     └── package.json      # Frontend dependencies
 ```
 
-## API Endpoints
-
-### Authentication
-- POST `/api/auth/register` - Register a new user
-- POST `/api/auth/login` - Login user
-
-### Users
-- GET `/api/users/profile` - Get user profile
-- PUT `/api/users/profile` - Update user profile
-
-### Families
-- POST `/api/families` - Create a new family
-- GET `/api/families` - Get all families
-- GET `/api/families/:id` - Get family by ID
-
-### Posts
-- POST `/api/posts` - Create a new post
-- GET `/api/posts` - Get all posts
-- GET `/api/posts/:id` - Get post by ID
 
 ## Technologies Used
 
@@ -125,13 +106,6 @@ VSAWebsite/
   - Axios
   - React Router
 
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
 
 ## License
 
@@ -139,6 +113,6 @@ This project is licensed under the ISC License.
 
 ## Contact
 
-Your Name - [@your_twitter](https://twitter.com/your_twitter) - email@example.com
+Your Name - Thuy Vy Tran
 
 Project Link: [https://github.com/tvytran/VSAWebsite](https://github.com/tvytran/VSAWebsite)
