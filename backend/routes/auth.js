@@ -3,6 +3,7 @@ const router = express.Router();
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const Family = require('../models/Family');
 
 // @route   POST /api/auth/register
 // @desc    Register a new user
@@ -34,6 +35,14 @@ router.post('/register', async (req, res) => {
 
         // Save user
         await user.save();
+
+        // Add user to family's members array if family is set
+        if (user.family) {
+            await Family.findByIdAndUpdate(
+                user.family,
+                { $addToSet: { members: user._id } } // $addToSet prevents duplicates
+            );
+        }
 
         // Create JWT token
         const payload = {
