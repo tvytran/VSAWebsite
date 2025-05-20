@@ -113,6 +113,6 @@ This project is licensed under the ISC License.
 
 ## Contact
 
-Your Name - Thuy Vy Tran
+Thuy Vy Tran
 
 Project Link: [https://github.com/tvytran/VSAWebsite](https://github.com/tvytran/VSAWebsite)
