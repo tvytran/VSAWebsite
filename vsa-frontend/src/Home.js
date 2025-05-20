@@ -1,18 +1,33 @@
 import React from 'react';
-import './Home.css'; // We'll add styles here
+//import './Home.css'; // We'll add styles here
 
 function Home({ onLoginClick, onRegisterClick, onGuestClick }) {
   return (
-    <div className="home-container">
-      <div className="home-content">
+    <div className="min-h-screen w-full bg-[#faecd8] flex items-center justify-center">
+      <div className="text-center p-8 rounded-lg bg-white shadow">
         <img
-          src="/logo.png" // Place your logo in public/logo.png or update the path
+          src="/logo.png"
           alt="Columbia VSA University"
-          className="home-logo"
+          className="w-[350px] max-w-full mb-8 mx-auto"
         />
-        <button className="home-btn" onClick={onLoginClick}>Login</button>
-        <button className="home-btn" onClick={onRegisterClick}>Register</button>
-        <button className="home-btn" onClick={onGuestClick}>Guest</button>
+        <button
+          className="block w-72 mx-auto my-4 py-4 bg-[#b32a2a] text-white rounded-2xl text-lg hover:bg-[#8a1f1f] transition"
+          onClick={onLoginClick}
+        >
+          Login
+        </button>
+        <button
+          className="block w-72 mx-auto my-4 py-4 bg-[#b32a2a] text-white rounded-2xl text-lg hover:bg-[#8a1f1f] transition"
+          onClick={onRegisterClick}
+        >
+          Register
+        </button>
+        <button
+          className="block w-72 mx-auto my-4 py-4 bg-[#b32a2a] text-white rounded-2xl text-lg hover:bg-[#8a1f1f] transition"
+          onClick={onGuestClick}
+        >
+          Guest
+        </button>
       </div>
     </div>
   );

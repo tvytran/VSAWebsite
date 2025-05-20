@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import Home from './Home';
 import Login from './Login';
-// import Register from './Register'; // If you have a Register component
-///llo
+import Register from './Register';
+///llohhh
 function App() {
   const [page, setPage] = useState('home');
 
   return (
-    <div>
+    <div className="min-h-screen bg-blue-50 flex flex-col items-center justify-center">
       {page === 'home' && (
         <Home
           onLoginClick={() => setPage('login')}
@@ -16,7 +16,7 @@ function App() {
         />
       )}
       {page === 'login' && <Login />}
-      {/* {page === 'register' && <Register />} */}
+      {page === 'register' && <Register />}
     </div>
   );
 }

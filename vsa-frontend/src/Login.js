@@ -14,7 +14,7 @@ function Login({ onLogin }) {
         email,
         password,
       });
-      // Save the token (for now, just log it)
+      // If login is successful, you get a token and user info
       localStorage.setItem('token', res.data.token);
       if (onLogin) onLogin(res.data.user);
       alert('Login successful!');
@@ -24,26 +24,35 @@ function Login({ onLogin }) {
   };
 
   return (
-    <div>
-      <h2>Login</h2>
-      <form onSubmit={handleSubmit}>
-        <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={e => setEmail(e.target.value)}
-          required
-        /><br />
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={e => setPassword(e.target.value)}
-          required
-        /><br />
-        <button type="submit">Login</button>
-      </form>
-      {error && <p style={{color:'red'}}>{error}</p>}
+    <div className="min-h-screen w-full bg-[#faecd8] flex items-center justify-center">
+      <div className="text-center p-8 rounded-lg bg-white shadow">
+        <h2 className="mb-6 text-2xl font-bold text-[#b32a2a]">Login</h2>
+        <form onSubmit={handleSubmit}>
+          <input
+            className="block w-72 mx-auto my-4 p-3 border border-gray-300 rounded-lg text-lg"
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            required
+          />
+          <input
+            className="block w-72 mx-auto my-4 p-3 border border-gray-300 rounded-lg text-lg"
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            required
+          />
+          <button
+            className="block w-72 mx-auto my-4 py-4 bg-[#b32a2a] text-white rounded-2xl text-lg hover:bg-[#8a1f1f] transition"
+            type="submit"
+          >
+            Login
+          </button>
+        </form>
+        {error && <p className="text-red-600">{error}</p>}
+      </div>
     </div>
   );
 }
