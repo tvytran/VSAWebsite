@@ -4,6 +4,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const Family = require('../models/Family');
+const auth = require('../middleware/auth');
 
 // @route   POST /api/auth/register
 // @desc    Register a new user
@@ -146,12 +147,15 @@ router.post('/login', async (req, res) => {
 });
 
 // Get current user
-router.get('/me', async (req, res) => {
+router.get('/me', auth, async (req, res) => {
     try {
-        // TODO: Get user from JWT token
-        res.json({ message: 'Get current user' });
+        const user = await User.findById(req.user.id).select('-password');
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+        res.json({ success: true, user });
     } catch (error) {
-        res.status(500).json({ message: 'Server error' });
+        res.status(500).json({ success: false, message: 'Server error' });
     }
 });
 

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
+const Post = require('../models/post');
 
 // Create a new post (can be regular post or family hangout)
 router.post('/', auth, async (req, res) => {
@@ -146,6 +147,17 @@ router.get('/family/:familyId/hangouts', auth, async (req, res) => {
         res.json({ message: 'Get family hangouts' });
     } catch (error) {
         res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// Get all posts for a specific family
+router.get('/family/:familyId', auth, async (req, res) => {
+    try {
+        const posts = await Post.find({ family: req.params.familyId })
+            .sort({ createdAt: -1 });
+        res.json({ success: true, posts });
+    } catch (err) {
+        res.status(500).json({ success: false, message: 'Server error' });
     }
 });
 
