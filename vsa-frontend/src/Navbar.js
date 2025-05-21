@@ -26,7 +26,6 @@ function Navbar({ setIsLoggedIn }) {
             <Link to="/events" className="text-gray-700 hover:text-[#b32a2a]">Events</Link>
             <Link to="/newsletter" className="text-gray-700 hover:text-[#b32a2a]">Newsletter</Link>
             <Link to="/families" className="text-gray-700 hover:text-[#b32a2a]">Families</Link>
-            <Link to="/leaderboard" className="text-gray-700 hover:text-[#b32a2a]">Leaderboard</Link>
             {!isLoggedIn && (
               <>
                 <Link to="/login" className="text-gray-700 hover:text-[#b32a2a]">Login</Link>
