@@ -22,18 +22,20 @@ function FamilyDetails() {
   const [editError, setEditError] = useState('');
   const [editLoading, setEditLoading] = useState(false);
 
+  const fetchFamily = async () => {
+    try {
+      const res = await axios.get(`http://localhost:5001/api/families/${id}`);
+      setFamily(res.data.family);
+      setLoading(false);
+    } catch (err) {
+      setError('Failed to load family info.');
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchFamily = async () => {
-      try {
-        const res = await axios.get(`http://localhost:5001/api/families/${id}`);
-        setFamily(res.data.family);
-        setLoading(false);
-      } catch (err) {
-        setError('Failed to load family info.');
-        setLoading(false);
-      }
-    };
     fetchFamily();
+    // eslint-disable-next-line
   }, [id]);
 
   useEffect(() => {
@@ -101,6 +103,7 @@ function FamilyDetails() {
         headers: { 'x-auth-token': token }
       });
       setPosts(res.data.posts);
+      await fetchFamily();
     } catch (err) {
       setPostError(err.response?.data?.message || 'Failed to create post.');
       setPostLoading(false);
@@ -142,6 +145,7 @@ function FamilyDetails() {
         headers: { 'x-auth-token': token }
       });
       setPosts(res.data.posts);
+      await fetchFamily();
     } catch (err) {
       setEditError(err.response?.data?.message || 'Failed to edit post.');
       setEditLoading(false);
@@ -160,6 +164,7 @@ function FamilyDetails() {
         headers: { 'x-auth-token': token }
       });
       setPosts(res.data.posts);
+      await fetchFamily();
     } catch (err) {
       alert('Failed to delete post.');
     }
