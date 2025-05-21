@@ -19,10 +19,22 @@ router.post('/', auth, async (req, res) => {
             });
         }
 
+        // Generate a unique code
+        let code;
+        let isUnique = false;
+        while (!isUnique) {
+            code = Family.generateCode();
+            const existingFamily = await Family.findOne({ code });
+            if (!existingFamily) {
+                isUnique = true;
+            }
+        }
+
         // Create new family
         family = new Family({
             name,
             description,
+            code,
             members: [req.user.id] // Add the creator as the first member
         });
         
@@ -32,6 +44,7 @@ router.post('/', auth, async (req, res) => {
             success: true,
             family: {
                 id: family._id,
+                code: family.code,
                 name: family.name,
                 description: family.description,
                 members: family.members

@@ -22,12 +22,31 @@ router.post('/register', async (req, res) => {
             });
         }
 
+        // Find family by ID or code
+        let familyId = null;
+        if (family) {
+            const familyDoc = await Family.findOne({
+                $or: [
+                    { _id: family },
+                    { code: family }
+                ]
+            });
+            if (familyDoc) {
+                familyId = familyDoc._id;
+            } else {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Invalid family ID or code'
+                });
+            }
+        }
+
         // Create new user
         user = new User({
             username,
             email,
             password,
-            family
+            family: familyId
         });
 
         // Hash password

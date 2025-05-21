@@ -11,6 +11,11 @@ const familySchema = new mongoose.Schema({
         type: String,
         trim: true
     },
+    code: {
+        type: String,
+        unique: true,
+        required: true
+    },
     members: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'
@@ -28,6 +33,16 @@ const familySchema = new mongoose.Schema({
         default: Date.now
     }
 });
+
+// Generate a random 6-character code
+familySchema.statics.generateCode = function() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let code = '';
+    for (let i = 0; i < 6; i++) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return code;
+};
 
 // Method to update family points
 familySchema.methods.updatePoints = async function(pointsToAdd) {
