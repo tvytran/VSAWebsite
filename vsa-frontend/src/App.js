@@ -15,7 +15,7 @@ function App() {
             <div className="flex justify-between items-center h-16">
               <div className="flex items-center">
                 <Link to="/" className="text-xl font-bold text-[#b32a2a]">
-                  VSA Website
+                  VSA 
                 </Link>
               </div>
               <div className="flex space-x-4">

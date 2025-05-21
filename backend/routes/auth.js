@@ -36,12 +36,16 @@ router.post('/register', async (req, res) => {
         // Save user
         await user.save();
 
+        console.log('User registered:', user._id, 'Family:', user.family);
+
         // Add user to family's members array if family is set
         if (user.family) {
-            await Family.findByIdAndUpdate(
+            const result = await Family.findByIdAndUpdate(
                 user.family,
-                { $addToSet: { members: user._id } } // $addToSet prevents duplicates
+                { $addToSet: { members: user._id } }, // $addToSet prevents duplicates
+                { new: true }
             );
+            console.log('Family update result:', result);
         }
 
         // Create JWT token
