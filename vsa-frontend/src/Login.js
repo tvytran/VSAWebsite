@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 
-function Login() {
+function Login({ setIsLoggedIn }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -17,8 +17,8 @@ function Login() {
         password,
       });
       localStorage.setItem('token', res.data.token);
-      // Redirect to profile page after login
-      navigate('/profile');
+      setIsLoggedIn(true);
+      navigate('/');
     } catch (err) {
       setError(err.response?.data?.message || 'Login failed');
     }

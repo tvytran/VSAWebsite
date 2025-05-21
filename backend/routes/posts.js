@@ -66,6 +66,20 @@ router.get('/', auth, async (req, res) => {
     }
 });
 
+// Get all posts for the feed (all families, sorted by date)
+router.get('/feed', auth, async (req, res) => {
+    try {
+        const posts = await Post.find({})
+            .sort({ createdAt: -1 })
+            .populate('author', 'username email')
+            .populate('family', 'name');
+        res.json({ success: true, posts });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+});
+
 // Get a specific post
 router.get('/:postId', auth, async (req, res) => {
     try {
