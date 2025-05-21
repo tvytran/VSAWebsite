@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
+import MainLayout from './MainLayout';
 
 function Leaderboard() {
   const [families, setFamilies] = useState([]);
@@ -29,8 +30,8 @@ function Leaderboard() {
     return <div className="min-h-screen flex items-center justify-center bg-[#faecd8]"><div className="text-xl text-red-600">{error}</div></div>;
   }
   return (
-    <div className="min-h-screen bg-[#faecd8] py-8 px-4">
-      <div className="max-w-2xl mx-auto bg-white rounded-lg shadow-md p-8">
+    <MainLayout>
+      <div className="w-full max-w-2xl bg-white rounded-lg shadow-md p-8">
         <h2 className="text-3xl font-bold text-[#b32a2a] mb-6">Family Leaderboard</h2>
         {families.length === 0 ? (
           <div className="text-gray-600">No families found.</div>
@@ -57,7 +58,7 @@ function Leaderboard() {
           </table>
         )}
       </div>
-    </div>
+    </MainLayout>
   );
 }
 

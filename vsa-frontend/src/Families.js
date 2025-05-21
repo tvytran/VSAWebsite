@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import MainLayout from './MainLayout';
 
 function Families() {
   const [families, setFamilies] = useState([]);
@@ -54,77 +55,47 @@ function Families() {
     fetchFamilies();
   }, []);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#faecd8] flex items-center justify-center">
-        <div className="text-xl text-[#b32a2a]">Loading families...</div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-[#faecd8] py-8 px-4">
-      <div className="max-w-4xl mx-auto">
-        {/* Create Family Form */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-          <h2 className="text-2xl font-bold text-[#b32a2a] mb-4">Create New Family</h2>
-          <form onSubmit={handleCreateFamily}>
-            <div className="mb-4">
-              <input
-                type="text"
-                placeholder="Family Name"
-                className="w-full p-3 border border-gray-300 rounded-lg"
-                value={newFamily.name}
-                onChange={(e) => setNewFamily({ ...newFamily, name: e.target.value })}
-                required
-              />
-            </div>
-            <div className="mb-4">
-              <textarea
-                placeholder="Family Description"
-                className="w-full p-3 border border-gray-300 rounded-lg"
-                value={newFamily.description}
-                onChange={(e) => setNewFamily({ ...newFamily, description: e.target.value })}
-                required
-              />
-            </div>
-            <button
-              type="submit"
-              className="w-full py-3 bg-[#b32a2a] text-white rounded-lg hover:bg-[#8a1f1f] transition"
-            >
-              Create Family
-            </button>
-          </form>
-          {error && <p className="mt-2 text-red-600">{error}</p>}
-          {success && <p className="mt-2 text-green-600">{success}</p>}
-        </div>
-
-        {/* Families List */}
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-2xl font-bold text-[#b32a2a] mb-4">All Families</h2>
-          {families.length === 0 ? (
-            <p className="text-gray-600">No families found. Be the first to create one!</p>
-          ) : (
-            <div className="grid gap-4 md:grid-cols-2">
-              {families.map((family) => (
-                <div key={family._id} className="border border-gray-200 rounded-lg p-4">
-                  <h3 className="text-xl font-semibold text-[#b32a2a]">{family.name}</h3>
-                  <p className="text-gray-600 mt-2">{family.description}</p>
-                  <div className="mt-4 flex justify-between items-center">
-                    <span className="text-sm text-gray-500">
-                      {family.members?.length || 0} members
-                    </span>
-                    <span className="text-sm text-gray-500">
-                      {family.totalPoints || 0} total points
-                    </span>
-                  </div>
+    <MainLayout>
+      <div className="w-full max-w-3xl">
+        <h2 className="text-3xl font-bold text-[#b32a2a] mb-6">Families</h2>
+        <form onSubmit={handleCreateFamily} className="mb-6 flex flex-col md:flex-row gap-2">
+          <input
+            className="flex-1 p-2 border border-gray-300 rounded-lg"
+            placeholder="Family Name"
+            value={newFamily.name}
+            onChange={e => setNewFamily({ ...newFamily, name: e.target.value })}
+            required
+          />
+          <input
+            className="flex-1 p-2 border border-gray-300 rounded-lg"
+            placeholder="Description"
+            value={newFamily.description}
+            onChange={e => setNewFamily({ ...newFamily, description: e.target.value })}
+            required
+          />
+          <button type="submit" className="px-6 py-2 bg-[#b32a2a] text-white rounded-lg hover:bg-[#8a1f1f] transition">Create</button>
+        </form>
+        {error && <div className="text-red-600 mb-2">{error}</div>}
+        {success && <div className="text-green-600 mb-2">{success}</div>}
+        {loading ? (
+          <div className="text-center text-[#b32a2a] text-lg py-8">Loading families...</div>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2">
+            {families.map((family) => (
+              <div key={family._id} className="border border-gray-200 rounded-lg p-4">
+                <h3 className="text-xl font-semibold text-[#b32a2a]">{family.name}</h3>
+                <p className="text-gray-600 mt-2">{family.description}</p>
+                <div className="mt-4 flex justify-between items-center">
+                  <span className="text-sm text-gray-500">{family.members?.length || 0} members</span>
+                  <span className="text-sm text-gray-500">{family.totalPoints || 0} total points</span>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
-    </div>
+    </MainLayout>
   );
 }
 

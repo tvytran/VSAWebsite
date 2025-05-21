@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
+import MainLayout from './MainLayout';
 
 function FamilyDetails() {
   const { id } = useParams();
@@ -171,17 +172,17 @@ function FamilyDetails() {
   };
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center bg-[#faecd8]"><div className="text-xl text-[#b32a2a]">Loading family...</div></div>;
+    return <MainLayout><div className="text-xl text-[#b32a2a]">Loading family...</div></MainLayout>;
   }
   if (error) {
-    return <div className="min-h-screen flex items-center justify-center bg-[#faecd8]"><div className="text-xl text-red-600">{error}</div></div>;
+    return <MainLayout><div className="text-xl text-red-600">{error}</div></MainLayout>;
   }
   if (!family) {
-    return <div className="min-h-screen flex items-center justify-center bg-[#faecd8]"><div className="text-xl text-gray-600">Family not found.</div></div>;
+    return <MainLayout><div className="text-xl text-gray-600">Family not found.</div></MainLayout>;
   }
   return (
-    <div className="min-h-screen bg-[#faecd8] py-8 px-4">
-      <div className="max-w-2xl mx-auto bg-white rounded-lg shadow-md p-8">
+    <MainLayout>
+      <div className="w-full max-w-2xl bg-white rounded-lg shadow-md p-8">
         <h2 className="text-3xl font-bold text-[#b32a2a] mb-4">{family.name}</h2>
         <p className="mb-4 text-gray-700">{family.description}</p>
         <div className="mb-4">
@@ -330,7 +331,7 @@ function FamilyDetails() {
         </div>
         <Link to="/families" className="text-[#b32a2a] underline hover:text-[#8a1f1f]">Back to Families</Link>
       </div>
-    </div>
+    </MainLayout>
   );
 }
 
