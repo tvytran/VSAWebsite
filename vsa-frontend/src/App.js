@@ -8,6 +8,10 @@ import Profile from './Profile';
 import FamilyDetails from './FamilyDetails';
 import Navbar from './Navbar';
 import HomeFeed from './HomeFeed';
+import Leaderboard from './Leaderboard';
+import Events from './Events';
+import Newsletter from './Newsletter';
+import AboutVSA from './AboutVSA';
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('token'));
@@ -23,6 +27,10 @@ function App() {
           <Route path="/families" element={<Families />} />
           <Route path="/families/:id" element={<FamilyDetails />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/leaderboard" element={<Leaderboard />} />
+          <Route path="/events" element={<Events />} />
+          <Route path="/newsletter" element={<Newsletter />} />
+          <Route path="/about" element={<AboutVSA />} />
         </Routes>
       </div>
     </Router>

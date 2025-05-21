@@ -65,6 +65,18 @@ router.get('/', async (req, res) => {
     }
 });
 
+// @route   GET /api/families/leaderboard
+// @desc    Get families sorted by points
+// @access  Public
+router.get('/leaderboard', async (req, res) => {
+    try {
+        const families = await Family.find().sort({ totalPoints: -1 });
+        res.json({ success: true, families });
+    } catch (err) {
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+});
+
 // @route   GET /api/families/:id
 // @desc    Get family by ID
 // @access  Public
