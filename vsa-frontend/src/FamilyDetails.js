@@ -73,13 +73,22 @@ function FamilyDetails() {
     setPostLoading(true);
     try {
       const token = localStorage.getItem('token');
-      await axios.post('http://localhost:5001/api/posts', {
+      let payload = {
         title: newTitle,
         type: newType,
         content: newPost,
-        family: family._id,
-        ...(newType === 'hangout' ? { pointValue: Number(pointValue) } : {})
-      }, {
+        family: family._id
+      };
+      if (newType === 'hangout') {
+        const numPoints = Number(pointValue);
+        if (isNaN(numPoints) || numPoints < 0) {
+          setPostError('Point value must be a non-negative number.');
+          setPostLoading(false);
+          return;
+        }
+        payload.pointValue = numPoints;
+      }
+      await axios.post('http://localhost:5001/api/posts', payload, {
         headers: { 'x-auth-token': token }
       });
       setNewPost('');

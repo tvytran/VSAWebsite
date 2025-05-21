@@ -26,6 +26,18 @@ router.post('/', auth, async (req, res) => {
             createdAt: new Date(),
             ...(type === 'hangout' && pointValue ? { pointValue } : {})
         });
+        // Update family points if hangout with pointValue
+        if (type === 'hangout' && pointValue) {
+            await Family.findByIdAndUpdate(
+                family,
+                {
+                    $inc: {
+                        totalPoints: Number(pointValue),
+                        semesterPoints: Number(pointValue)
+                    }
+                }
+            );
+        }
         res.status(201).json({ success: true, post });
     } catch (error) {
         console.error(error);
@@ -108,6 +120,18 @@ router.delete('/:postId', auth, async (req, res) => {
         const fam = await Family.findById(post.family);
         if (!fam || !fam.members.map(id => id.toString()).includes(req.user.id)) {
             return res.status(403).json({ success: false, message: 'You are not allowed to delete this post.' });
+        }
+        // Subtract points if hangout with pointValue
+        if (post.type === 'hangout' && post.pointValue) {
+            await Family.findByIdAndUpdate(
+                post.family,
+                {
+                    $inc: {
+                        totalPoints: -Math.abs(post.pointValue),
+                        semesterPoints: -Math.abs(post.pointValue)
+                    }
+                }
+            );
         }
         await post.deleteOne();
         res.json({ success: true, message: 'Post deleted.' });
