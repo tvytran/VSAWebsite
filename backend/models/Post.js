@@ -26,12 +26,15 @@ const postSchema = new mongoose.Schema({
         required: true,
         trim: true
     },
+    pointValue: {
+        type: Number
+    },
     // Hangout-specific fields
     hangoutDetails: {
         date: Date,
         location: String,
         maxAttendees: Number,
-        points: {
+        pointValue: {
             type: Number,
             default: 0
         },

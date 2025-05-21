@@ -22,12 +22,18 @@ function Navbar() {
           <div className="flex space-x-4">
             <Link to="/" className="text-gray-700 hover:text-[#b32a2a]">Home</Link>
             <Link to="/families" className="text-gray-700 hover:text-[#b32a2a]">Families</Link>
-            <Link to="/login" className="text-gray-700 hover:text-[#b32a2a]">Login</Link>
-            <Link to="/register" className="text-gray-700 hover:text-[#b32a2a]">Register</Link>
-            <Link to="/profile" className="text-gray-700 hover:text-[#b32a2a]">Profile</Link>
-            {isLoggedIn ? (
-              <button onClick={handleLogout} className="text-gray-700 hover:text-[#b32a2a]">Logout</button>
-            ) : null}
+            {!isLoggedIn && (
+              <>
+                <Link to="/login" className="text-gray-700 hover:text-[#b32a2a]">Login</Link>
+                <Link to="/register" className="text-gray-700 hover:text-[#b32a2a]">Register</Link>
+              </>
+            )}
+            {isLoggedIn && (
+              <>
+                <Link to="/profile" className="text-gray-700 hover:text-[#b32a2a]">Profile</Link>
+                <button onClick={handleLogout} className="text-gray-700 hover:text-[#b32a2a]">Logout</button>
+              </>
+            )}
           </div>
         </div>
       </div>

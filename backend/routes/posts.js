@@ -1,31 +1,35 @@
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
-const Post = require('../models/post');
+const Post = require('../models/Post');
+const Family = require('../models/Family');
 
 // Create a new post (can be regular post or family hangout)
 router.post('/', auth, async (req, res) => {
     try {
-        const { 
+        const { title, type, content, family, pointValue } = req.body;
+        if (!title || !type || !content || !family) {
+            return res.status(400).json({ success: false, message: 'Title, type, content, and family are required.' });
+        }
+        // Check if user is a member of the family
+        const fam = await Family.findById(family);
+        if (!fam || !fam.members.map(id => id.toString()).includes(req.user.id)) {
+            return res.status(403).json({ success: false, message: 'You are not a member of this family.' });
+        }
+        // Create the post
+        const post = await Post.create({
+            title,
+            type,
             content,
-            isHangout,        // Boolean to indicate if this is a hangout post
-            hangoutDetails,   // Only required if isHangout is true
-            // hangoutDetails: {
-            //     date,
-            //     time,
-            //     location,
-            //     pointValue,    // Points awarded for attending
-            //     type,          // e.g., "cultural", "social", "academic"
-            //     familyId       // ID of the family organizing the hangout
-            // }
-            photos           // Optional array of photo URLs
-        } = req.body;
-        
-        // TODO: Verify user is a member of the specified family
-        // TODO: Create post and hangout record
-        res.status(201).json({ message: 'Post created successfully' });
+            family,
+            author: req.user.id,
+            createdAt: new Date(),
+            ...(type === 'hangout' && pointValue ? { pointValue } : {})
+        });
+        res.status(201).json({ success: true, post });
     } catch (error) {
-        res.status(500).json({ message: 'Server error' });
+        console.error(error);
+        res.status(500).json({ success: false, message: 'Server error' });
     }
 });
 
@@ -66,15 +70,30 @@ router.get('/:postId', auth, async (req, res) => {
     }
 });
 
-// Update a post (any family member can update their family's posts)
+// Edit a post (only family members, only title and content)
 router.put('/:postId', auth, async (req, res) => {
     try {
-        const { content, hangoutDetails } = req.body;
-        // TODO: Verify user is a member of the post's family
-        // TODO: Update post and hangout details
-        res.json({ message: 'Post updated successfully' });
+        const { title, content } = req.body;
+        if (!title || !content) {
+            return res.status(400).json({ success: false, message: 'Title and content are required.' });
+        }
+        const post = await Post.findById(req.params.postId);
+        if (!post) {
+            return res.status(404).json({ success: false, message: 'Post not found.' });
+        }
+        // Check if user is a member of the post's family
+        const fam = await Family.findById(post.family);
+        if (!fam || !fam.members.map(id => id.toString()).includes(req.user.id)) {
+            return res.status(403).json({ success: false, message: 'You are not allowed to edit this post.' });
+        }
+        // Update only title and content
+        post.title = title;
+        post.content = content;
+        await post.save();
+        res.json({ success: true, post });
     } catch (error) {
-        res.status(500).json({ message: 'Server error' });
+        console.error(error);
+        res.status(500).json({ success: false, message: 'Server error' });
     }
 });
 
