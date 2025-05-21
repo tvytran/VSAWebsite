@@ -7,11 +7,11 @@ import Families from './Families';
 import Profile from './Profile';
 import FamilyDetails from './FamilyDetails';
 import Navbar from './Navbar';
-import HomeFeed from './HomeFeed';
 import Leaderboard from './Leaderboard';
 import Events from './Events';
 import Newsletter from './Newsletter';
 import AboutVSA from './AboutVSA';
+import DashboardHome from './DashboardHome';
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('token'));
@@ -21,7 +21,7 @@ function App() {
       <div className="min-h-screen bg-[#faecd8]">
         <Navbar setIsLoggedIn={setIsLoggedIn} />
         <Routes>
-          <Route path="/" element={isLoggedIn ? <HomeFeed /> : <Home />} />
+          <Route path="/" element={isLoggedIn ? <DashboardHome /> : <Home />} />
           <Route path="/login" element={<Login setIsLoggedIn={setIsLoggedIn} />} />
           <Route path="/register" element={<Register />} />
           <Route path="/families" element={<Families />} />
