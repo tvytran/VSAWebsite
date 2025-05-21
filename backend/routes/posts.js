@@ -97,14 +97,23 @@ router.put('/:postId', auth, async (req, res) => {
     }
 });
 
-// Delete a post (any family member can delete their family's posts)
+// Delete a post (only family members)
 router.delete('/:postId', auth, async (req, res) => {
     try {
-        // TODO: Verify user is a member of the post's family
-        // TODO: Delete post and associated hangout
-        res.json({ message: 'Post deleted successfully' });
+        const post = await Post.findById(req.params.postId);
+        if (!post) {
+            return res.status(404).json({ success: false, message: 'Post not found.' });
+        }
+        // Check if user is a member of the post's family
+        const fam = await Family.findById(post.family);
+        if (!fam || !fam.members.map(id => id.toString()).includes(req.user.id)) {
+            return res.status(403).json({ success: false, message: 'You are not allowed to delete this post.' });
+        }
+        await post.deleteOne();
+        res.json({ success: true, message: 'Post deleted.' });
     } catch (error) {
-        res.status(500).json({ message: 'Server error' });
+        console.error(error);
+        res.status(500).json({ success: false, message: 'Server error' });
     }
 });
 

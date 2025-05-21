@@ -139,6 +139,23 @@ function FamilyDetails() {
     }
   };
 
+  const handleDeletePost = async (postId) => {
+    if (!window.confirm('Are you sure you want to delete this post?')) return;
+    try {
+      const token = localStorage.getItem('token');
+      await axios.delete(`http://localhost:5001/api/posts/${postId}`, {
+        headers: { 'x-auth-token': token }
+      });
+      // Refresh posts
+      const res = await axios.get(`http://localhost:5001/api/posts/family/${family._id}`, {
+        headers: { 'x-auth-token': token }
+      });
+      setPosts(res.data.posts);
+    } catch (err) {
+      alert('Failed to delete post.');
+    }
+  };
+
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center bg-[#faecd8]"><div className="text-xl text-[#b32a2a]">Loading family...</div></div>;
   }
@@ -273,12 +290,20 @@ function FamilyDetails() {
                       </div>
                       <span className="ml-2 text-xs text-gray-400">{new Date(post.createdAt).toLocaleString()}</span>
                       {isMember && (
-                        <button
-                          className="ml-2 px-2 py-1 bg-yellow-300 rounded hover:bg-yellow-400 text-xs"
-                          onClick={() => startEdit(post)}
-                        >
-                          Edit
-                        </button>
+                        <>
+                          <button
+                            className="ml-2 px-2 py-1 bg-yellow-300 rounded hover:bg-yellow-400 text-xs"
+                            onClick={() => startEdit(post)}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            className="ml-2 px-2 py-1 bg-red-400 rounded hover:bg-red-500 text-xs text-white"
+                            onClick={() => handleDeletePost(post._id)}
+                          >
+                            Delete
+                          </button>
+                        </>
                       )}
                     </>
                   )}
