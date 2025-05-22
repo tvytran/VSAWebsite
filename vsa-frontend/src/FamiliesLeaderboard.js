@@ -18,11 +18,24 @@ function FamiliesLeaderboard() {
       setLoading(true);
       setError('');
       try {
-        const res = await axios.get('http://localhost:5001/api/families/leaderboard');
-        setFamilies(res.data.families || []);
+        const token = localStorage.getItem('token');
+        if (!token) {
+          setError('No authentication token found. Please log in.');
+          setLoading(false);
+          return;
+        }
+        const res = await axios.get('http://localhost:5001/api/families/leaderboard', {
+          headers: { 'x-auth-token': token }
+        });
+        if (res.data.success && Array.isArray(res.data.families)) {
+          setFamilies(res.data.families);
+        } else {
+          setError('Invalid response format from server');
+        }
         setLoading(false);
       } catch (err) {
-        setError('Failed to load families.');
+        console.error('Error fetching families:', err);
+        setError(err.response?.data?.message || 'Failed to load families.');
         setLoading(false);
       }
     };
@@ -36,7 +49,14 @@ function FamiliesLeaderboard() {
   return (
     <MainLayout>
       <div className="w-full max-w-3xl bg-white rounded-lg shadow-md p-8">
-        <h2 className="text-3xl font-bold text-[#b32a2a] mb-6">Families Leaderboard</h2>
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-3xl font-bold text-[#b32a2a]">Families Leaderboard</h2>
+          <Link to="/create-family">
+            <button className="px-4 py-2 bg-[#b32a2a] text-white font-semibold rounded-md hover:bg-[#8a1f1f] transition duration-200 ease-in-out">
+              Create Family
+            </button>
+          </Link>
+        </div>
         <input
           type="text"
           placeholder="Search families..."

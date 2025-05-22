@@ -12,6 +12,7 @@ import AboutVSA from './AboutVSA';
 import DashboardHome from './DashboardHome';
 import FamiliesLeaderboard from './FamiliesLeaderboard';
 import CreatePostPage from './CreatePostPage';
+import CreateFamilyPage from './CreateFamilyPage';
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('token'));
@@ -48,6 +49,7 @@ function App() {
             <>
               <Route path="/profile" element={<Profile />} />
               <Route path="/create-post" element={<CreatePostPage />} />
+              <Route path="/create-family" element={<CreateFamilyPage />} />
             </>
           )}
         </Routes>

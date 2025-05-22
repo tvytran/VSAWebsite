@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import MainLayout from './MainLayout';
 import { Link } from 'react-router-dom';
+// import { PlusCircleIcon } from '@heroicons/react/24/solid'; // Temporarily remove icon import
 
 function DashboardHome() {
   const [posts, setPosts] = useState([]);
@@ -184,17 +185,85 @@ function DashboardHome() {
 
        {/* Guest View Content */}
        {isGuest && (
-        <div className="w-full max-w-2xl text-center mb-6">
-          <h2 className="text-2xl font-bold text-[#b32a2a] mb-4">Welcome, Guest!</h2>
-          <p className="text-gray-700 mb-4">Explore the VSA community and see what we're all about.</p>
-           <div className="flex justify-center space-x-4">
-            <Link to="/families" className="px-6 py-3 bg-[#b32a2a] text-white rounded-lg hover:bg-[#8a1f1f] transition font-semibold text-lg">View Leaderboard</Link>
+        <>
+          <div className="w-full max-w-2xl text-center mb-6">
+            <h2 className="text-2xl font-bold text-[#b32a2a] mb-4">Welcome, Guest!</h2>
+            <p className="text-gray-700 mb-4">Explore the VSA community and see what we're all about.</p>
+            <div className="mt-4 text-gray-600">
+              <p>Want to join the VSA community?</p>
+              <div className="flex justify-center space-x-4 mt-2">
+                <Link to="/login" className="px-6 py-3 bg-white border-2 border-[#b32a2a] text-[#b32a2a] rounded-lg hover:bg-[#f5e6d6] transition font-semibold text-lg">Login</Link>
+                <Link to="/register" className="px-6 py-3 bg-white border-2 border-[#b32a2a] text-[#b32a2a] rounded-lg hover:bg-[#f5e6d6] transition font-semibold text-lg">Register</Link>
+              </div>
+            </div>
           </div>
-        </div>
+
+          {/* Placeholder Posts for Guest View */}
+          <div className="w-full max-w-2xl space-y-6">
+            {/* Placeholder Post 1 */}
+            <div className="bg-gray-100 rounded-lg shadow-md p-6">
+              <div className="flex items-center mb-4">
+                <div className="w-10 h-10 bg-gray-300 rounded-full"></div>
+                <div className="ml-3">
+                  <div className="h-4 w-24 bg-gray-300 rounded"></div>
+                  <div className="h-3 w-32 bg-gray-200 rounded mt-2"></div>
+                </div>
+              </div>
+              <div className="h-6 w-3/4 bg-gray-300 rounded mb-3"></div>
+              <div className="space-y-2">
+                <div className="h-4 w-full bg-gray-200 rounded"></div>
+                <div className="h-4 w-5/6 bg-gray-200 rounded"></div>
+                <div className="h-4 w-4/6 bg-gray-200 rounded"></div>
+              </div>
+            </div>
+
+            {/* Placeholder Post 2 */}
+            <div className="bg-gray-100 rounded-lg shadow-md p-6">
+              <div className="flex items-center mb-4">
+                <div className="w-10 h-10 bg-gray-300 rounded-full"></div>
+                <div className="ml-3">
+                  <div className="h-4 w-24 bg-gray-300 rounded"></div>
+                  <div className="h-3 w-32 bg-gray-200 rounded mt-2"></div>
+                </div>
+              </div>
+              <div className="h-6 w-3/4 bg-gray-300 rounded mb-3"></div>
+              <div className="space-y-2">
+                <div className="h-4 w-full bg-gray-200 rounded"></div>
+                <div className="h-4 w-5/6 bg-gray-200 rounded"></div>
+              </div>
+            </div>
+
+            {/* Placeholder Post 3 */}
+            <div className="bg-gray-100 rounded-lg shadow-md p-6">
+              <div className="flex items-center mb-4">
+                <div className="w-10 h-10 bg-gray-300 rounded-full"></div>
+                <div className="ml-3">
+                  <div className="h-4 w-24 bg-gray-300 rounded"></div>
+                  <div className="h-3 w-32 bg-gray-200 rounded mt-2"></div>
+                </div>
+              </div>
+              <div className="h-6 w-3/4 bg-gray-300 rounded mb-3"></div>
+              <div className="space-y-2">
+                <div className="h-4 w-full bg-gray-200 rounded"></div>
+                <div className="h-4 w-5/6 bg-gray-200 rounded"></div>
+                <div className="h-4 w-4/6 bg-gray-200 rounded"></div>
+              </div>
+            </div>
+
+            {/* Login Prompt */}
+            <div className="text-center py-6">
+              <p className="text-gray-600 mb-4">Log in to see the full post feed and interact with the community</p>
+              <div className="flex justify-center space-x-4">
+                <Link to="/login" className="px-6 py-3 bg-[#b32a2a] text-white rounded-lg hover:bg-[#8a1f1f] transition font-semibold text-lg">Login</Link>
+                <Link to="/register" className="px-6 py-3 bg-white border-2 border-[#b32a2a] text-[#b32a2a] rounded-lg hover:bg-[#f5e6d6] transition font-semibold text-lg">Register</Link>
+              </div>
+            </div>
+          </div>
+        </>
       )}
 
       {/* Search Bar */}
-      {(isLoggedIn || isGuest) && (
+      {isLoggedIn && (
         <div className="w-full max-w-2xl flex items-center mb-6">
           <input
             type="text"
@@ -203,17 +272,6 @@ function DashboardHome() {
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
           />
-        </div>
-      )}
-
-      {isLoggedIn && (
-        <div className="w-full max-w-2xl mb-6">
-          <Link 
-            to="/create-post" 
-            className="w-full border-2 border-[#b32a2a] rounded-md px-4 py-3 text-lg focus:outline-none focus:border-[#8a1f1f] bg-white hover:bg-[#f5e6d6] flex items-center justify-center transition duration-200 ease-in-out"
-          >
-            Create New Post
-          </Link>
         </div>
       )}
 
@@ -229,7 +287,7 @@ function DashboardHome() {
             filteredPosts.map(post => (
               <div key={post._id} className={`rounded-lg shadow-md mb-6 relative ${post.type === 'announcement' ? 'bg-[#fff3e6] border-2 border-[#b32a2a]' : 'bg-white'}`}>
                 {post.imageUrl && (
-                  <img src={`http://localhost:5001${post.imageUrl}`} alt="Post" className="w-full object-contain rounded-t-lg" />
+                  <img src={`http://localhost:5001${post.imageUrl}`} alt="Post" className="w-96 object-contain rounded-t-lg mx-auto" />
                 )}
                 <div className="p-4">
                   {/* Post Header with Author Info and Menu */}
@@ -350,6 +408,21 @@ function DashboardHome() {
               ? "Login to see the full post feed and interact with the community."
               : "Please log in to see the full post feed."}
           </p>
+        </div>
+      )}
+
+      {/* Floating Create Post Button */}
+      {isLoggedIn && (
+        <div className="fixed bottom-8 right-1/2 translate-x-[calc(50%+max(0px,calc((100vw-32rem)/2))-6rem)]">
+          <Link 
+            to="/create-post"
+            className="flex items-center justify-center gap-2 bg-[#b32a2a] text-white p-4 rounded-full shadow-lg hover:bg-[#8a1f1f] transition duration-200 ease-in-out"
+            aria-label="Create Post"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+          </Link>
         </div>
       )}
     </MainLayout>

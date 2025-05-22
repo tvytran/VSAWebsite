@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+console.log('POSTS ROUTER FILE EXECUTED');
 const { check, validationResult } = require('express-validator');
 const auth = require('../middleware/auth');
 const Post = require('../models/Post');
@@ -455,6 +456,27 @@ router.get('/family/:familyId/hangouts', auth, async (req, res) => {
     } catch (error) {
         res.status(500).json({ message: 'Server error' });
     }
+});
+
+// @route    GET api/posts/announcements
+// @desc     Get all announcement posts (public)
+// @access   Public
+router.get('/announcements', async (req, res) => {
+  console.log('Received request for /api/posts/announcements');
+  console.log('Request Headers:', req.headers);
+  try {
+    console.log('Attempting to fetch announcements from DB');
+    const announcements = await Post.find({ type: 'announcement' })
+      .populate('author', ['username', 'profilePicture'])
+      .populate('family', ['name'])
+      .sort({ createdAt: -1 });
+
+    console.log('Successfully fetched announcements', announcements.length, 'announcements found');
+    res.json({ success: true, posts: announcements });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ success: false, message: 'Server Error' });
+  }
 });
 
 module.exports = router; 

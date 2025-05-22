@@ -69,6 +69,7 @@ router.post('/', auth, async (req, res) => {
         });
         
         await family.save();
+        console.log('Family successfully saved with ID:', family._id); // Log the saved family ID
 
         res.status(201).json({
             success: true,
@@ -113,7 +114,7 @@ router.get('/', async (req, res) => {
 // @access  Public
 router.get('/leaderboard', async (req, res) => {
     try {
-        const families = await Family.find().sort({ totalPoints: -1 });
+        const families = await Family.find().sort({ totalPoints: -1 }).populate('members', 'username email');
         res.json({ success: true, families });
     } catch (err) {
         res.status(500).json({ success: false, message: 'Server error' });
@@ -212,6 +213,47 @@ router.put('/:id', auth, upload.single('familyPicture'), async (req, res) => {
     }
     res.status(500).json({ success: false, message: 'Server Error' });
   }
+});
+
+// @route   DELETE /api/families/:id
+// @desc    Delete a family
+// @access  Private (only members of the family)
+router.delete('/:id', auth, async (req, res) => {
+    console.log(`DELETE /api/families/${req.params.id} hit`); // Log when route is hit
+    try {
+        const family = await Family.findById(req.params.id);
+        console.log('Family found:', !!family); // Log if family is found
+        if (!family) {
+            console.log('Family not found for ID:', req.params.id); // Log if family not found
+            return res.status(404).json({ success: false, message: 'Family not found' });
+        }
+
+        // Check if user is a member of the family
+        const isMember = family.members.some(member => member.toString() === req.user.id);
+        console.log('User is member:', isMember); // Log if user is a member
+        if (!isMember) {
+            console.log('User not authorized to delete family:', req.user.id); // Log if user not authorized
+            return res.status(403).json({ success: false, message: 'You are not authorized to delete this family' });
+        }
+
+        // Delete family picture if it exists
+        if (family.familyPicture) {
+            console.log('Attempting to delete family picture:', family.familyPicture); // Log before deleting picture
+            const imagePath = path.join(__dirname, '..' , 'public', family.familyPicture);
+            fs.unlink(imagePath, (err) => {
+                if (err) console.error('Failed to delete family picture:', err); // Log picture deletion errors
+            });
+        }
+
+        console.log('Attempting to remove family from DB:', family._id); // Log before removing family
+        await family.deleteOne();
+        console.log('Family successfully removed from DB:', family._id); // Log successful removal
+
+        res.json({ success: true, message: 'Family deleted' });
+    } catch (err) {
+        console.error('Error during family deletion:', err); // Log any errors during deletion
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
 });
 
 module.exports = router; 
