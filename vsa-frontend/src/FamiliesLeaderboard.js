@@ -7,22 +7,46 @@ function FamiliesLeaderboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ name: '', description: '' });
+  const [formError, setFormError] = useState('');
+  const [formLoading, setFormLoading] = useState(false);
 
   useEffect(() => {
-    const fetchFamilies = async () => {
-      setLoading(true);
-      setError('');
-      try {
-        const res = await axios.get('http://localhost:5001/api/families/leaderboard');
-        setFamilies(res.data.families || []);
-        setLoading(false);
-      } catch (err) {
-        setError('Failed to load families.');
-        setLoading(false);
-      }
-    };
     fetchFamilies();
   }, []);
+
+  const fetchFamilies = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await axios.get('http://localhost:5001/api/families/leaderboard');
+      setFamilies(res.data.families || []);
+      setLoading(false);
+    } catch (err) {
+      setError('Failed to load families.');
+      setLoading(false);
+    }
+  };
+
+  const handleCreateFamily = async (e) => {
+    e.preventDefault();
+    setFormError('');
+    setFormLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post('http://localhost:5001/api/families', form, {
+        headers: { 'x-auth-token': token }
+      });
+      setForm({ name: '', description: '' });
+      setShowForm(false);
+      setFormLoading(false);
+      fetchFamilies();
+    } catch (err) {
+      setFormError(err.response?.data?.message || 'Failed to create family.');
+      setFormLoading(false);
+    }
+  };
 
   const filteredFamilies = families.filter(fam =>
     fam.name.toLowerCase().includes(search.toLowerCase())
@@ -32,13 +56,45 @@ function FamiliesLeaderboard() {
     <MainLayout>
       <div className="w-full max-w-3xl bg-white rounded-lg shadow-md p-8">
         <h2 className="text-3xl font-bold text-[#b32a2a] mb-6">Families Leaderboard</h2>
-        <input
-          type="text"
-          placeholder="Search families..."
-          className="mb-4 w-full border-2 border-[#b32a2a] rounded-md px-4 py-2 text-lg focus:outline-none focus:border-[#8a1f1f]"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-        />
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4 gap-2">
+          <input
+            type="text"
+            placeholder="Search families..."
+            className="w-full md:w-1/2 border-2 border-[#b32a2a] rounded-md px-4 py-2 text-lg focus:outline-none focus:border-[#8a1f1f]"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+          <button
+            className="px-6 py-2 bg-[#b32a2a] text-white rounded-lg hover:bg-[#8a1f1f] transition w-full md:w-auto"
+            onClick={() => setShowForm(v => !v)}
+          >
+            {showForm ? 'Cancel' : 'Create Family'}
+          </button>
+        </div>
+        {showForm && (
+          <form onSubmit={handleCreateFamily} className="mb-6 flex flex-col md:flex-row gap-2">
+            <input
+              className="flex-1 p-2 border border-gray-300 rounded-lg"
+              placeholder="Family Name"
+              value={form.name}
+              onChange={e => setForm({ ...form, name: e.target.value })}
+              required
+              disabled={formLoading}
+            />
+            <input
+              className="flex-1 p-2 border border-gray-300 rounded-lg"
+              placeholder="Description"
+              value={form.description}
+              onChange={e => setForm({ ...form, description: e.target.value })}
+              required
+              disabled={formLoading}
+            />
+            <button type="submit" className="px-6 py-2 bg-[#b32a2a] text-white rounded-lg hover:bg-[#8a1f1f] transition" disabled={formLoading}>
+              {formLoading ? 'Creating...' : 'Create'}
+            </button>
+          </form>
+        )}
+        {formError && <div className="text-red-600 mb-2">{formError}</div>}
         {loading ? (
           <div className="text-center text-[#b32a2a] text-lg py-8">Loading families...</div>
         ) : error ? (
