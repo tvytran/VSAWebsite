@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import MainLayout from './MainLayout';
 // Import placeholder image if you have one, or use a service like Lorem Picsum
@@ -9,6 +9,7 @@ console.log('--- Evaluating FamilyDetails.js file ---'); // Log at file evaluati
 
 function FamilyDetails() {
   console.log('Rendering FamilyDetails component'); // Log component render
+  console.log('Token in localStorage on render:', localStorage.getItem('token')); // Log token on render
   const { id } = useParams();
   const [family, setFamily] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -38,6 +39,8 @@ function FamilyDetails() {
   // State for current user ID
   const [currentUserId, setCurrentUserId] = useState(null);
 
+  const navigate = useNavigate();
+
   // Effect to get the current user ID from token
   useEffect(() => {
     try {
@@ -45,6 +48,9 @@ function FamilyDetails() {
       if (token) {
         const payload = JSON.parse(atob(token.split('.')[1]));
         setCurrentUserId(payload.user.id);
+        console.log('Current User ID set:', payload.user.id); // Log when user ID is set
+      } else {
+         console.log('No token found in localStorage.'); // Log if no token is found
       }
     } catch (e) {
       console.error('Error decoding token:', e);
@@ -53,12 +59,25 @@ function FamilyDetails() {
   }, []); // Empty dependency array means this effect runs once after initial render
 
   const fetchFamily = async () => {
+    console.log(`Attempting to fetch family with ID: ${id}`); // Log the ID being fetched
     try {
-      const res = await axios.get(`http://localhost:5001/api/families/${id}`);
-      setFamily(res.data.family);
+      const token = localStorage.getItem('token');
+      const config = token ? { headers: { 'x-auth-token': token } } : {};
+      console.log('Fetching family - Token available:', !!token); // Log token availability before fetch
+
+      const res = await axios.get(`http://localhost:5001/api/families/${id}`, config);
+      console.log('Family fetch successful:', res.data); // Log successful response
+      if (res.data && res.data.success && res.data.family) {
+         setFamily(res.data.family);
+      } else {
+         // Handle unexpected successful response format
+         console.error('Family fetch received unexpected data format:', res.data);
+         setError('Received unexpected family data.');
+      }
       setLoading(false);
     } catch (err) {
-      setError('Failed to load family info.');
+      console.error('Error fetching family:', err); // Log the error object
+      setError(err.response?.data?.message || 'Failed to load family info.');
       setLoading(false);
     }
   };
@@ -72,9 +91,19 @@ function FamilyDetails() {
     const fetchPosts = async () => {
       setPostsLoading(true);
       setPostsError('');
+      
+      const token = localStorage.getItem('token');
+      console.log('Fetching posts - Token available:', !!token); // Log token availability before fetch
+      if (!token) {
+        // If no token, we can't fetch private posts, so show no posts.
+        setPosts([]);
+        setPostsLoading(false);
+        return;
+      }
+
       try {
         const res = await axios.get(`http://localhost:5001/api/posts/family/${id}`, {
-          headers: { 'x-auth-token': localStorage.getItem('token') }
+          headers: { 'x-auth-token': token }
         });
         setPosts(res.data.posts);
         setPostsLoading(false);
@@ -84,6 +113,7 @@ function FamilyDetails() {
       }
     };
     fetchPosts();
+    // eslint-disable-next-line
   }, [id]);
 
   // Effect to set initial edited name when family data is loaded
@@ -120,6 +150,7 @@ function FamilyDetails() {
 
     try {
       const token = localStorage.getItem('token');
+      console.log('Updating family - Token available:', !!token); // Log token availability before update
       const res = await axios.put(`http://localhost:5001/api/families/${family._id}`, formData, {
         headers: {
           'x-auth-token': token,
@@ -151,6 +182,7 @@ function FamilyDetails() {
 
     try {
       const token = localStorage.getItem('token');
+      console.log('Creating post - Token available:', !!token); // Log token availability before create
       let payload = {
         title: newTitle,
         type: newType,
@@ -206,6 +238,7 @@ function FamilyDetails() {
     setEditLoading(true);
     try {
       const token = localStorage.getItem('token');
+      console.log('Editing post - Token available:', !!token); // Log token availability before edit
       await axios.put(`http://localhost:5001/api/posts/${editingPostId}`, {
         title: editTitle,
         content: editContent
@@ -238,6 +271,7 @@ function FamilyDetails() {
 
     try {
       const token = localStorage.getItem('token');
+      console.log('Deleting post - Token available:', !!token); // Log token availability before delete
       await axios.delete(`http://localhost:5001/api/posts/${postId}`, {
         headers: { 'x-auth-token': token }
       });
@@ -249,6 +283,33 @@ function FamilyDetails() {
       await fetchFamily();
     } catch (err) {
       alert('Failed to delete post.');
+    }
+  };
+
+  // Handle family deletion
+  const handleDeleteFamily = async () => {
+    if (!window.confirm('Are you sure you want to delete this family? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      console.log('Deleting family - Token available:', !!token); // Log token availability before delete
+      if (!token) {
+        alert('You must be logged in to delete a family.');
+        return;
+      }
+
+      await axios.delete(`http://localhost:5001/api/families/${id}`, {
+        headers: { 'x-auth-token': token }
+      });
+
+      alert('Family deleted successfully.');
+      navigate('/families'); // Redirect to the families list page
+
+    } catch (err) {
+      console.error('Error deleting family:', err);
+      alert(err.response?.data?.message || 'Failed to delete family.');
     }
   };
 
@@ -288,6 +349,18 @@ function FamilyDetails() {
           )}
           <button className="text-3xl text-[#b32a2a] ">{'>'}</button>
         </div>
+
+        {/* Admin Actions (Delete) - Visible to members */}
+        {isMember && !isEditingFamily && (
+          <div className="mb-6">
+            <button
+              onClick={handleDeleteFamily}
+              className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline transition duration-200 ease-in-out"
+            >
+              Delete Family
+            </button>
+          </div>
+        )}
 
         {/* Family Image */}
         <div className="mb-6">

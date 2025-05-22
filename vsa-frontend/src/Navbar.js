@@ -7,8 +7,9 @@ function Navbar({ setIsLoggedIn }) {
 
   const handleLogout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('isGuest');
     setIsLoggedIn(false);
-    navigate('/');
+    window.location.href = '/';
   };
 
   return (

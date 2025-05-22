@@ -14,6 +14,27 @@ app.use('/uploads', express.static('uploads')); // Serve uploaded files (for pho
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public')); // Serve static files from the 'public' directory
 
+// Import models needed for the public route
+const Post = require('./models/Post');
+
+// @route    GET api/posts/announcements
+// @desc     Get all announcement posts (public) - Defined early to avoid auth middleware
+// @access   Public
+app.get('/api/posts/announcements', async (req, res) => {
+    console.log('Handling public /api/posts/announcements route directly in server.js');
+    try {
+        const announcements = await Post.find({ type: 'announcement' })
+            .populate('author', ['username', 'profilePicture'])
+            .populate('family', ['name'])
+            .sort({ createdAt: -1 });
+
+        res.json({ success: true, posts: announcements });
+    } catch (err) {
+        console.error('Error in public announcements route:', err.message);
+        res.status(500).json({ success: false, message: 'Server Error' });
+    }
+});
+
 // Import routes
 const userRoutes = require('./routes/users');
 const authRoutes = require('./routes/auth');
@@ -21,12 +42,26 @@ const postRoutes = require('./routes/posts');
 const pointsRoutes = require('./routes/points');
 const familyRoutes = require('./routes/families');
 
+// Import auth middleware
+const auth = require('./middleware/auth');
+
 // Use routes
-app.use('/api/users', userRoutes);
-app.use('/api/auth', authRoutes);
-app.use('/api/posts', postRoutes);
-app.use('/api/points', pointsRoutes);
-app.use('/api/families', familyRoutes);
+
+// Public route for announcements - handle directly before authenticated routes
+app.use('/api/posts/announcements', postRoutes);
+
+// Apply auth middleware to routes that require it
+app.use('/api/users', auth, userRoutes);
+app.use('/api/auth', authRoutes); // Auth is handled within authRoutes
+app.use('/api/posts', auth, (req, res, next) => { // Apply auth to all /api/posts except announcements
+    // This check is technically redundant if the announcements route is handled first, but as a safeguard:
+    if (req.path === '/announcements') {
+        return next(); // Skip auth - should have been handled by the specific route above
+    }
+    next(); // Continue with auth middleware for other post routes
+}, postRoutes);
+app.use('/api/points', auth, pointsRoutes);
+app.use('/api/families', auth, familyRoutes);
 
 // Basic test route to verify the server is running
 app.get('/', (req, res) => {

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import PlusCircleIcon from '@heroicons/react/24/solid/PlusCircleIcon'; // Import PlusCircleIcon directly
 //import './Register.css';
 
 function Register({ onRegister }) {
