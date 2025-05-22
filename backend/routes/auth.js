@@ -5,6 +5,36 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const Family = require('../models/Family');
 const auth = require('../middleware/auth');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+
+// Configure multer for profile picture uploads
+const storage = multer.diskStorage({
+  destination: function(req, file, cb) {
+    const uploadPath = path.join(__dirname, '..' , 'public', 'uploads', 'profiles');
+    // Create the directory if it doesn't exist
+    fs.mkdir(uploadPath, { recursive: true }, (err) => {
+      if (err) return cb(err, null);
+      cb(null, uploadPath);
+    });
+  },
+  filename: function(req, file, cb) {
+    cb(null, file.fieldname + '-' + Date.now() + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({
+  storage: storage,
+  limits: { fileSize: 5000000 }, // Increased limit to 5MB
+  fileFilter: function(req, file, cb) {
+    // Allow images only
+    if (!file.originalname.match(/\.(jpg|jpeg|png|gif)$/i)) {
+      return cb(new Error('Only image files are allowed!'), false);
+    }
+    cb(null, true);
+  }
+});
 
 // @route   POST /api/auth/register
 // @desc    Register a new user
@@ -176,6 +206,51 @@ router.get('/me', auth, async (req, res) => {
     } catch (error) {
         res.status(500).json({ success: false, message: 'Server error' });
     }
+});
+
+// @route   PUT /api/auth/profile
+// @desc    Update user profile (including profile picture)
+// @access  Private
+router.put('/profile', auth, upload.single('profilePicture'), async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // Handle file upload
+    if (req.file) {
+      // Delete old profile picture if it exists and is not the default
+      if (user.profilePicture && user.profilePicture !== '/uploads/profiles/default.png') { // Assuming a default image path
+        const oldImagePath = path.join(__dirname, '..' , 'public', user.profilePicture);
+        fs.unlink(oldImagePath, (err) => {
+          if (err) console.error('Failed to delete old profile picture:', err);
+        });
+      }
+      user.profilePicture = `/uploads/profiles/${req.file.filename}`;
+    }
+
+    // Update other profile fields if needed (e.g., username, email - handle validation/constraints carefully)
+    // For now, only allowing profile picture update as per the explicit request
+    // If you want to update other fields, add them here with appropriate validation
+
+    await user.save();
+
+    // Return updated user data (excluding password)
+    const updatedUser = await User.findById(req.user.id).select('-password');
+    res.json({ success: true, user: updatedUser });
+
+  } catch (err) {
+    console.error('Error in profile picture upload route:', err);
+    // Handle multer errors specifically
+    if (err.message === 'Only image files are allowed!') {
+         return res.status(400).json({ success: false, message: err.message });
+    }
+    if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ success: false, message: 'File size limit (5MB) exceeded' });
+    }
+    res.status(500).json({ success: false, message: 'Server Error' });
+  }
 });
 
 module.exports = router; 

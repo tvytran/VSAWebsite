@@ -2,9 +2,23 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const User = require('../models/User'); // Import User model
 
 // Middleware to verify JWT token
 const auth = require('../middleware/auth');
+
+// @route   GET /api/users
+// @desc    Get all users
+// @access  Private (requires authentication)
+router.get('/', auth, async (req, res) => {
+    try {
+        const users = await User.find().select('-password'); // Exclude passwords
+        res.json({ success: true, users });
+    } catch (error) {
+        console.error(error.message);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+});
 
 // Get user profile
 router.get('/profile', auth, async (req, res) => {
