@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "@heroicons/react": "^2.2.0",
+    "react-easy-crop": "^5.4.2"
+  }
+}
