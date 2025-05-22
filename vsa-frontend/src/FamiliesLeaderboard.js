@@ -8,6 +8,10 @@ function FamiliesLeaderboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ name: '', description: '' });
+  const [formError, setFormError] = useState('');
+  const [formLoading, setFormLoading] = useState(false);
 
   useEffect(() => {
     const fetchFamilies = async () => {
@@ -15,14 +19,7 @@ function FamiliesLeaderboard() {
       setError('');
       try {
         const res = await axios.get('http://localhost:5001/api/families/leaderboard');
-        // Fetch detailed info for each family
-        const familiesWithDetails = await Promise.all(
-          res.data.families.map(async (family) => {
-            const detailedResponse = await axios.get(`http://localhost:5001/api/families/${family._id}`);
-            return detailedResponse.data.family;
-          })
-        );
-        setFamilies(familiesWithDetails);
+        setFamilies(res.data.families || []);
         setLoading(false);
       } catch (err) {
         setError('Failed to load families.');
@@ -38,17 +35,15 @@ function FamiliesLeaderboard() {
 
   return (
     <MainLayout>
-      <div className="w-full max-w-4xl">
-        <h2 className="text-3xl font-bold text-[#b32a2a] mb-6">Family Leaderboard</h2>
-        <div className="mb-6">
-          <input
-            type="text"
-            placeholder="Search families..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full p-2 border border-gray-300 rounded-lg"
-          />
-        </div>
+      <div className="w-full max-w-3xl bg-white rounded-lg shadow-md p-8">
+        <h2 className="text-3xl font-bold text-[#b32a2a] mb-6">Families Leaderboard</h2>
+        <input
+          type="text"
+          placeholder="Search families..."
+          className="mb-4 w-full border-2 border-[#b32a2a] rounded-md px-4 py-2 text-lg focus:outline-none focus:border-[#8a1f1f]"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
         {loading ? (
           <div className="text-center text-[#b32a2a] text-lg py-8">Loading families...</div>
         ) : error ? (
@@ -93,5 +88,6 @@ function FamiliesLeaderboard() {
     </MainLayout>
   );
 }
+//
 
 export default FamiliesLeaderboard; 
