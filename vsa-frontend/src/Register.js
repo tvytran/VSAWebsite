@@ -66,7 +66,7 @@ function Register({ onRegister }) {
             required
           />
           <button
-            className="block w-72 mx-auto my-4 py-4 bg-[#b32a2a] text-white rounded-2xl text-lg hover:bg-[#8a1f1f] transition"
+            className="block w-72 mx-auto my-4 py-4 bg-[#b32a2a] text-white rounded-lg text-lg hover:bg-[#8a1f1f] transition duration-200 ease-in-out"
             type="submit"
           >
             Register

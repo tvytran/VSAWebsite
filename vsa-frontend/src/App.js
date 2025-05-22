@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Home from './Home';
 import Login from './Login';
@@ -11,24 +11,45 @@ import Newsletter from './Newsletter';
 import AboutVSA from './AboutVSA';
 import DashboardHome from './DashboardHome';
 import FamiliesLeaderboard from './FamiliesLeaderboard';
+import CreatePostPage from './CreatePostPage';
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('token'));
+  const [isGuest, setIsGuest] = useState(localStorage.getItem('isGuest') === 'true');
+
+  // Update state when localStorage changes
+  useEffect(() => {
+    const handleStorageChange = () => {
+      setIsLoggedIn(!!localStorage.getItem('token'));
+      setIsGuest(localStorage.getItem('isGuest') === 'true');
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
 
   return (
     <Router>
       <div className="min-h-screen bg-[#faecd8]">
-        {isLoggedIn && <Navbar setIsLoggedIn={setIsLoggedIn} />}
         <Routes>
-          <Route path="/" element={isLoggedIn ? <DashboardHome /> : <Home />} />
+          <Route path="/" element={
+            isLoggedIn ? <DashboardHome /> : 
+            isGuest ? <DashboardHome /> : 
+            <Home />
+          } />
           <Route path="/login" element={<Login setIsLoggedIn={setIsLoggedIn} />} />
           <Route path="/register" element={<Register />} />
           <Route path="/families" element={<FamiliesLeaderboard />} />
           <Route path="/families/:id" element={<FamilyDetails />} />
-          <Route path="/profile" element={<Profile />} />
           <Route path="/events" element={<Events />} />
           <Route path="/newsletter" element={<Newsletter />} />
           <Route path="/about" element={<AboutVSA />} />
+          {isLoggedIn && (
+            <>
+              <Route path="/profile" element={<Profile />} />
+              <Route path="/create-post" element={<CreatePostPage />} />
+            </>
+          )}
         </Routes>
       </div>
     </Router>

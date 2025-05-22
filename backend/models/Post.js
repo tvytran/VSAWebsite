@@ -13,7 +13,7 @@ const postSchema = new mongoose.Schema({
     },
     type: {
         type: String,
-        enum: ['post', 'hangout'],
+        enum: ['post', 'hangout', 'announcement'],
         required: true
     },
     title: {
@@ -25,9 +25,6 @@ const postSchema = new mongoose.Schema({
         type: String,
         required: true,
         trim: true
-    },
-    pointValue: {
-        type: Number
     },
     // Hangout-specific fields
     hangoutDetails: {
@@ -82,6 +79,9 @@ const postSchema = new mongoose.Schema({
     updatedAt: {
         type: Date,
         default: Date.now
+    },
+    imageUrl: {
+        type: String
     }
 });
 
