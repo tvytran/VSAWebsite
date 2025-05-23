@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import MainLayout from './MainLayout';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 // import { PlusCircleIcon } from '@heroicons/react/24/solid'; // Temporarily remove icon import
 
 function DashboardHome() {
@@ -12,6 +12,7 @@ function DashboardHome() {
   
   const isLoggedIn = !!localStorage.getItem('token');
   const isGuest = localStorage.getItem('isGuest') === 'true';
+  const location = useLocation(); // Get the current location
 
   // State for editing
   const [editingPostId, setEditingPostId] = useState(null);
@@ -19,6 +20,8 @@ function DashboardHome() {
   const [editContent, setEditContent] = useState('');
   const [editError, setEditError] = useState('');
   const [editLoading, setEditLoading] = useState(false);
+  const [editPointValue, setEditPointValue] = useState('');
+  const [isAuthor, setIsAuthor] = useState(false);
 
   // State for controlling the visibility of the three dots menu
   const [showMenuId, setShowMenuId] = useState(null);
@@ -26,6 +29,42 @@ function DashboardHome() {
   // State for search functionality
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredPosts, setFilteredPosts] = useState([]);
+
+  const [expandedPosts, setExpandedPosts] = useState({});
+
+  const fetchPosts = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const token = localStorage.getItem('token');
+      const userFromStorage = JSON.parse(localStorage.getItem('user') || '{}');
+      
+      let postsUrl = 'http://localhost:5001/api/posts/feed'; // Default for regular users
+
+      // If user is admin, fetch all posts
+      if (userFromStorage && userFromStorage.role === 'admin') {
+          postsUrl = 'http://localhost:5001/api/posts/all';
+      }
+
+      console.log('Fetching posts from:', postsUrl); // Debug log
+      const res = await axios.get(postsUrl, {
+        headers: { 'x-auth-token': token }
+      });
+      
+      if (!res.data || !res.data.posts) {
+        throw new Error('Invalid response format from server');
+      }
+
+      // Ensure posts are sorted by creation date descending
+      const sortedPosts = res.data.posts.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      setPosts(sortedPosts || []);
+      setLoading(false);
+    } catch (err) {
+      console.error('Error fetching posts:', err); // Debug log
+      setError(err.response?.data?.message || err.message || 'Failed to load posts. Please try again later.');
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (isLoggedIn) {
@@ -45,49 +84,12 @@ function DashboardHome() {
         }
       };
       fetchUserData();
-
-      // Fetch posts
-      const fetchPosts = async () => {
-        setLoading(true);
-        setError('');
-        try {
-          const token = localStorage.getItem('token');
-          const res = await axios.get('http://localhost:5001/api/posts/feed', {
-            headers: { 'x-auth-token': token }
-          });
-          // Ensure posts are sorted by creation date descending
-          const sortedPosts = res.data.posts.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-          setPosts(sortedPosts || []);
-          setLoading(false);
-        } catch (err) {
-          setError('Failed to load posts.');
-          setLoading(false);
-        }
-      };
       fetchPosts();
     } else {
       setLoading(false);
       setPosts([]);
     }
-  }, [isLoggedIn]);
-
-  const fetchPosts = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const token = localStorage.getItem('token');
-      const res = await axios.get('http://localhost:5001/api/posts/feed', {
-        headers: { 'x-auth-token': token }
-      });
-      // Ensure posts are sorted by creation date descending
-      const sortedPosts = res.data.posts.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-      setPosts(sortedPosts || []);
-      setLoading(false);
-    } catch (err) {
-      setError('Failed to load posts.');
-      setLoading(false);
-    }
-  };
+  }, [isLoggedIn, location.pathname]); // Add location.pathname as a dependency
 
   // Effect to filter posts whenever posts or searchTerm changes
   useEffect(() => {
@@ -104,6 +106,16 @@ function DashboardHome() {
     setEditingPostId(post._id);
     setEditTitle(post.title);
     setEditContent(post.content);
+    const currentUser = JSON.parse(localStorage.getItem('user'));
+    const isCurrentUserAuthor = post.author?._id === currentUser?.id;
+    const isCurrentUserAdmin = currentUser?.role === 'admin';
+
+    if (post.type === 'hangout' && (isCurrentUserAuthor || isCurrentUserAdmin)) {
+      setEditPointValue(post.hangoutDetails?.pointValue?.toString() || '');
+    } else {
+      setEditPointValue('');
+    }
+    setIsAuthor(isCurrentUserAuthor);
     setEditError('');
   };
 
@@ -112,26 +124,74 @@ function DashboardHome() {
     setEditTitle('');
     setEditContent('');
     setEditError('');
+    setEditPointValue('');
+    setIsAuthor(false);
   };
 
   const handleEditPost = async (e, postId) => {
     e.preventDefault();
     setEditError('');
     setEditLoading(true);
+
     try {
+      // Fetch the latest post data from the backend
       const token = localStorage.getItem('token');
-      await axios.put(`http://localhost:5001/api/posts/${postId}`, {
-        title: editTitle,
-        content: editContent
-      }, {
+      const res = await axios.get(`http://localhost:5001/api/posts/${postId}`, {
         headers: { 'x-auth-token': token }
       });
+      const postToEdit = res.data.post; // Use the fresh post data
+
+      if (!postToEdit) {
+        // This case should ideally not happen if the GET was successful, but good for safety
+        setEditError('Could not retrieve post details for editing.');
+        setEditLoading(false);
+        return;
+      }
+
+      // Re-check authorization based on the fresh post data
+      const currentUser = JSON.parse(localStorage.getItem('user'));
+      const isCurrentUserAuthor = postToEdit.author?._id === currentUser?.id;
+      const isCurrentUserAdmin = currentUser?.role === 'admin';
+
+      if (!isCurrentUserAuthor && !isCurrentUserAdmin) {
+          setEditError('You are not authorized to edit this post.');
+          setEditLoading(false);
+          return;
+      }
+
+      const updatedData = {
+        title: editTitle,
+        content: editContent,
+      };
+
+      if (postToEdit.type === 'hangout' && (isCurrentUserAuthor || isCurrentUserAdmin)) {
+        const newPointValue = parseInt(editPointValue, 10);
+        if (!isNaN(newPointValue) && newPointValue >= 0) {
+          updatedData.pointValue = newPointValue;
+        } else {
+          setEditError('Invalid point value.');
+          setEditLoading(false);
+          return;
+        }
+      }
+
+      // Proceed with the PUT request to update the post
+      await axios.put(`http://localhost:5001/api/posts/${postId}`, updatedData, {
+        headers: { 'x-auth-token': token }
+      });
+
       setEditLoading(false);
-      setEditingPostId(null); // Close edit form/menu
+      setEditingPostId(null);
       setEditTitle('');
       setEditContent('');
-      fetchPosts(); // Refresh posts
+      setEditPointValue('');
+      setIsAuthor(false);
+
+      // Refresh the posts list after successful edit
+      fetchPosts();
+
     } catch (err) {
+      console.error('Error during post edit:', err.response?.data?.message || err.message);
       setEditError(err.response?.data?.message || 'Failed to edit post.');
       setEditLoading(false);
     }
@@ -144,10 +204,46 @@ function DashboardHome() {
       await axios.delete(`http://localhost:5001/api/posts/${postId}`, {
         headers: { 'x-auth-token': token }
       });
-      fetchPosts(); // Refresh posts
+      // After successful deletion, refetch posts based on user role
+      const userFromStorage = JSON.parse(localStorage.getItem('user') || '{}');
+      let postsUrl = 'http://localhost:5001/api/posts/feed';
+       if (userFromStorage && userFromStorage.role === 'admin') {
+           postsUrl = 'http://localhost:5001/api/posts/all';
+       }
+
+      const res = await axios.get(postsUrl, {
+        headers: { 'x-auth-token': token }
+      });
+      const sortedPosts = res.data.posts.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      setPosts(sortedPosts || []);
+
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to delete post.');
     }
+  };
+
+  const toggleExpand = (id) => {
+    setExpandedPosts(prev => ({
+      ...prev,
+      [id]: !prev[id]
+    }));
+  };
+
+  const truncateText = (text, id) => {
+    if (!expandedPosts[id] && text.length > 150) {
+      return (
+        <>
+          {text.substring(0, 150)}...
+          <button 
+            onClick={() => toggleExpand(id)}
+            className="text-[#b32a2a] hover:text-[#8a1f1f] ml-1 font-medium"
+          >
+            read more
+          </button>
+        </>
+      );
+    }
+    return text;
   };
 
   return (
@@ -264,19 +360,36 @@ function DashboardHome() {
 
       {/* Search Bar */}
       {isLoggedIn && (
-        <div className="w-full max-w-2xl flex items-center mb-6">
-          <input
-            type="text"
-            placeholder="Search posts..."
-            className="flex-1 border-2 border-[#b32a2a] rounded-md px-4 py-2 text-lg focus:outline-none focus:border-[#8a1f1f]"
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-          />
+        <div className="w-full max-w-2xl flex items-center mb-6 relative">
+          <div className="relative flex-1">
+            <input
+              type="text"
+              placeholder="Search posts by title, content, or author..."
+              className="w-full border-2 border-[#b32a2a] rounded-lg px-4 py-3 pl-10 text-lg focus:outline-none focus:border-[#8a1f1f] focus:ring-2 focus:ring-[#b32a2a] focus:ring-opacity-50 transition-all duration-200"
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+            />
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <svg className="h-5 w-5 text-[#b32a2a]" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
+              </svg>
+            </div>
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm('')}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center"
+              >
+                <svg className="h-5 w-5 text-gray-400 hover:text-gray-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+              </button>
+            )}
+          </div>
         </div>
       )}
 
       {isLoggedIn ? (
-        <div className="w-full max-w-2xl">
+        <div className="w-full max-w-2xl mx-auto">
           {loading ? (
             <div className="text-center text-[#b32a2a] text-lg py-8">Loading posts...</div>
           ) : error ? (
@@ -284,13 +397,23 @@ function DashboardHome() {
           ) : filteredPosts.length === 0 ? (
             <div className="text-center text-gray-600 text-lg py-8">{searchTerm ? 'No posts match your search.' : 'No posts yet.'}</div>
           ) : (
-            filteredPosts.map(post => (
-              <div key={post._id} className={`rounded-lg shadow-md mb-6 relative ${post.type === 'announcement' ? 'bg-[#fff3e6] border-2 border-[#b32a2a]' : 'bg-white'}`}>
-                {post.imageUrl && (
-                  <img src={`http://localhost:5001${post.imageUrl}`} alt="Post" className="w-96 object-contain rounded-t-lg mx-auto" />
-                )}
-                <div className="p-4">
-                  {/* Post Header with Author Info and Menu */}
+            <div className="space-y-4">
+              {filteredPosts.map(post => (
+                <div 
+                  key={post._id} 
+                  className={`rounded-lg shadow-sm p-3 hover:shadow-md transition-shadow duration-200 ${
+                    post.type === 'announcement' ? 'bg-red-100 border-4 border-solid border-[#b32a2a]' : 'bg-white border border-gray-200'
+                  }`}
+                >
+                  {post.imageUrl && (
+                    <div className="mb-3">
+                      <img 
+                        src={`http://localhost:5001${post.imageUrl}`} 
+                        alt="Post" 
+                        className="w-full h-96 object-contain rounded-t-lg" 
+                      />
+                    </div>
+                  )}
                   <div className="flex items-center mb-4">
                     <div className="w-10 h-10 rounded-full overflow-hidden mr-3">
                       {post.author?.profilePicture ? (
@@ -308,7 +431,6 @@ function DashboardHome() {
                     <div>
                       <div className="font-semibold text-gray-800">
                         {post.author?.username}
-                        {/* Display Family Name */}
                         {post.family?.name && (
                           <span className="ml-2 text-gray-600 text-sm">({post.family.name})</span>
                         )}
@@ -320,21 +442,21 @@ function DashboardHome() {
                     </div>
 
                     {/* Three dots menu for edit/delete - visible only to author */}
-                    {isLoggedIn && user?._id === post.author?._id && (
-                       <div className="absolute top-4 right-4">
+                    {isLoggedIn && (user?._id === post.author?._id || user?.role === 'admin') && (
+                      <div className="ml-auto">
                         <button 
                           onClick={() => setShowMenuId(showMenuId === post._id ? null : post._id)}
                           className="text-gray-500 hover:text-gray-700 focus:outline-none"
                         >
                           &#8226;&#8226;&#8226;
                         </button>
-                         {showMenuId === post._id && (
+                        {showMenuId === post._id && (
                           <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10">
                             <button
                               className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                               onClick={() => {
-                                 startEdit(post);
-                                 setShowMenuId(null); // Close menu after selecting edit
+                                startEdit(post);
+                                setShowMenuId(null);
                               }}
                             >
                               Edit
@@ -343,7 +465,7 @@ function DashboardHome() {
                               className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
                               onClick={() => {
                                 handleDeletePost(post._id);
-                                setShowMenuId(null); // Close menu after selecting delete
+                                setShowMenuId(null);
                               }}
                             >
                               Delete
@@ -373,6 +495,18 @@ function DashboardHome() {
                         disabled={editLoading}
                         placeholder="Edit Content"
                       />
+                      {post.type === 'hangout' && (isAuthor || JSON.parse(localStorage.getItem('user'))?.role === 'admin') && (
+                        <input
+                          type="number"
+                          className="p-2 border border-gray-300 rounded-lg"
+                          value={editPointValue}
+                          onChange={e => setEditPointValue(e.target.value)}
+                          required
+                          disabled={editLoading}
+                          min="0"
+                          placeholder="Point Value"
+                        />
+                      )}
                       <div className="flex gap-2">
                         <button type="submit" className="px-4 py-1 bg-[#b32a2a] text-white rounded-lg hover:bg-[#8a1f1f] transition duration-200 ease-in-out" disabled={editLoading}>
                           {editLoading ? 'Saving...' : 'Save'}
@@ -381,24 +515,24 @@ function DashboardHome() {
                           Cancel
                         </button>
                       </div>
-                       {editError && <div className="text-red-600 mt-2">{editError}</div>}
+                      {editError && <div className="text-red-600 mt-2">{editError}</div>}
                     </form>
                   ) : (
                     <>
-                       <h3 className={`text-lg font-bold mb-2 ${post.type === 'announcement' ? 'text-[#b32a2a] text-xl' : 'text-[#b32a2a]'}`}>
+                      <h3 className={`text-lg font-bold mb-2 ${post.type === 'announcement' ? 'text-[#b32a2a]' : 'text-gray-800'}`}>
                         {post.title}
                       </h3>
                       <div className="text-gray-700 mb-2">
-                        {post.content}
+                        {truncateText(post.content, post._id)}
                         {post.hangoutDetails?.pointValue > 0 && (
-                          <span className="ml-2 text-blue-600 font-semibold">[{post.hangoutDetails.pointValue} pts]</span>
+                          <span className="ml-2 text-green-600 font-semibold">[{post.hangoutDetails.pointValue} pts]</span>
                         )}
                       </div>
                     </>
                   )}
                 </div>
-              </div>
-            ))
+              ))}
+            </div>
           )}
         </div>
       ) : (

@@ -30,6 +30,12 @@ function Profile() {
   // State for image cropping modal
   const [imageToCrop, setImageToCrop] = useState(null);
 
+  // State for username editing
+  const [isEditingUsername, setIsEditingUsername] = useState(false);
+  const [editedUsername, setEditedUsername] = useState('');
+  const [usernameEditLoading, setUsernameEditLoading] = useState(false);
+  const [usernameEditError, setUsernameEditError] = useState('');
+
   const fetchUserData = async () => {
     const token = localStorage.getItem('token');
     if (!token) {
@@ -205,6 +211,58 @@ function Profile() {
     }
   };
 
+  // Handle username edit
+  const startEditUsername = () => {
+    setIsEditingUsername(true);
+    setEditedUsername(user.username);
+    setUsernameEditError('');
+  };
+
+  const cancelEditUsername = () => {
+    setIsEditingUsername(false);
+    setEditedUsername('');
+    setUsernameEditError('');
+  };
+
+  const handleSaveUsername = async (e) => {
+    e.preventDefault();
+    setUsernameEditLoading(true);
+    setUsernameEditError('');
+
+    if (!editedUsername.trim()) {
+        setUsernameEditError('Username cannot be empty.');
+        setUsernameEditLoading(false);
+        return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.put('http://localhost:5001/api/auth/profile', 
+        { username: editedUsername },
+        {
+          headers: {
+            'x-auth-token': token,
+          }
+        }
+      );
+
+      if (res.data.success) {
+        setUser(res.data.user); // Update user state with the new username
+        localStorage.setItem('user', JSON.stringify(res.data.user)); // Update user in localStorage
+        setIsEditingUsername(false);
+        setEditedUsername('');
+      } else {
+         setUsernameEditError(res.data.message || 'Failed to update username.');
+      }
+      setUsernameEditLoading(false);
+
+    } catch (err) {
+      console.error('Username update failed:', err.response?.data || err.message || err);
+      setUsernameEditError(err.response?.data?.message || 'Failed to update username.');
+      setUsernameEditLoading(false);
+    }
+  };
+
   if (loading) {
     return <MainLayout><div className="text-xl text-[#b32a2a]">Loading profile and family info...</div></MainLayout>;
   }
@@ -225,8 +283,45 @@ function Profile() {
         {/* User Info */}
         <div className="mb-6 pb-6 border-b border-gray-200">
           <div className="mb-4">
-            <span className="font-semibold">Username:</span> {user.username}
+            <span className="font-semibold">Username:</span> 
+            {isEditingUsername ? (
+              <form onSubmit={handleSaveUsername} className="inline-block ml-2">
+                <input
+                  type="text"
+                  value={editedUsername}
+                  onChange={(e) => setEditedUsername(e.target.value)}
+                  className="border rounded px-2 py-1 mr-2 text-gray-700"
+                  disabled={usernameEditLoading}
+                />
+                <button 
+                  type="submit" 
+                  className="bg-[#b32a2a] hover:bg-[#8a1f1f] text-white text-sm py-1 px-3 rounded mr-2" 
+                  disabled={usernameEditLoading}
+                >
+                  {usernameEditLoading ? 'Saving...' : 'Save'}
+                </button>
+                <button 
+                  type="button" 
+                  onClick={cancelEditUsername} 
+                  className="bg-gray-300 hover:bg-gray-400 text-gray-800 text-sm py-1 px-3 rounded"
+                  disabled={usernameEditLoading}
+                >
+                  Cancel
+                </button>
+              </form>
+            ) : (
+              <span className="ml-2">
+                {user.username}
+                <button 
+                  onClick={startEditUsername} 
+                  className="ml-2 text-indigo-600 hover:text-indigo-900 text-sm"
+                >
+                  Edit
+                </button>
+              </span>
+            )}
           </div>
+          {usernameEditError && <div className="text-red-600 text-sm mb-2">{usernameEditError}</div>}
           <div className="mb-4">
             <span className="font-semibold">Email:</span> {user.email}
           </div>

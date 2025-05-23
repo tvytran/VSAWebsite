@@ -129,11 +129,20 @@ function MainLayout({ children }) {
             <Link to="/about"><button className="w-full py-3 bg-white border-2 border-[#b32a2a] text-[#b32a2a] font-semibold rounded-md hover:bg-[#f5e6d6] transition duration-200 ease-in-out">About</button></Link>
             <Link to="/events"><button className="w-full py-3 bg-white border-2 border-[#b32a2a] text-[#b32a2a] font-semibold rounded-md hover:bg-[#f5e6d6] transition duration-200 ease-in-out">Events</button></Link>
             <Link to="/newsletter"><button className="w-full py-3 bg-white border-2 border-[#b32a2a] text-[#b32a2a] font-semibold rounded-md hover:bg-[#f5e6d6] transition duration-200 ease-in-out">Newsletter</button></Link>
+            {/* Admin Dashboard Link */}
+            {isLoggedIn && userData && userData.role === 'admin' && (
+              <Link to="/admin">
+                <button className="w-full py-3 bg-[#b32a2a] text-white font-semibold rounded-md hover:bg-[#8a1f1f] transition duration-200 ease-in-out">
+                  Admin Dashboard
+                </button>
+              </Link>
+            )}
             {/* Logout Button */}
             {isLoggedIn && (
               <button
                 onClick={() => {
                   localStorage.removeItem('token');
+                  localStorage.removeItem('user');
                   localStorage.removeItem('isGuest');
                   window.location.href = '/';
                 }}

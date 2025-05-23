@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Home from './Home';
 import Login from './Login';
 import Register from './Register';
@@ -13,6 +13,23 @@ import DashboardHome from './DashboardHome';
 import FamiliesLeaderboard from './FamiliesLeaderboard';
 import CreatePostPage from './CreatePostPage';
 import CreateFamilyPage from './CreateFamilyPage';
+import AdminDashboard from './AdminDashboard';
+
+// Protected Route component
+const ProtectedRoute = ({ children, requireAdmin = false }) => {
+  const token = localStorage.getItem('token');
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+
+  if (!token) {
+    return <Navigate to="/login" />;
+  }
+
+  if (requireAdmin && user.role !== 'admin') {
+    return <Navigate to="/dashboard" />;
+  }
+
+  return children;
+};
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('token'));
@@ -45,13 +62,31 @@ function App() {
           <Route path="/events" element={<Events />} />
           <Route path="/newsletter" element={<Newsletter />} />
           <Route path="/about" element={<AboutVSA />} />
-          {isLoggedIn && (
-            <>
-              <Route path="/profile" element={<Profile />} />
-              <Route path="/create-post" element={<CreatePostPage />} />
-              <Route path="/create-family" element={<CreateFamilyPage />} />
-            </>
-          )}
+          <Route path="/dashboard" element={
+            <ProtectedRoute>
+              <DashboardHome />
+            </ProtectedRoute>
+          } />
+          <Route path="/admin" element={
+            <ProtectedRoute requireAdmin={true}>
+              <AdminDashboard />
+            </ProtectedRoute>
+          } />
+          <Route path="/profile" element={
+            <ProtectedRoute>
+              <Profile />
+            </ProtectedRoute>
+          } />
+          <Route path="/create-post" element={
+            <ProtectedRoute>
+              <CreatePostPage />
+            </ProtectedRoute>
+          } />
+          <Route path="/create-family" element={
+            <ProtectedRoute>
+              <CreateFamilyPage />
+            </ProtectedRoute>
+          } />
         </Routes>
       </div>
     </Router>

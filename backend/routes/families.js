@@ -114,7 +114,11 @@ router.get('/', async (req, res) => {
 // @access  Public
 router.get('/leaderboard', async (req, res) => {
     try {
-        const families = await Family.find().sort({ totalPoints: -1 }).populate('members', 'username email');
+        const families = await Family.find().sort({ totalPoints: -1 }).populate({
+            path: 'members',
+            select: 'username email',
+            match: { role: { $ne: 'admin' } } // Exclude users with role 'admin'
+        });
         res.json({ success: true, families });
     } catch (err) {
         res.status(500).json({ success: false, message: 'Server error' });
@@ -217,23 +221,23 @@ router.put('/:id', auth, upload.single('familyPicture'), async (req, res) => {
 
 // @route   DELETE /api/families/:id
 // @desc    Delete a family
-// @access  Private (only members of the family)
+// @access  Private (only admin)
 router.delete('/:id', auth, async (req, res) => {
     console.log(`DELETE /api/families/${req.params.id} hit`); // Log when route is hit
     try {
+        // Check if user is an admin
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({ 
+                success: false, 
+                message: 'Only administrators can delete families' 
+            });
+        }
+
         const family = await Family.findById(req.params.id);
         console.log('Family found:', !!family); // Log if family is found
         if (!family) {
             console.log('Family not found for ID:', req.params.id); // Log if family not found
             return res.status(404).json({ success: false, message: 'Family not found' });
-        }
-
-        // Check if user is a member of the family
-        const isMember = family.members.some(member => member.toString() === req.user.id);
-        console.log('User is member:', isMember); // Log if user is a member
-        if (!isMember) {
-            console.log('User not authorized to delete family:', req.user.id); // Log if user not authorized
-            return res.status(403).json({ success: false, message: 'You are not authorized to delete this family' });
         }
 
         // Delete family picture if it exists

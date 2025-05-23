@@ -52,8 +52,15 @@ app.use('/api/posts/announcements', postRoutes);
 
 // Apply auth middleware to routes that require it
 app.use('/api/users', auth, userRoutes);
-app.use('/api/auth', authRoutes); // Auth is handled within authRoutes
-app.use('/api/posts', auth, (req, res, next) => { // Apply auth to all /api/posts except announcements
+app.use('/api/auth', (req, res, next) => {
+    // Skip auth middleware for login and register routes
+    if (req.path === '/login' || req.path === '/register') {
+        return next();
+    }
+    // Apply auth middleware for all other auth routes
+    auth(req, res, next);
+}, authRoutes);
+app.use('/api/posts', auth, (req, res, next) => {
     // This check is technically redundant if the announcements route is handled first, but as a safeguard:
     if (req.path === '/announcements') {
         return next(); // Skip auth - should have been handled by the specific route above

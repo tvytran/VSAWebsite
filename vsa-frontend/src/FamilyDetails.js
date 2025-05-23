@@ -28,6 +28,8 @@ function FamilyDetails() {
   const [editContent, setEditContent] = useState('');
   const [editError, setEditError] = useState('');
   const [editLoading, setEditLoading] = useState(false);
+  const [editPointValue, setEditPointValue] = useState('');
+  const [isAuthor, setIsAuthor] = useState(false);
 
   // State for editing family details
   const [isEditingFamily, setIsEditingFamily] = useState(false);
@@ -222,6 +224,16 @@ function FamilyDetails() {
     setEditingPostId(post._id);
     setEditTitle(post.title);
     setEditContent(post.content);
+    const currentUser = JSON.parse(localStorage.getItem('user'));
+    const isCurrentUserAuthor = post.author?._id === currentUser?.id;
+    const isCurrentUserAdmin = currentUser?.role === 'admin';
+
+    if (post.type === 'hangout' && (isCurrentUserAuthor || isCurrentUserAdmin)) {
+      setEditPointValue(post.hangoutDetails?.pointValue?.toString() || '');
+    } else {
+      setEditPointValue('');
+    }
+    setIsAuthor(isCurrentUserAuthor);
     setEditError('');
   };
 
@@ -230,32 +242,63 @@ function FamilyDetails() {
     setEditTitle('');
     setEditContent('');
     setEditError('');
+    setEditPointValue('');
+    setIsAuthor(false);
   };
 
   const handleEditPost = async (e) => {
     e.preventDefault();
     setEditError('');
     setEditLoading(true);
+
+    const postToEdit = posts.find(post => post._id === editingPostId);
+    if (!postToEdit) {
+        setEditError('Post not found for editing.');
+        setEditLoading(false);
+        return;
+    }
+
+    const updatedData = {
+      title: editTitle,
+      content: editContent,
+    };
+
+    const currentUser = JSON.parse(localStorage.getItem('user'));
+    const isCurrentUserAdmin = currentUser?.role === 'admin';
+
+    if (postToEdit.type === 'hangout' && (isAuthor || isCurrentUserAdmin)) {
+         const newPointValue = parseInt(editPointValue, 10);
+         if (!isNaN(newPointValue) && newPointValue >= 0) {
+             updatedData.pointValue = newPointValue;
+         } else {
+             setEditError('Invalid point value.');
+             setEditLoading(false);
+             return;
+         }
+    }
+
     try {
       const token = localStorage.getItem('token');
-      console.log('Editing post - Token available:', !!token); // Log token availability before edit
-      await axios.put(`http://localhost:5001/api/posts/${editingPostId}`, {
-        title: editTitle,
-        content: editContent
-      }, {
+      console.log('Editing post - Token available:', !!token);
+      console.log('Sending PUT request to:', `http://localhost:5001/api/posts/${editingPostId}`);
+      console.log('Data being sent:', updatedData);
+      await axios.put(`http://localhost:5001/api/posts/${editingPostId}`, updatedData, {
         headers: { 'x-auth-token': token }
       });
+      console.log('Post update successful.');
       setEditLoading(false);
       setEditingPostId(null);
       setEditTitle('');
       setEditContent('');
-      // Refresh posts
-      const res = await axios.get(`http://localhost:5001/api/posts/family/${family._id}`, {
+      setEditPointValue('');
+      setIsAuthor(false);
+      const postsRes = await axios.get(`http://localhost:5001/api/posts/family/${family._id}`, {
         headers: { 'x-auth-token': token }
       });
-      setPosts(res.data.posts);
+      setPosts(postsRes.data.posts);
       await fetchFamily();
     } catch (err) {
+      console.error('Error updating post:', err);
       setEditError(err.response?.data?.message || 'Failed to edit post.');
       setEditLoading(false);
     }
@@ -553,7 +596,7 @@ function FamilyDetails() {
               {posts.map(post => (
                  <li key={post._id} className="mb-2">
                   {editingPostId === post._id ? (
-                    <form onSubmit={(e) => handleEditPost(e, post._id)} className="mb-2 flex flex-col gap-2">
+                    <form onSubmit={handleEditPost} className="mb-2 flex flex-col gap-2">
                       <input
                         className="p-2 border border-gray-300 rounded-lg"
                         value={editTitle}
@@ -567,7 +610,18 @@ function FamilyDetails() {
                         onChange={e => setEditContent(e.target.value)}
                         required
                         disabled={editLoading}
-                      />
+                      ></textarea>
+                      {post.type === 'hangout' && (isAuthor || JSON.parse(localStorage.getItem('user'))?.role === 'admin') && (
+                        <input
+                          type="number"
+                          className="p-2 border border-gray-300 rounded-lg"
+                          value={editPointValue}
+                          onChange={e => setEditPointValue(e.target.value)}
+                          required
+                          disabled={editLoading}
+                          min="0"
+                        />
+                      )}
                       <div className="flex gap-2">
                         <button type="submit" className="px-4 py-1 bg-[#b32a2a] text-white rounded-lg hover:bg-[#8a1f1f]" disabled={editLoading}>
                           {editLoading ? 'Saving...' : 'Save'}

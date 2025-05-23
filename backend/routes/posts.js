@@ -148,27 +148,16 @@ router.post(
 // @access   Private
 router.get('/feed', auth, async (req, res) => {
   try {
-    const user = await User.findById(req.user.id).populate('family');
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
+    // We no longer need to check for user.family specifically for fetching posts.
+    // All authenticated users can see all posts.
+    // Fetch all posts, populate author and family, sort by date
+    const posts = await Post.find({})
+      .populate('author', ['username', 'profilePicture', 'email'])
+      .populate('family', ['name'])
+      .select('+hangoutDetails') // Include hangoutDetails
+      .sort({ createdAt: -1 });
 
-    let posts = [];
-
-    if (user.family) {
-      // Get posts from the user's family, sorted by date
-      // Populate author and family, also select hangoutDetails for pointValue
-      const familyPosts = await Post.find({ family: user.family._id })
-        .populate('author', ['username', 'profilePicture', 'email'])
-        .populate('family', ['name'])
-        .select('+hangoutDetails')
-        .sort({ createdAt: -1 });
-      posts = [...familyPosts];
-    }
-
-    // TODO: Implement logic for public posts if needed
-
-    res.json({ posts });
+    res.json({ success: true, posts });
   } catch (err) {
     console.error(err.message);
     res.status(500).json({ success: false, message: 'Server error' });
@@ -197,6 +186,57 @@ router.get('/family/:familyId', auth, async (req, res) => {
     console.error(err.message);
     res.status(500).json({ success: false, message: 'Server Error' });
   }
+});
+
+// @route    GET api/posts/announcements
+// @desc     Get all announcement posts (public)
+// @access   Public
+router.get('/announcements', async (req, res) => {
+  console.log('Received request for /api/posts/announcements');
+  console.log('Request Headers:', req.headers);
+  try {
+    console.log('Attempting to fetch announcements from DB');
+    const announcements = await Post.find({ type: 'announcement' })
+      .populate('author', ['username', 'profilePicture'])
+      .populate('family', ['name'])
+      .sort({ createdAt: -1 });
+
+    console.log('Successfully fetched announcements', announcements.length, 'announcements found');
+    res.json({ success: true, posts: announcements });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ success: false, message: 'Server Error' });
+  }
+});
+
+// @route    GET api/posts/all
+// @desc     Get all posts (Admin only)
+// @access   Private (Admin)
+router.get('/all', auth, async (req, res) => {
+    try {
+        console.log('Attempting to fetch user for admin check.');
+        const user = await User.findById(req.user.id);
+        console.log('User fetched for admin check:', user ? user.username : 'Not found', 'Role:', user ? user.role : 'N/A');
+
+        if (!user || user.role !== 'admin') {
+            console.warn('Authorization denied for /api/posts/all. User ID:', req.user.id, 'Role:', user?.role);
+            return res.status(403).json({ success: false, message: 'Authorization denied. Admin access required.' });
+        }
+
+        console.log('User is admin. Attempting to fetch all posts.');
+        // Fetch all posts, populate author and family, sort by date
+        const posts = await Post.find()
+            .populate('author', ['username', 'profilePicture', 'email'])
+            .populate('family', ['name'])
+            .select('+hangoutDetails') // Include hangoutDetails
+            .sort({ createdAt: -1 });
+
+        console.log('Successfully fetched posts. Count:', posts.length);
+        res.json({ success: true, posts });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ success: false, message: 'Server Error' });
+    }
 });
 
 // @route    GET api/posts/:id
@@ -239,7 +279,7 @@ router.delete('/:id', auth, async (req, res) => {
     console.log('Post author ID:', post.author.toString());
 
     // Check user
-    if (post.author.toString() !== req.user.id) {
+    if (post.author.toString() !== req.user.id && req.user.role !== 'admin') {
       console.log('User not authorized to delete this post.');
       return res.status(401).json({ success: false, message: 'User not authorized' });
     }
@@ -458,25 +498,97 @@ router.get('/family/:familyId/hangouts', auth, async (req, res) => {
     }
 });
 
-// @route    GET api/posts/announcements
-// @desc     Get all announcement posts (public)
-// @access   Public
-router.get('/announcements', async (req, res) => {
-  console.log('Received request for /api/posts/announcements');
-  console.log('Request Headers:', req.headers);
-  try {
-    console.log('Attempting to fetch announcements from DB');
-    const announcements = await Post.find({ type: 'announcement' })
-      .populate('author', ['username', 'profilePicture'])
-      .populate('family', ['name'])
-      .sort({ createdAt: -1 });
+// @route    PUT api/posts/:id
+// @desc     Update a post
+// @access   Private
+router.put(
+  '/:id',
+  auth,
+  [
+    // Optional validation for title and content if they are editable
+    // check('title', 'Title is required').not().isEmpty(),
+    // check('content', 'Content is required').not().isEmpty(),
+  ],
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
 
-    console.log('Successfully fetched announcements', announcements.length, 'announcements found');
-    res.json({ success: true, posts: announcements });
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).json({ success: false, message: 'Server Error' });
+    const { title, content, pointValue } = req.body; // Include pointValue
+
+    try {
+      let post = await Post.findById(req.params.id);
+
+      if (!post) {
+        return res.status(404).json({ success: false, message: 'Post not found' });
+      }
+
+      // Check user (Allow admin to edit any post, or author to edit their own non-announcement post)
+      if (post.author.toString() !== req.user.id && req.user.role !== 'admin') {
+           // Additionally, prevent non-admins from editing announcements even if they are the author
+           if(post.type === 'announcement') {
+             return res.status(401).json({ success: false, message: 'Admins only can edit announcements' });
+           }
+           // For other post types, check if the user is the author
+           if(post.author.toString() !== req.user.id) {
+              return res.status(401).json({ success: false, message: 'User not authorized' });
+           }
+      }
+
+      // Store the old point value before updating
+      const oldPointValue = post.type === 'hangout' && post.hangoutDetails?.pointValue ? post.hangoutDetails.pointValue : 0;
+
+      // Update post fields
+      if (title !== undefined) post.title = title;
+      if (content !== undefined) post.content = content;
+
+      // Handle pointValue update for hangout posts (only if provided in request and user is admin or author)
+      // Allow admin or the author of the post to edit points on a hangout post
+      if (post.type === 'hangout' && (req.user.role === 'admin' || post.author.toString() === req.user.id) && pointValue !== undefined && pointValue !== null) {
+          const newPointValue = parseInt(pointValue, 10);
+          if (!isNaN(newPointValue) && newPointValue >= 0) {
+              post.hangoutDetails = { pointValue: newPointValue };
+
+              // Calculate point difference and update family points
+              const pointDifference = newPointValue - oldPointValue;
+              if (pointDifference !== 0 && post.family) {
+                  try {
+                      await Family.findByIdAndUpdate(
+                          post.family,
+                          {
+                              $inc: {
+                                  totalPoints: pointDifference,
+                                  semesterPoints: pointDifference
+                              }
+                          },
+                          { new: true }
+                      );
+                      console.log(`Family points updated by ${pointDifference} on post edit.`);
+                  } catch (err) {
+                      console.error('Failed to update family points on post edit:', err);
+                      // Log error but don't block the post update
+                  }
+              }
+          } else {
+               return res.status(400).json({ success: false, message: 'Invalid point value provided.' });
+          }
+      }
+
+      await post.save();
+
+      // Populate the updated post before sending it back
+      post = await Post.findById(post._id)
+        .populate('author', ['username', 'profilePicture', 'email'])
+        .populate('family', ['name'])
+        .select('+hangoutDetails'); // Include hangoutDetails in the response
+
+      res.json({ success: true, post });
+    } catch (err) {
+      console.error(err.message);
+      res.status(500).json({ success: false, message: 'Server Error' });
+    }
   }
-});
+);
 
 module.exports = router; 
