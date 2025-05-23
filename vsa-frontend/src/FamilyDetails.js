@@ -31,12 +31,23 @@ function FamilyDetails() {
   const [editPointValue, setEditPointValue] = useState('');
   const [isAuthor, setIsAuthor] = useState(false);
 
+  // State for controlling the visibility of the three dots menu
+  const [showMenuId, setShowMenuId] = useState(null);
+
+  // State for expanded post view
+  const [expandedPostId, setExpandedPostId] = useState(null);
+
   // State for editing family details
   const [isEditingFamily, setIsEditingFamily] = useState(false);
   const [editedFamilyName, setEditedFamilyName] = useState('');
   const [selectedFamilyFile, setSelectedFamilyFile] = useState(null);
   const [familyUploadLoading, setFamilyUploadLoading] = useState(false);
   const [familyUploadError, setFamilyUploadError] = useState('');
+
+  // State for list of all families for navigation
+  const [allFamilies, setAllFamilies] = useState([]);
+  const [allFamiliesLoading, setAllFamiliesLoading] = useState(true);
+  const [allFamiliesError, setAllFamiliesError] = useState('');
 
   // State for current user ID
   const [currentUserId, setCurrentUserId] = useState(null);
@@ -59,6 +70,48 @@ function FamilyDetails() {
       setCurrentUserId(null); // Ensure userId is null if token is invalid
     }
   }, []); // Empty dependency array means this effect runs once after initial render
+
+  // Effect to fetch all families for navigation
+  useEffect(() => {
+    const fetchAllFamilies = async () => {
+      setAllFamiliesLoading(true);
+      setAllFamiliesError('');
+      try {
+        const token = localStorage.getItem('token');
+        const config = token ? { headers: { 'x-auth-token': token } } : {};
+        const res = await axios.get('http://localhost:5001/api/families', config);
+        // Sort families alphabetically by name
+        const sortedFamilies = res.data.families.sort((a, b) => a.name.localeCompare(b.name));
+        setAllFamilies(sortedFamilies);
+        setAllFamiliesLoading(false);
+      } catch (err) {
+        console.error('Error fetching all families:', err);
+        setAllFamiliesError('Failed to load all families.');
+        setAllFamiliesLoading(false);
+      }
+    };
+    fetchAllFamilies();
+    // No dependency on 'id' here, as we want to fetch all families once
+  }, []);
+
+  // Determine the index of the current family in the allFamilies array
+  const currentFamilyIndex = allFamilies.findIndex(fam => fam._id === id);
+  const hasPreviousFamily = currentFamilyIndex > 0;
+  const hasNextFamily = currentFamilyIndex !== -1 && currentFamilyIndex < allFamilies.length - 1;
+
+  const navigateToPreviousFamily = () => {
+    if (hasPreviousFamily) {
+      const previousFamilyId = allFamilies[currentFamilyIndex - 1]._id;
+      navigate(`/families/${previousFamilyId}`);
+    }
+  };
+
+  const navigateToNextFamily = () => {
+    if (hasNextFamily) {
+      const nextFamilyId = allFamilies[currentFamilyIndex + 1]._id;
+      navigate(`/families/${nextFamilyId}`);
+    }
+  };
 
   const fetchFamily = async () => {
     console.log(`Attempting to fetch family with ID: ${id}`); // Log the ID being fetched
@@ -107,7 +160,9 @@ function FamilyDetails() {
         const res = await axios.get(`http://localhost:5001/api/posts/family/${id}`, {
           headers: { 'x-auth-token': token }
         });
-        setPosts(res.data.posts);
+        // Filter out announcement posts
+        const nonAnnouncementPosts = res.data.posts.filter(post => post.type !== 'announcement');
+        setPosts(nonAnnouncementPosts);
         setPostsLoading(false);
       } catch (err) {
         setPostsError('Failed to load posts.');
@@ -159,6 +214,7 @@ function FamilyDetails() {
           'Content-Type': 'multipart/form-data'
         }
       });
+      console.log('Family update successful. Response data:', res.data);
       setFamily(res.data.family); // Update family state with new data
       setIsEditingFamily(false); // Exit editing mode
       setSelectedFamilyFile(null); // Clear selected file
@@ -166,6 +222,7 @@ function FamilyDetails() {
       // Optionally show a success message
     } catch (err) {
       console.error('Family update failed:', err);
+      console.error('Family update error response:', err.response);
       setFamilyUploadError(err.response?.data?.message || 'Failed to update family.');
       setFamilyUploadLoading(false);
     }
@@ -356,6 +413,60 @@ function FamilyDetails() {
     }
   };
 
+  const truncateText = (text) => {
+    // Regex to find raw URLs
+    const urlRegex = /(\b(https?|ftp|file):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/|=~_|])/gi;
+    // Regex to find markdown links [text](url)
+    const markdownLinkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+
+    const renderTextWithLinks = (contentText) => {
+      const elements = [];
+      let lastIndex = 0;
+
+      let match;
+      // First find markdown links
+      while ((match = markdownLinkRegex.exec(contentText)) !== null) {
+        const precedingText = contentText.substring(lastIndex, match.index);
+        // Process preceding text for raw URLs
+        if (precedingText) {
+          const urlParts = precedingText.split(urlRegex);
+          urlParts.forEach((part, index) => {
+            if (part.match(urlRegex)) { // Check if the part is a URL
+              elements.push(<a key={`url-${lastIndex}-${index}`} href={part} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{part}</a>);
+            } else {
+              elements.push(<span key={`text-${lastIndex}-${index}`}>{part}</span>);
+            }
+          });
+        }
+
+        // Add the markdown link
+        const linkText = match[1];
+        const linkUrl = match[2];
+        elements.push(<a key={`markdown-${match.index}`} href={linkUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{linkText}</a>);
+
+        lastIndex = markdownLinkRegex.lastIndex;
+      }
+
+      // Process any remaining text for raw URLs
+      const remainingText = contentText.substring(lastIndex);
+      if (remainingText) { // Check if remainingText is not empty
+          const urlParts = remainingText.split(urlRegex);
+          urlParts.forEach((part, index) => {
+            if (part.match(urlRegex)) { // Check if the part is a URL
+              elements.push(<a key={`url-end-${lastIndex}-${index}`} href={part} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{part}</a>);
+            } else {
+              elements.push(<span key={`text-end-${lastIndex}-${index}`}>{part}</span>);
+            }
+          });
+      }
+
+      return elements;
+    };
+
+    // Always render full text with links, no truncation
+    return renderTextWithLinks(text);
+  };
+
   if (loading) {
     return <MainLayout><div className="text-xl text-[#b32a2a]">Loading family...</div></MainLayout>;
   }
@@ -373,9 +484,15 @@ function FamilyDetails() {
   return (
     <MainLayout>
       <div className="w-full max-w-4xl mx-auto bg-[#faecd8] p-6 rounded-lg shadow-md text-center">
-        {/* Navigation Arrows (Placeholder) */}
+        {/* Navigation Arrows */}
         <div className="flex justify-between items-center mb-4">
-          <button className="text-3xl text-[#b32a2a]">{'<'}</button>
+          <button 
+            className={`text-3xl text-[#b32a2a] ${hasPreviousFamily ? 'cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}
+            onClick={navigateToPreviousFamily}
+            disabled={!hasPreviousFamily}
+          >
+            {'<'}
+          </button>
           {isEditingFamily ? (
             <input
               type="text"
@@ -390,8 +507,26 @@ function FamilyDetails() {
               <p className="text-sm text-gray-600">VSA Family</p>
             </div>
           )}
-          <button className="text-3xl text-[#b32a2a] ">{'>'}</button>
+          <button 
+            className={`text-3xl text-[#b32a2a] ${hasNextFamily ? 'cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}
+            onClick={navigateToNextFamily}
+            disabled={!hasNextFamily}
+          >
+            {'>'}
+          </button>
         </div>
+
+        {/* Edit Profile Button - Visible to members */}
+        {!isEditingFamily && isMember && (
+          <div className="mb-4">
+            <button
+              onClick={() => setIsEditingFamily(true)}
+              className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline transition duration-200 ease-in-out"
+            >
+              Edit Profile
+            </button>
+          </div>
+        )}
 
         {/* Admin Actions (Delete) - Visible to members */}
         {isMember && !isEditingFamily && (
@@ -412,7 +547,7 @@ function FamilyDetails() {
                {/* Image Preview or Placeholder */}
               {(selectedFamilyFile || family.familyPicture) ? (
                 <img 
-                  src={selectedFamilyFile ? URL.createObjectURL(selectedFamilyFile) : `http://localhost:5001${family.familyPicture}`}
+                  src={selectedFamilyFile ? URL.createObjectURL(selectedFamilyFile) : `http://localhost:5001${family.familyPicture}?v=${new Date().getTime()}`}
                   alt="Family" 
                   className="w-48 h-48 object-cover rounded-full mb-4 border-4 border-[#b32a2a]"
                 />
@@ -441,7 +576,7 @@ function FamilyDetails() {
             </div>
           ) : (
             (family.familyPicture ? (
-              <img src={`http://localhost:5001${family.familyPicture}`} alt="Family" className="w-48 h-48 object-cover rounded-full mx-auto mb-4 border-4 border-[#b32a2a]" />
+              <img src={`http://localhost:5001${family.familyPicture}?v=${new Date().getTime()}`} alt="Family" className="w-48 h-48 object-cover rounded-full mx-auto mb-4 border-4 border-[#b32a2a]" />
             ) : (
               <div className="w-48 h-48 rounded-full bg-[#b32a2a] flex items-center justify-center text-white text-6xl font-bold mx-auto mb-4 border-4 border-[#b32a2a]">
                 {family.name?.charAt(0).toUpperCase()}
@@ -521,155 +656,86 @@ function FamilyDetails() {
           <span className="text-xl font-bold bg-[#b32a2a] text-white rounded-full px-4 py-2">{family.totalPoints || 0} pts</span>
         </div>
 
-        {/* Image Grid (Placeholder) */}
-        <div className="grid grid-cols-3 gap-4 mb-6">
-          {/* Replace with actual image mapping */}
-          <div className="bg-gray-300 aspect-square rounded"></div>
-          <div className="bg-gray-300 aspect-square rounded"></div>
-          <div className="bg-gray-300 aspect-square rounded"></div>
-          <div className="bg-gray-300 aspect-square rounded"></div>
-          <div className="bg-gray-300 aspect-square rounded"></div>
-          <div className="bg-gray-300 aspect-square rounded"></div>
-        </div>
-
-        {/* Family Posts - Keep existing post creation form and list */}
-        <div className="w-full max-w-2xl mx-auto">
-          <h3 className="text-2xl font-bold text-[#b32a2a] mb-4">Posts</h3>
-          {isMember && (
-            <form onSubmit={handleCreatePost} className="my-4 flex flex-col md:flex-row gap-2">
-              <input
-                className="flex-1 p-2 border border-gray-300 rounded-lg"
-                placeholder="Title"
-                value={newTitle}
-                onChange={e => setNewTitle(e.target.value)}
-                required
-                disabled={postLoading}
-              />
-              <select
-                className="p-2 border border-gray-300 rounded-lg"
-                value={newType}
-                onChange={e => setNewType(e.target.value)}
-                required
-                disabled={postLoading}
-              >
-                <option value="">Select type</option>
-                <option value="post">Post</option>
-                <option value="hangout">Hangout</option>
-              </select>
-              {newType === 'hangout' && (
-                <input
-                  className="p-2 border border-gray-300 rounded-lg"
-                  type="number"
-                  min="0"
-                  placeholder="Point Value"
-                  value={pointValue}
-                  onChange={e => setPointValue(e.target.value)}
-                  required
-                  disabled={postLoading}
-                  style={{ width: 120 }}
-                />
-              )}
-              <textarea
-                className="flex-1 p-2 border border-gray-300 rounded-lg"
-                placeholder="Write a new post..."
-                value={newPost}
-                onChange={e => setNewPost(e.target.value)}
-                required
-                disabled={postLoading}
-              />
-              <button
-                type="submit"
-                className="px-6 py-2 bg-[#b32a2a] text-white rounded-lg hover:bg-[#8a1f1f] transition"
-                disabled={postLoading}
-              >
-                {postLoading ? 'Posting...' : 'Post'}
-              </button>
-            </form>
-          )}
-          {postError && <div className="text-red-600 mb-2">{postError}</div>}
-          {postsLoading ? (
-            <div className="text-gray-500">Loading posts...</div>
-          ) : postsError ? (
-            <div className="text-red-600">{postsError}</div>
-          ) : posts.length > 0 ? (
-            <ul className="list-disc ml-6 mt-2">
-              {posts.map(post => (
-                 <li key={post._id} className="mb-2">
-                  {editingPostId === post._id ? (
-                    <form onSubmit={handleEditPost} className="mb-2 flex flex-col gap-2">
-                      <input
-                        className="p-2 border border-gray-300 rounded-lg"
-                        value={editTitle}
-                        onChange={e => setEditTitle(e.target.value)}
-                        required
-                        disabled={editLoading}
+        {/* Family Post Images Grid */}
+        {posts.some(post => post.imageUrl) && (
+          <div className="grid grid-cols-3 gap-4 mb-6">
+            {posts.map(post => (
+              post.imageUrl && post.author && (
+                <div 
+                  key={post._id} 
+                  className="aspect-square rounded overflow-hidden bg-gray-200 cursor-pointer hover:opacity-90 transition-opacity duration-200 relative"
+                  onClick={() => setExpandedPostId(expandedPostId === post._id ? null : post._id)}
+                >
+                  <img
+                    src={`http://localhost:5001${post.imageUrl}`}
+                    alt="Family Post Image"
+                    className="w-full h-full object-cover"
+                  />
+                  {/* Author Profile Picture Overlay */}
+                  <div className="absolute bottom-2 right-2 w-8 h-8 rounded-full overflow-hidden border-2 border-white shadow-md">
+                    {post.author.profilePicture ? (
+                      <img 
+                        src={`http://localhost:5001${post.author.profilePicture}`} 
+                        alt={post.author.username} 
+                        className="w-full h-full object-cover"
                       />
-                      <textarea
-                        className="p-2 border border-gray-300 rounded-lg"
-                        value={editContent}
-                        onChange={e => setEditContent(e.target.value)}
-                        required
-                        disabled={editLoading}
-                      ></textarea>
-                      {post.type === 'hangout' && (isAuthor || JSON.parse(localStorage.getItem('user'))?.role === 'admin') && (
-                        <input
-                          type="number"
-                          className="p-2 border border-gray-300 rounded-lg"
-                          value={editPointValue}
-                          onChange={e => setEditPointValue(e.target.value)}
-                          required
-                          disabled={editLoading}
-                          min="0"
-                        />
-                      )}
-                      <div className="flex gap-2">
-                        <button type="submit" className="px-4 py-1 bg-[#b32a2a] text-white rounded-lg hover:bg-[#8a1f1f]" disabled={editLoading}>
-                          {editLoading ? 'Saving...' : 'Save'}
-                        </button>
-                        <button type="button" className="px-4 py-1 bg-gray-300 rounded-lg" onClick={cancelEdit} disabled={editLoading}>
-                          Cancel
-                        </button>
+                    ) : (
+                      <div className="w-full h-full bg-[#b32a2a] flex items-center justify-center text-white text-xs font-bold">
+                        {post.author.username?.charAt(0).toUpperCase()}
                       </div>
-                      {editError && <div className="text-red-600">{editError}</div>}
-                    </form>
-                  ) : (
-                    <>
-                      <span className="font-bold">{post.title}</span>
-                      {post.family?.name && (
-                        <span className="ml-2 text-gray-600 text-sm">({post.family.name})</span>
+                    )}
+                  </div>
+                </div>
+              )
+            ))}
+          </div>
+        )}
+
+        {/* Expanded Post View */}
+        {expandedPostId && posts.length > 0 && (
+          posts.find(post => post._id === expandedPostId) ? (
+            <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto relative p-6">
+                {/* Close Button */}
+                <button
+                  onClick={() => setExpandedPostId(null)}
+                  className="absolute top-3 right-3 text-gray-500 hover:text-gray-800 text-xl font-bold"
+                >
+                  &times;
+                </button>
+
+                {/* Expanded Post Content */}
+                {posts.filter(post => post._id === expandedPostId).map(post => (
+                   <div key={post._id} className="flex flex-col items-center">
+                     <h3 className="text-xl font-bold mb-2 text-gray-800">{post.title}</h3>
+                     {post.imageUrl && (
+                       <img
+                         src={`http://localhost:5001${post.imageUrl}`}
+                         alt="Family Post Image"
+                         className="w-full object-contain rounded-md mb-4"
+                       />
+                     )}
+                     <div className="text-gray-700 mb-4 w-full text-left">
+                        {truncateText(post.content)}
+                     </div>
+                     {/* Add more post details as needed, like author, date, points */}
+                      {post.author && (
+                        <div className="w-full text-left text-sm text-gray-600 mb-2">
+                           Posted by {post.author.username} on {new Date(post.createdAt).toLocaleString()}
+                        </div>
                       )}
-                      <div className="ml-2 text-gray-700">
-                        {post.content}
-                        {post.pointValue !== undefined && post.pointValue !== null && (
-                          <span className="ml-2 text-blue-600 font-semibold">[{post.pointValue} pts]</span>
+                       {post.hangoutDetails?.pointValue > 0 && (
+                          <div className="w-full text-left text-sm text-green-600 font-semibold mb-2">
+                            [{post.hangoutDetails.pointValue} pts]
+                          </div>
                         )}
-                      </div>
-                      <span className="ml-2 text-xs text-gray-400">{new Date(post.createdAt).toLocaleString()}</span>
-                      {isMember && post.author?._id === currentUserId && ( // Check if current user is the author
-                        <>
-                          <button
-                            className="ml-2 px-2 py-1 bg-yellow-300 rounded hover:bg-yellow-400 text-xs"
-                            onClick={() => startEdit(post)}
-                          >
-                            Edit
-                          </button>
-                          <button
-                            className="ml-2 px-2 py-1 bg-red-400 rounded hover:bg-red-500 text-xs text-white"
-                            onClick={() => handleDeletePost(post._id)}
-                          >
-                            Delete
-                          </button>
-                        </>
-                      )}
-                    </>
-                  )}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <div className="text-gray-500">No posts yet.</div>
-          )}
-        </div>
+                   </div>
+                ))}
+              </div>
+            </div>
+          ) : null
+        )}
+
         <Link to="/families" className="text-[#b32a2a] underline hover:text-[#8a1f1f]">Back to Families</Link>
       </div>
     </MainLayout>

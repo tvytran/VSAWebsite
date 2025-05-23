@@ -23,7 +23,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage: storage,
-  limits: { fileSize: 1000000 }, // 1MB limit
+  limits: { fileSize: 5 * 1024 * 1024 }, // Increased limit to 5MB
   fileFilter: function(req, file, cb) {
     // Allow images only
     if (!file.originalname.match(/\.(jpg|jpeg|png|gif)$/i)) {
@@ -158,8 +158,12 @@ router.get('/:id', async (req, res) => {
 // @desc    Update family profile (name, description, picture)
 // @access  Private (only members of the family)
 router.put('/:id', auth, upload.single('familyPicture'), async (req, res) => {
+  console.log('Backend: Reached final handler for PUT /api/families/:id.'); // Log at the start of the final handler
+  console.log('Backend: req.body:', req.body);
+  console.log('Backend: req.file:', req.file);
   try {
     const family = await Family.findById(req.params.id);
+
     if (!family) {
       return res.status(404).json({ success: false, message: 'Family not found' });
     }
@@ -179,6 +183,7 @@ router.put('/:id', auth, upload.single('familyPicture'), async (req, res) => {
 
     // Handle file upload for family picture
     if (req.file) {
+      console.log('Backend: req.file exists, updating familyPicture field.');
       // Delete old family picture if it exists and is not the default
       if (family.familyPicture) { // Assuming no default image for families initially
         const oldImagePath = path.join(__dirname, '..' , 'public', family.familyPicture);
@@ -189,33 +194,32 @@ router.put('/:id', auth, upload.single('familyPicture'), async (req, res) => {
       updateFields.familyPicture = `/uploads/families/${req.file.filename}`;
     }
 
-    // Only proceed if there are fields to update
+    // Only proceed if there are fields to update (name or picture)
     if (Object.keys(updateFields).length === 0) {
-        return res.status(400).json({ success: false, message: 'No fields to update' });
+         console.log('No name or file provided for update.', updateFields);
+        // Although frontend requires name, this is a safeguard.
+        // If nothing is provided, perhaps return current family data or an error.
+         return res.status(400).json({ success: false, message: 'No update fields provided.' });
     }
 
     const updatedFamily = await Family.findByIdAndUpdate(
         req.params.id,
         { $set: updateFields },
         { new: true, runValidators: true } // Run validators on updated fields
-    ).populate('members', 'username email'); // Populate members again for the response
+    ).populate('members', 'username email') // Populate members again for the response
+    .select('+familyPicture'); // Explicitly include familyPicture in the response
 
     if (!updatedFamily) {
          return res.status(404).json({ success: false, message: 'Family not found after update.' });
     }
 
+    console.log('Backend: Sending updated family object in response:', updatedFamily);
     res.json({ success: true, family: updatedFamily });
 
   } catch (err) {
     console.error(err.message);
-    // Handle multer errors specifically
-    if (err.message === 'Only image files are allowed!') {
-         return res.status(400).json({ success: false, message: err.message });
-    }
-    if (err.code === 'LIMIT_FILE_SIZE') {
-        return res.status(400).json({ success: false, message: 'File size limit (1MB) exceeded' });
-    }
-    res.status(500).json({ success: false, message: 'Server Error' });
+    // Handle other errors (e.g., database errors)
+    res.status(500).json({ success: false, message: 'Server Error during family update.' });
   }
 });
 

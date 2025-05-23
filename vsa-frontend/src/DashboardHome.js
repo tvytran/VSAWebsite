@@ -230,20 +230,57 @@ function DashboardHome() {
   };
 
   const truncateText = (text, id) => {
-    if (!expandedPosts[id] && text.length > 150) {
-      return (
-        <>
-          {text.substring(0, 150)}...
-          <button 
-            onClick={() => toggleExpand(id)}
-            className="text-[#b32a2a] hover:text-[#8a1f1f] ml-1 font-medium"
-          >
-            read more
-          </button>
-        </>
-      );
-    }
-    return text;
+    // Regex to find raw URLs
+    const urlRegex = /(\b(https?|ftp|file):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/|=~_|])/gi;
+    // Regex to find markdown links [text](url)
+    const markdownLinkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+
+    const renderTextWithLinks = (contentText) => {
+      const elements = [];
+      let lastIndex = 0;
+
+      let match;
+      // First find markdown links
+      while ((match = markdownLinkRegex.exec(contentText)) !== null) {
+        const precedingText = contentText.substring(lastIndex, match.index);
+        // Process preceding text for raw URLs
+        if (precedingText) {
+          const urlParts = precedingText.split(urlRegex);
+          urlParts.forEach((part, index) => {
+            if (part.match(urlRegex)) { // Check if the part is a URL
+              elements.push(<a key={`url-${lastIndex}-${index}`} href={part} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{part}</a>);
+            } else {
+              elements.push(<span key={`text-${lastIndex}-${index}`}>{part}</span>);
+            }
+          });
+        }
+
+        // Add the markdown link
+        const linkText = match[1];
+        const linkUrl = match[2];
+        elements.push(<a key={`markdown-${match.index}`} href={linkUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{linkText}</a>);
+
+        lastIndex = markdownLinkRegex.lastIndex;
+      }
+
+      // Process any remaining text for raw URLs
+      const remainingText = contentText.substring(lastIndex);
+      if (remainingText) { // Check if remainingText is not empty
+          const urlParts = remainingText.split(urlRegex);
+          urlParts.forEach((part, index) => {
+            if (part.match(urlRegex)) { // Check if the part is a URL
+              elements.push(<a key={`url-end-${lastIndex}-${index}`} href={part} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{part}</a>);
+            } else {
+              elements.push(<span key={`text-end-${lastIndex}-${index}`}>{part}</span>);
+            }
+          });
+      }
+
+      return elements;
+    };
+
+    // Always render full text with links, no truncation
+    return renderTextWithLinks(text);
   };
 
   return (
@@ -443,15 +480,15 @@ function DashboardHome() {
 
                     {/* Three dots menu for edit/delete - visible only to author */}
                     {isLoggedIn && (user?._id === post.author?._id || user?.role === 'admin') && (
-                      <div className="ml-auto">
-                        <button 
+                      <div className="ml-auto relative">
+                        <button
                           onClick={() => setShowMenuId(showMenuId === post._id ? null : post._id)}
-                          className="text-gray-500 hover:text-gray-700 focus:outline-none"
+                          className="text-gray-500 hover:text-gray-700 focus:outline-none z-10"
                         >
                           &#8226;&#8226;&#8226;
                         </button>
                         {showMenuId === post._id && (
-                          <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10">
+                          <div className="absolute top-0 right-0 mt-6 w-48 bg-white rounded-md shadow-lg z-10">
                             <button
                               className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                               onClick={() => {
@@ -494,6 +531,7 @@ function DashboardHome() {
                         required
                         disabled={editLoading}
                         placeholder="Edit Content"
+                        rows={10}
                       />
                       {post.type === 'hangout' && (isAuthor || JSON.parse(localStorage.getItem('user'))?.role === 'admin') && (
                         <input
