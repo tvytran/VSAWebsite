@@ -103,10 +103,15 @@ app.use((err, req, res, next) => {
     });  // Send error response
   });
 
-  // Start the server
-app.listen(port, () => {
-    console.log(`Server running on port ${port}`);  // Log that server has started
+// Start the server only if not in production (Vercel)
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(port, () => {
+    console.log(`Server running on port ${port}`);
   });
+}
+
+// Export the Express app for Vercel
+module.exports = app;
 
 
 
