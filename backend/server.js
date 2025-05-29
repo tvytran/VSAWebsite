@@ -72,6 +72,7 @@ app.use('/api/points', auth, pointsRoutes);
 app.use('/api/families', auth, familyRoutes);
 
 // Basic test route to verify the server is running
+// Vercel deployment test - Updated for deployment  
 app.get('/', (req, res) => {
     res.json({ message: 'Welcome to VSA Website API' });
 });

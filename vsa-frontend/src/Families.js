@@ -20,7 +20,7 @@ function Families() {
       // Fetch detailed info for each family
       const familiesWithDetails = await Promise.all(
         response.data.families.map(async (family) => {
-          const detailedResponse = await axios.get(`http://localhost:5001/api/families/${family._id}`);
+          const detailedResponse = await api.get(`/api/families/${family._id}`);
           return detailedResponse.data.family;
         })
       );
@@ -39,8 +39,8 @@ function Families() {
     setSuccess('');
 
     try {
-      const response = await axios.post(
-        'http://localhost:5001/api/families',
+      const response = await api.post(
+        '/api/families',
         newFamily,
         {
           headers: {

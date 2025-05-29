@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import api from './api';
 import MainLayout from './MainLayout';
 import { Link } from 'react-router-dom';
 
@@ -24,7 +24,7 @@ function FamiliesLeaderboard() {
           setLoading(false);
           return;
         }
-        const res = await axios.get('http://localhost:5001/api/families/leaderboard', {
+        const res = await api.get('/api/families/leaderboard', {
           headers: { 'x-auth-token': token }
         });
         if (res.data.success && Array.isArray(res.data.families)) {
