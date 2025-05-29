@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import api from './api';
 import { Link, useNavigate } from 'react-router-dom';
 import MainLayout from './MainLayout';
 import ImageCropperModal from './components/ImageCropperModal';
@@ -44,7 +44,7 @@ function Profile() {
     }
     try {
       // Fetch user profile
-      const userRes = await axios.get('http://localhost:5001/api/auth/me', {
+      const userRes = await api.get('/api/auth/me', {
         headers: { 'x-auth-token': token }
       });
       setUser(userRes.data.user);
@@ -54,7 +54,7 @@ function Profile() {
         const familyId = userRes.data.user.family;
         
         // Fetch family details
-        const familyRes = await axios.get(`http://localhost:5001/api/families/${familyId}`, {
+        const familyRes = await api.get(`/api/families/${familyId}`, {
           headers: { 'x-auth-token': token }
         });
         setFamily(familyRes.data.family);
@@ -63,7 +63,7 @@ function Profile() {
         setPostsLoading(true);
         setPostsError('');
         try {
-          const postsRes = await axios.get(`http://localhost:5001/api/posts/family/${familyId}`, {
+          const postsRes = await api.get(`/api/posts/family/${familyId}`, {
             headers: { 'x-auth-token': token }
           });
           setPosts(postsRes.data.posts);
@@ -126,7 +126,7 @@ function Profile() {
 
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.put('http://localhost:5001/api/auth/profile', formData, {
+      const res = await api.put('/api/auth/profile', formData, {
         headers: {
           'x-auth-token': token,
           // 'Content-Type': 'multipart/form-data' // Axios sets this automatically with FormData
@@ -171,7 +171,7 @@ function Profile() {
     setEditLoading(true);
     try {
       const token = localStorage.getItem('token');
-      await axios.put(`http://localhost:5001/api/posts/${postId}`, {
+      await api.put(`/api/posts/${postId}`, {
         title: editTitle,
         content: editContent
       }, {
@@ -182,7 +182,7 @@ function Profile() {
       setEditTitle('');
       setEditContent('');
       // Refresh posts
-       const postsRes = await axios.get(`http://localhost:5001/api/posts/family/${family._id}`, {
+       const postsRes = await api.get(`/api/posts/family/${family._id}`, {
         headers: { 'x-auth-token': token }
       });
       setPosts(postsRes.data.posts);
@@ -197,11 +197,11 @@ function Profile() {
     if (!window.confirm('Are you sure you want to delete this post?')) return;
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`http://localhost:5001/api/posts/${postId}`, {
+      await api.delete(`/api/posts/${postId}`, {
         headers: { 'x-auth-token': token }
       });
       // Refresh posts
-      const postsRes = await axios.get(`http://localhost:5001/api/posts/family/${family._id}`, {
+      const postsRes = await api.get(`/api/posts/family/${family._id}`, {
         headers: { 'x-auth-token': token }
       });
       setPosts(postsRes.data.posts);
@@ -237,7 +237,7 @@ function Profile() {
 
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.put('http://localhost:5001/api/auth/profile', 
+      const res = await api.put('/api/auth/profile', 
         { username: editedUsername },
         {
           headers: {

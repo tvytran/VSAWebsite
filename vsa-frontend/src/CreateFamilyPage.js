@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import MainLayout from './MainLayout';
-import axios from 'axios';
+import api from './api';
 import { useNavigate, Link } from 'react-router-dom';
 
 function CreateFamilyPage() {
@@ -31,9 +31,7 @@ function CreateFamilyPage() {
           'x-auth-token': token
         }
       };
-
-      const res = await axios.post('http://localhost:5001/api/families', formData, config);
-      
+      const res = await api.post('/api/families', formData, config);
       setSuccessData({
         name: res.data.family.name,
         code: res.data.family.code,
@@ -41,7 +39,6 @@ function CreateFamilyPage() {
       });
       setLoading(false);
       setFormData({ name: '', description: '' });
-
     } catch (err) {
       console.error(err.response.data);
       setError(err.response.data.message || 'Failed to create family');

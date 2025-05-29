@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import api from './api';
 import MainLayout from './MainLayout';
 import { Link, useLocation } from 'react-router-dom';
 // import { PlusCircleIcon } from '@heroicons/react/24/solid'; // Temporarily remove icon import
@@ -39,15 +39,15 @@ function DashboardHome() {
       const token = localStorage.getItem('token');
       const userFromStorage = JSON.parse(localStorage.getItem('user') || '{}');
       
-      let postsUrl = 'http://localhost:5001/api/posts/feed'; // Default for regular users
+      let postsUrl = '/api/posts/feed'; // Default for regular users
 
       // If user is admin, fetch all posts
       if (userFromStorage && userFromStorage.role === 'admin') {
-          postsUrl = 'http://localhost:5001/api/posts/all';
+          postsUrl = '/api/posts/all';
       }
 
       console.log('Fetching posts from:', postsUrl); // Debug log
-      const res = await axios.get(postsUrl, {
+      const res = await api.get(postsUrl, {
         headers: { 'x-auth-token': token }
       });
       
@@ -72,7 +72,7 @@ function DashboardHome() {
       const fetchUserData = async () => {
         try {
           const token = localStorage.getItem('token');
-          const res = await axios.get('http://localhost:5001/api/auth/me', {
+          const res = await api.get('/api/auth/me', {
             headers: { 'x-auth-token': token }
           });
           setUser(res.data.user);
@@ -136,7 +136,7 @@ function DashboardHome() {
     try {
       // Fetch the latest post data from the backend
       const token = localStorage.getItem('token');
-      const res = await axios.get(`http://localhost:5001/api/posts/${postId}`, {
+      const res = await api.get(`/api/posts/${postId}`, {
         headers: { 'x-auth-token': token }
       });
       const postToEdit = res.data.post; // Use the fresh post data
@@ -176,7 +176,7 @@ function DashboardHome() {
       }
 
       // Proceed with the PUT request to update the post
-      await axios.put(`http://localhost:5001/api/posts/${postId}`, updatedData, {
+      await api.put(`/api/posts/${postId}`, updatedData, {
         headers: { 'x-auth-token': token }
       });
 
@@ -201,17 +201,17 @@ function DashboardHome() {
     if (!window.confirm('Are you sure you want to delete this post?')) return;
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`http://localhost:5001/api/posts/${postId}`, {
+      await api.delete(`/api/posts/${postId}`, {
         headers: { 'x-auth-token': token }
       });
       // After successful deletion, refetch posts based on user role
       const userFromStorage = JSON.parse(localStorage.getItem('user') || '{}');
-      let postsUrl = 'http://localhost:5001/api/posts/feed';
+      let postsUrl = '/api/posts/feed';
        if (userFromStorage && userFromStorage.role === 'admin') {
-           postsUrl = 'http://localhost:5001/api/posts/all';
+           postsUrl = '/api/posts/all';
        }
 
-      const res = await axios.get(postsUrl, {
+      const res = await api.get(postsUrl, {
         headers: { 'x-auth-token': token }
       });
       const sortedPosts = res.data.posts.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));

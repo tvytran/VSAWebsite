@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from './api';
 import MainLayout from './MainLayout';
 import { useNavigate } from 'react-router-dom';
 
@@ -43,38 +43,28 @@ function AdminDashboard() {
           navigate('/login');
           return;
         }
-
         // Fetch users
-        const usersRes = await axios.get('http://localhost:5001/api/users', {
+        const usersRes = await api.get('/api/users', {
           headers: { 'x-auth-token': token }
         });
-        console.log('Users data:', usersRes.data);
         setUsers(usersRes.data.users || []);
-
         // Fetch families
-        const familiesRes = await axios.get('http://localhost:5001/api/families', {
+        const familiesRes = await api.get('/api/families', {
           headers: { 'x-auth-token': token }
         });
-        console.log('Families data:', familiesRes.data);
         setFamilies(familiesRes.data.families || []);
-        
         // Fetch announcements
-        const announcementsRes = await axios.get('http://localhost:5001/api/posts/announcements', {
+        const announcementsRes = await api.get('/api/posts/announcements', {
            headers: { 'x-auth-token': token }
         });
-        console.log('Announcements data:', announcementsRes.data);
         setAnnouncements(announcementsRes.data.posts || []);
-
         // Fetch all posts for admin view
-        const allPostsRes = await axios.get('http://localhost:5001/api/posts/all', {
+        const allPostsRes = await api.get('/api/posts/all', {
            headers: { 'x-auth-token': token }
         });
-        console.log('All Posts data:', allPostsRes.data);
         setAllPosts(allPostsRes.data.posts || []);
-
         setLoading(false);
       } catch (err) {
-        console.error('Error fetching data:', err);
         setError('Failed to fetch data. Please try again.');
         setLoading(false);
         if (err.response?.status === 403) {
@@ -82,16 +72,14 @@ function AdminDashboard() {
         }
       }
     };
-
     fetchData();
   }, [navigate]);
 
   const handleDeleteUser = async (userId) => {
     if (!window.confirm('Are you sure you want to delete this user?')) return;
-    
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`http://localhost:5001/api/users/${userId}`, {
+      await api.delete(`/api/users/${userId}`, {
         headers: { 'x-auth-token': token }
       });
       setUsers(users.filter(user => user._id !== userId));
@@ -102,10 +90,9 @@ function AdminDashboard() {
 
   const handleDeleteFamily = async (familyId) => {
     if (!window.confirm('Are you sure you want to delete this family? This will also remove all associated posts and files.')) return;
-    
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`http://localhost:5001/api/families/${familyId}`, {
+      await api.delete(`/api/families/${familyId}`, {
         headers: { 'x-auth-token': token }
       });
       setFamilies(families.filter(family => family._id !== familyId));
@@ -116,10 +103,9 @@ function AdminDashboard() {
 
   const handleDeleteAnnouncement = async (announcementId) => {
     if (!window.confirm('Are you sure you want to delete this announcement?')) return;
-    
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`http://localhost:5001/api/posts/${announcementId}`, {
+      await api.delete(`/api/posts/${announcementId}`, {
         headers: { 'x-auth-token': token }
       });
       setAnnouncements(announcements.filter(announcement => announcement._id !== announcementId));
@@ -130,10 +116,9 @@ function AdminDashboard() {
 
   const handleDeletePost = async (postId) => {
     if (!window.confirm('Are you sure you want to delete this post?')) return;
-    
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`http://localhost:5001/api/posts/${postId}`, {
+      await api.delete(`/api/posts/${postId}`, {
         headers: { 'x-auth-token': token }
       });
       setAllPosts(allPosts.filter(post => post._id !== postId));
@@ -165,17 +150,14 @@ function AdminDashboard() {
     setEditLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.put(`http://localhost:5001/api/posts/${postId}`, {
+      const res = await api.put(`/api/posts/${postId}`, {
         title: editTitle,
         content: editContent,
         ...(allPosts.find(post => post._id === postId)?.type === 'hangout' && { pointValue: editPointValue }),
       }, {
         headers: { 'x-auth-token': token }
       });
-      
-      // Update the local state with the edited post
       if (res.data.success) {
-         // Determine if the edited post is an announcement or a regular post
          const updatedPost = res.data.post;
          if (updatedPost.type === 'announcement') {
             setAnnouncements(announcements.map(ann => ann._id === postId ? updatedPost : ann));
@@ -183,13 +165,11 @@ function AdminDashboard() {
             setAllPosts(allPosts.map(post => post._id === postId ? updatedPost : post));
          }
       }
-
       setEditLoading(false);
-      setEditingPostId(null); // Close edit form/modal
+      setEditingPostId(null);
       setEditTitle('');
       setEditContent('');
       setEditPointValue('');
-      
     } catch (err) {
       setEditError(err.response?.data?.message || 'Failed to edit post.');
       setEditLoading(false);
@@ -219,7 +199,7 @@ function AdminDashboard() {
     setEditLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.put(`http://localhost:5001/api/users/${editingUserId}`, {
+      const res = await api.put(`/api/users/${editingUserId}`, {
         username: editUsername,
         email: editEmail,
         role: editRole
@@ -262,7 +242,7 @@ function AdminDashboard() {
     setEditFamilyLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.put(`http://localhost:5001/api/families/${editingFamilyId}`, {
+      const res = await api.put(`/api/families/${editingFamilyId}`, {
         name: editFamilyName,
         description: editFamilyDescription
       }, {

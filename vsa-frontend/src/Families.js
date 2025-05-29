@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from './api';
 import { Link } from 'react-router-dom';
 import MainLayout from './MainLayout';
 
@@ -16,7 +16,7 @@ function Families() {
   // Fetch all families with populated members
   const fetchFamilies = async () => {
     try {
-      const response = await axios.get('http://localhost:5001/api/families');
+      const response = await api.get('/api/families');
       // Fetch detailed info for each family
       const familiesWithDetails = await Promise.all(
         response.data.families.map(async (family) => {

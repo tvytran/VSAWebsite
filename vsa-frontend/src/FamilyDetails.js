@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from './api';
 import MainLayout from './MainLayout';
 // Import placeholder image if you have one, or use a service like Lorem Picsum
 // import placeholderImage from './placeholder.jpg'; 
@@ -79,7 +79,7 @@ function FamilyDetails() {
       try {
         const token = localStorage.getItem('token');
         const config = token ? { headers: { 'x-auth-token': token } } : {};
-        const res = await axios.get('http://localhost:5001/api/families', config);
+        const res = await api.get('/api/families', config);
         // Sort families alphabetically by name
         const sortedFamilies = res.data.families.sort((a, b) => a.name.localeCompare(b.name));
         setAllFamilies(sortedFamilies);
@@ -120,7 +120,7 @@ function FamilyDetails() {
       const config = token ? { headers: { 'x-auth-token': token } } : {};
       console.log('Fetching family - Token available:', !!token); // Log token availability before fetch
 
-      const res = await axios.get(`http://localhost:5001/api/families/${id}`, config);
+      const res = await api.get(`/api/families/${id}`, config);
       console.log('Family fetch successful:', res.data); // Log successful response
       if (res.data && res.data.success && res.data.family) {
          setFamily(res.data.family);
@@ -146,21 +146,16 @@ function FamilyDetails() {
     const fetchPosts = async () => {
       setPostsLoading(true);
       setPostsError('');
-      
       const token = localStorage.getItem('token');
-      console.log('Fetching posts - Token available:', !!token); // Log token availability before fetch
       if (!token) {
-        // If no token, we can't fetch private posts, so show no posts.
         setPosts([]);
         setPostsLoading(false);
         return;
       }
-
       try {
-        const res = await axios.get(`http://localhost:5001/api/posts/family/${id}`, {
+        const res = await api.get(`/api/posts/family/${id}`, {
           headers: { 'x-auth-token': token }
         });
-        // Filter out announcement posts
         const nonAnnouncementPosts = res.data.posts.filter(post => post.type !== 'announcement');
         setPosts(nonAnnouncementPosts);
         setPostsLoading(false);
@@ -208,7 +203,7 @@ function FamilyDetails() {
     try {
       const token = localStorage.getItem('token');
       console.log('Updating family - Token available:', !!token); // Log token availability before update
-      const res = await axios.put(`http://localhost:5001/api/families/${family._id}`, formData, {
+      const res = await api.put(`/api/families/${family._id}`, formData, {
         headers: {
           'x-auth-token': token,
           'Content-Type': 'multipart/form-data'
@@ -232,16 +227,13 @@ function FamilyDetails() {
     e.preventDefault();
     setPostError('');
     setPostLoading(true);
-    
-    if (!currentUserId) { // Ensure userId is available before posting
-         setPostError('User not authenticated.');
-         setPostLoading(false);
-         return;
+    if (!currentUserId) {
+      setPostError('User not authenticated.');
+      setPostLoading(false);
+      return;
     }
-
     try {
       const token = localStorage.getItem('token');
-      console.log('Creating post - Token available:', !!token); // Log token availability before create
       let payload = {
         title: newTitle,
         type: newType,
@@ -257,7 +249,7 @@ function FamilyDetails() {
         }
         payload.pointValue = numPoints;
       }
-      await axios.post('http://localhost:5001/api/posts', payload, {
+      await api.post('/api/posts', payload, {
         headers: { 'x-auth-token': token }
       });
       setNewPost('');
@@ -266,7 +258,7 @@ function FamilyDetails() {
       setPointValue('');
       setPostLoading(false);
       // Refresh posts
-      const res = await axios.get(`http://localhost:5001/api/posts/family/${family._id}`, {
+      const res = await api.get(`/api/posts/family/${family._id}`, {
         headers: { 'x-auth-token': token }
       });
       setPosts(res.data.posts);
@@ -339,7 +331,7 @@ function FamilyDetails() {
       console.log('Editing post - Token available:', !!token);
       console.log('Sending PUT request to:', `http://localhost:5001/api/posts/${editingPostId}`);
       console.log('Data being sent:', updatedData);
-      await axios.put(`http://localhost:5001/api/posts/${editingPostId}`, updatedData, {
+      await api.put(`/api/posts/${editingPostId}`, updatedData, {
         headers: { 'x-auth-token': token }
       });
       console.log('Post update successful.');
@@ -349,7 +341,7 @@ function FamilyDetails() {
       setEditContent('');
       setEditPointValue('');
       setIsAuthor(false);
-      const postsRes = await axios.get(`http://localhost:5001/api/posts/family/${family._id}`, {
+      const postsRes = await api.get(`/api/posts/family/${family._id}`, {
         headers: { 'x-auth-token': token }
       });
       setPosts(postsRes.data.posts);
@@ -372,11 +364,11 @@ function FamilyDetails() {
     try {
       const token = localStorage.getItem('token');
       console.log('Deleting post - Token available:', !!token); // Log token availability before delete
-      await axios.delete(`http://localhost:5001/api/posts/${postId}`, {
+      await api.delete(`/api/posts/${postId}`, {
         headers: { 'x-auth-token': token }
       });
       // Refresh posts
-      const res = await axios.get(`http://localhost:5001/api/posts/family/${family._id}`, {
+      const res = await api.get(`/api/posts/family/${family._id}`, {
         headers: { 'x-auth-token': token }
       });
       setPosts(res.data.posts);
@@ -400,7 +392,7 @@ function FamilyDetails() {
         return;
       }
 
-      await axios.delete(`http://localhost:5001/api/families/${id}`, {
+      await api.delete(`http://localhost:5001/api/families/${id}`, {
         headers: { 'x-auth-token': token }
       });
 

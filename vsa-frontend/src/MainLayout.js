@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import AnnouncementsSidebar from './components/AnnouncementsSidebar';
-import axios from 'axios';
+import api from './api';
 
 function MainLayout({ children }) {
   const isLoggedIn = !!localStorage.getItem('token');
@@ -18,7 +18,7 @@ function MainLayout({ children }) {
       const token = localStorage.getItem('token');
       if (token) {
         try {
-          const res = await axios.get('http://localhost:5001/api/auth/me', {
+          const res = await api.get('/api/auth/me', {
             headers: { 'x-auth-token': token }
           });
           setUserData(res.data.user);
@@ -43,7 +43,7 @@ function MainLayout({ children }) {
         return;
       }
       try {
-        const res = await axios.get('http://localhost:5001/api/families/leaderboard', {
+        const res = await api.get('/api/families/leaderboard', {
           headers: { 'x-auth-token': token }
         });
         if (res.data.success && Array.isArray(res.data.families)) {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from './api';
 import { useNavigate } from 'react-router-dom';
 import MainLayout from './MainLayout';
 
@@ -29,29 +29,26 @@ function CreatePostPage() {
       }
       try {
         // Fetch user profile
-        const userRes = await axios.get('http://localhost:5001/api/auth/me', {
+        const userRes = await api.get('/api/auth/me', {
           headers: { 'x-auth-token': token }
         });
         setUser(userRes.data.user);
 
         // If user is admin, fetch all families for selection
         if (userRes.data.user.role === 'admin') {
-          const familiesRes = await axios.get('http://localhost:5001/api/families', {
+          const familiesRes = await api.get('/api/families', {
              headers: { 'x-auth-token': token }
           });
           setFamilies(familiesRes.data.families);
-          // Optionally set a default selected family if any exist
           if (familiesRes.data.families.length > 0) {
              setSelectedFamilyId(familiesRes.data.families[0]._id);
           }
-        } else if (userRes.data.user.family) { // If user is not admin and has a family
-          // Fetch family details for regular user
-          const familyRes = await axios.get(`http://localhost:5001/api/families/${userRes.data.user.family}`, {
+        } else if (userRes.data.user.family) {
+          const familyRes = await api.get(`/api/families/${userRes.data.user.family}`, {
             headers: { 'x-auth-token': token }
           });
           setFamily(familyRes.data.family);
         } else {
-          // Handle case where a regular user is not in a family
           setError('You must be part of a family to create posts.');
         }
         setLoading(false);
@@ -68,45 +65,37 @@ function CreatePostPage() {
     e.preventDefault();
     setPostError('');
     setPostLoading(true);
-
-    // Determine the family ID to use for the post
     const targetFamilyId = user?.role === 'admin' ? selectedFamilyId : family?._id;
-
     if (!targetFamilyId) {
       setPostError('Please select a family or join one to create a post.');
       setPostLoading(false);
       return;
     }
-
     const formData = new FormData();
     formData.append('title', newTitle);
     formData.append('type', newType);
     formData.append('content', newPost);
-    formData.append('family', targetFamilyId); // Use the determined family ID
-
+    formData.append('family', targetFamilyId);
     if (newType === 'hangout' && pointValue) {
         formData.append('pointValue', pointValue);
     }
     if (image) {
-        formData.append('image', image); // Append the image file
+        formData.append('image', image);
     }
-
     try {
-      await axios.post('http://localhost:5001/api/posts', formData, {
+      await api.post('/api/posts', formData, {
         headers: {
           'x-auth-token': localStorage.getItem('token'),
-           // 'Content-Type': 'multipart/form-data' // axios handles this automatically with FormData
         }
       });
-      // Post successful, clear form and show success message
       setNewTitle('');
       setNewType('hangout');
       setNewPost('');
       setPointValue('');
-      setImage(null); // Clear selected image
+      setImage(null);
       setPostLoading(false);
-      setPostSuccess(true); // Set success to true
-      navigate('/dashboard'); // Navigate to dashboard after successful post
+      setPostSuccess(true);
+      navigate('/dashboard');
     } catch (err) {
       console.error('Post creation error:', err.response?.data?.message || err.message);
       setPostError(err.response?.data?.message || 'Failed to create post.');

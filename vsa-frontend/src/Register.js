@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import api from './api';
 import PlusCircleIcon from '@heroicons/react/24/solid/PlusCircleIcon'; // Import PlusCircleIcon directly
 import { Link } from 'react-router-dom';
 //import './Register.css';
@@ -17,7 +17,7 @@ function Register({ onRegister }) {
     setError('');
     setSuccess('');
     try {
-      const res = await axios.post('http://localhost:5001/api/auth/register', {
+      const res = await api.post('/api/auth/register', {
         username,
         email,
         password,

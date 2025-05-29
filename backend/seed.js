@@ -2,8 +2,10 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const User = require('./models/User');
 const Family = require('./models/Family');
+require('dotenv').config();
 
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/vsa_website';
+const MONGO_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/vsa_website';
+console.log('Connecting to:', MONGO_URI);
 
 async function seed() {
   await mongoose.connect(MONGO_URI);
@@ -16,6 +18,7 @@ async function seed() {
     family = new Family({
       name: familyName,
       description: familyDescription,
+      code: '123456',
       members: [],
       totalPoints: 0
     });
