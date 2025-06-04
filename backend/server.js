@@ -16,6 +16,7 @@ app.use(cors({
   origin: allowedOrigins,
   credentials: true
 }));
+//
 app.use(express.json()); //using express.json
 app.use('/uploads', express.static('uploads')); // Serve uploaded files (for photos)
 app.use(express.urlencoded({ extended: true }));
