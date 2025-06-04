@@ -244,25 +244,47 @@ router.get('/me', auth, async (req, res) => {
 // @access  Private
 router.put('/profile', auth, upload.single('profilePicture'), async (req, res) => {
   try {
+    console.log('Token decoded successfully:', req.user);
+
     const user = await User.findById(req.user.id);
-    if (!user) return res.status(404).json({ message: 'User not found' });
-    if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
+    console.log('User found:', user);
+
+    if (!user) {
+      console.log('User not found');
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (!req.file) {
+      console.log('No file uploaded');
+      return res.status(400).json({ message: 'No file uploaded' });
+    }
 
     const supabase = require('../supabaseClient');
     const fileExt = req.file.originalname.split('.').pop();
     const fileName = `profiles/${user._id}_${Date.now()}.${fileExt}`;
+    console.log('Uploading to Supabase:', fileName);
+
     const { data, error } = await supabase.storage
       .from(process.env.SUPABASE_BUCKET)
       .upload(fileName, req.file.buffer, {
         contentType: req.file.mimetype,
         upsert: true,
       });
-    if (error) return res.status(500).json({ message: error.message });
+
+    if (error) {
+      console.log('Supabase upload error:', error);
+      return res.status(500).json({ message: error.message });
+    }
+
     const { publicUrl } = supabase.storage
       .from(process.env.SUPABASE_BUCKET)
       .getPublicUrl(fileName).data;
+    console.log('Supabase public URL:', publicUrl);
+
     user.profilePicture = publicUrl;
     await user.save();
+    console.log('User updated with new profile picture.');
+
     res.json({ success: true, profilePicture: publicUrl });
   } catch (err) {
     console.error('Error in profile picture upload route:', err);
