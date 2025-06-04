@@ -8,8 +8,14 @@ const app = express(); //creating express app
 
 const port = process.env.PORT || 5001; //setting port
 
-//middleware
-app.use(cors()); //using cors
+const allowedOrigins = [
+  'http://localhost:3000',
+  'https://anhchiem.vercel.app'
+];
+app.use(cors({
+  origin: allowedOrigins,
+  credentials: true
+}));
 app.use(express.json()); //using express.json
 app.use('/uploads', express.static('uploads')); // Serve uploaded files (for photos)
 app.use(express.urlencoded({ extended: true }));
