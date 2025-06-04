@@ -179,7 +179,7 @@ function MainLayout({ children }) {
               <div className="w-24 h-24 bg-[#e0c9a6] rounded-full flex items-center justify-center text-white text-4xl font-bold overflow-hidden ring-4 ring-[#faecd8] group-hover:ring-[#EFB639] transition-all duration-300 ease-in-out">
                 {userData && userData.profilePicture ? (
                   <img
-                    src={`http://localhost:5001${userData.profilePicture}`}
+                    src={userData.profilePicture}
                     alt="Profile"
                     className="w-full h-full object-cover"
                   />

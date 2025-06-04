@@ -281,8 +281,13 @@ router.put('/profile', auth, upload.single('profilePicture'), async (req, res) =
       .getPublicUrl(fileName).data;
     console.log('Supabase public URL:', publicUrl);
 
+    // Debug log before updating user
+    console.log('About to update user with new profile picture:', user._id);
+
     user.profilePicture = publicUrl;
     await user.save();
+
+    // Debug log after updating user
     console.log('User updated with new profile picture.');
 
     res.json({ success: true, profilePicture: publicUrl });

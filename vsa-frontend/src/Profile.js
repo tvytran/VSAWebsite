@@ -340,7 +340,7 @@ function Profile() {
               <div className="w-20 h-20 rounded-full overflow-hidden mr-4 border-2 border-[#b32a2a]">
                 {user.profilePicture ? (
                   <img 
-                    src={`http://localhost:5001${user.profilePicture}`} 
+                    src={user.profilePicture} 
                     alt={user.username} 
                     className="w-full h-full object-cover"
                   />
