@@ -20,6 +20,7 @@
   },
   "homepage": "https://github.com/tvytran/VSAWebsite#readme",
   "dependencies": {
+    "@supabase/supabase-js": "^2.49.10",
     "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",

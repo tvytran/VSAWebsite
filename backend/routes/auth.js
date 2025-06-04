@@ -25,17 +25,7 @@ const storage = multer.diskStorage({
   }
 });
 
-const upload = multer({
-  storage: storage,
-  limits: { fileSize: 5000000 }, // Increased limit to 5MB
-  fileFilter: function(req, file, cb) {
-    // Allow images only
-    if (!file.originalname.match(/\.(jpg|jpeg|png|gif)$/i)) {
-      return cb(new Error('Only image files are allowed!'), false);
-    }
-    cb(null, true);
-  }
-});
+const upload = multer({ storage: multer.memoryStorage() });
 
 // @route   POST /api/auth/register
 // @desc    Register a new user
@@ -255,51 +245,28 @@ router.get('/me', auth, async (req, res) => {
 router.put('/profile', auth, upload.single('profilePicture'), async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
-    if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found' });
-    }
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
 
-    // Handle file upload
-    if (req.file) {
-      // Delete old profile picture if it exists and is not the default
-      if (user.profilePicture && user.profilePicture !== '/uploads/profiles/default.png') { // Assuming a default image path
-        const oldImagePath = path.join(__dirname, '..' , 'public', user.profilePicture);
-        fs.unlink(oldImagePath, (err) => {
-          if (err) console.error('Failed to delete old profile picture:', err);
-        });
-      }
-      user.profilePicture = `/uploads/profiles/${req.file.filename}`;
-    }
-
-    // Update username if provided and is different
-    if (req.body.username && req.body.username !== user.username) {
-        // Check if username already exists
-        const existingUserWithUsername = await User.findOne({ username: req.body.username });
-        if (existingUserWithUsername) {
-            return res.status(400).json({ success: false, message: 'Username already taken' });
-        }
-        user.username = req.body.username;
-    }
-
-    // Update other profile fields if needed (e.g., email - handle validation/constraints carefully)
-    // If you want to update other fields, add them here with appropriate validation
-
+    const supabase = require('../supabaseClient');
+    const fileExt = req.file.originalname.split('.').pop();
+    const fileName = `profiles/${user._id}_${Date.now()}.${fileExt}`;
+    const { data, error } = await supabase.storage
+      .from(process.env.SUPABASE_BUCKET)
+      .upload(fileName, req.file.buffer, {
+        contentType: req.file.mimetype,
+        upsert: true,
+      });
+    if (error) return res.status(500).json({ message: error.message });
+    const { publicUrl } = supabase.storage
+      .from(process.env.SUPABASE_BUCKET)
+      .getPublicUrl(fileName).data;
+    user.profilePicture = publicUrl;
     await user.save();
-
-    // Return updated user data (excluding password)
-    const updatedUser = await User.findById(req.user.id).select('-password');
-    res.json({ success: true, user: updatedUser });
-
+    res.json({ success: true, profilePicture: publicUrl });
   } catch (err) {
     console.error('Error in profile picture upload route:', err);
-    // Handle multer errors specifically
-    if (err.message === 'Only image files are allowed!') {
-         return res.status(400).json({ success: false, message: err.message });
-    }
-    if (err.code === 'LIMIT_FILE_SIZE') {
-        return res.status(400).json({ success: false, message: 'File size limit (5MB) exceeded' });
-    }
-    res.status(500).json({ success: false, message: 'Server Error' });
+    res.status(500).json({ message: 'Server error' });
   }
 });
 
