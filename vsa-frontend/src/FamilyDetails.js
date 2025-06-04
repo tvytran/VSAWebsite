@@ -392,7 +392,7 @@ function FamilyDetails() {
         return;
       }
 
-      await api.delete(`http://localhost:5001/api/families/${id}`, {
+      await api.delete(`/api/families/${id}`, {
         headers: { 'x-auth-token': token }
       });
 
