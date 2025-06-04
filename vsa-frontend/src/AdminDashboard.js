@@ -435,7 +435,7 @@ function AdminDashboard() {
                                     {user.profilePicture ? (
                                       <img
                                         className="h-10 w-10 rounded-full"
-                                        src={`http://localhost:5001${user.profilePicture}`}
+                                        src={user.profilePicture}
                                         alt=""
                                       />
                                     ) : (
@@ -684,7 +684,7 @@ function AdminDashboard() {
                               {post.author?.profilePicture ? (
                                 <img
                                   className="h-8 w-8 rounded-full mr-2"
-                                  src={`http://localhost:5001${post.author.profilePicture}`}
+                                  src={post.author.profilePicture}
                                   alt=""
                                 />
                               ) : (

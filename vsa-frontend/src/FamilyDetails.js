@@ -329,7 +329,7 @@ function FamilyDetails() {
     try {
       const token = localStorage.getItem('token');
       console.log('Editing post - Token available:', !!token);
-      console.log('Sending PUT request to:', `http://localhost:5001/api/posts/${editingPostId}`);
+      // console.log('Sending PUT request to:', `/api/posts/${editingPostId}`); // Removed hardcoded localhost for production
       console.log('Data being sent:', updatedData);
       await api.put(`/api/posts/${editingPostId}`, updatedData, {
         headers: { 'x-auth-token': token }
@@ -539,7 +539,7 @@ function FamilyDetails() {
                {/* Image Preview or Placeholder */}
               {(selectedFamilyFile || family.familyPicture) ? (
                 <img 
-                  src={selectedFamilyFile ? URL.createObjectURL(selectedFamilyFile) : `http://localhost:5001${family.familyPicture}?v=${new Date().getTime()}`}
+                  src={selectedFamilyFile ? URL.createObjectURL(selectedFamilyFile) : `${family.familyPicture}?v=${new Date().getTime()}`}
                   alt="Family" 
                   className="w-48 h-48 object-cover rounded-full mb-4 border-4 border-[#b32a2a]"
                 />
@@ -568,7 +568,7 @@ function FamilyDetails() {
             </div>
           ) : (
             (family.familyPicture ? (
-              <img src={`http://localhost:5001${family.familyPicture}?v=${new Date().getTime()}`} alt="Family" className="w-48 h-48 object-cover rounded-full mx-auto mb-4 border-4 border-[#b32a2a]" />
+              <img src={`${family.familyPicture}?v=${new Date().getTime()}`} alt="Family" className="w-48 h-48 object-cover rounded-full mx-auto mb-4 border-4 border-[#b32a2a]" />
             ) : (
               <div className="w-48 h-48 rounded-full bg-[#b32a2a] flex items-center justify-center text-white text-6xl font-bold mx-auto mb-4 border-4 border-[#b32a2a]">
                 {family.name?.charAt(0).toUpperCase()}
@@ -659,7 +659,7 @@ function FamilyDetails() {
                   onClick={() => setExpandedPostId(expandedPostId === post._id ? null : post._id)}
                 >
                   <img
-                    src={`http://localhost:5001${post.imageUrl}`}
+                    src={post.imageUrl}
                     alt="Family Post Image"
                     className="w-full h-full object-cover"
                   />
@@ -667,7 +667,7 @@ function FamilyDetails() {
                   <div className="absolute bottom-2 right-2 w-8 h-8 rounded-full overflow-hidden border-2 border-white shadow-md">
                     {post.author.profilePicture ? (
                       <img 
-                        src={`http://localhost:5001${post.author.profilePicture}`} 
+                        src={post.author.profilePicture}
                         alt={post.author.username} 
                         className="w-full h-full object-cover"
                       />
@@ -702,7 +702,7 @@ function FamilyDetails() {
                      <h3 className="text-xl font-bold mb-2 text-gray-800">{post.title}</h3>
                      {post.imageUrl && (
                        <img
-                         src={`http://localhost:5001${post.imageUrl}`}
+                         src={post.imageUrl}
                          alt="Family Post Image"
                          className="w-full object-contain rounded-md mb-4"
                        />

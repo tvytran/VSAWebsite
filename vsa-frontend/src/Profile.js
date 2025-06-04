@@ -457,7 +457,7 @@ function Profile() {
                             <div className="w-10 h-10 rounded-full overflow-hidden mr-3">
                               {post.author?.profilePicture ? (
                                 <img 
-                                  src={`http://localhost:5001${post.author.profilePicture}`} 
+                                  src={post.author.profilePicture}
                                   alt={post.author.username} 
                                   className="w-full h-full object-cover"
                                 />

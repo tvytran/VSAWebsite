@@ -445,7 +445,7 @@ function DashboardHome() {
                   {post.imageUrl && (
                     <div className="mb-3">
                       <img 
-                        src={`http://localhost:5001${post.imageUrl}`} 
+                        src={post.imageUrl}
                         alt="Post" 
                         className="w-full h-96 object-contain rounded-t-lg" 
                       />
@@ -455,7 +455,7 @@ function DashboardHome() {
                     <div className="w-10 h-10 rounded-full overflow-hidden mr-3">
                       {post.author?.profilePicture ? (
                         <img 
-                          src={`http://localhost:5001${post.author.profilePicture}`} 
+                          src={post.author.profilePicture}
                           alt={post.author.username} 
                           className="w-full h-full object-cover"
                         />
