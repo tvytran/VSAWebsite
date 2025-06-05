@@ -97,17 +97,17 @@ function DashboardHome() {
     const filtered = posts.filter(post => 
       post.title.toLowerCase().includes(lowerCaseSearchTerm) ||
       post.content.toLowerCase().includes(lowerCaseSearchTerm) ||
-      post.author?.username?.toLowerCase().includes(lowerCaseSearchTerm)
+      post.author_id?.username?.toLowerCase().includes(lowerCaseSearchTerm)
     );
     setFilteredPosts(filtered);
   }, [posts, searchTerm]);
 
    const startEdit = (post) => {
-    setEditingPostId(post._id);
+    setEditingPostId(post.id);
     setEditTitle(post.title);
     setEditContent(post.content);
     const currentUser = JSON.parse(localStorage.getItem('user'));
-    const isCurrentUserAuthor = post.author?._id === currentUser?.id;
+    const isCurrentUserAuthor = post.author_id?._id === currentUser?.id;
     const isCurrentUserAdmin = currentUser?.role === 'admin';
 
     if (post.type === 'hangout' && (isCurrentUserAuthor || isCurrentUserAdmin)) {
@@ -150,7 +150,7 @@ function DashboardHome() {
 
       // Re-check authorization based on the fresh post data
       const currentUser = JSON.parse(localStorage.getItem('user'));
-      const isCurrentUserAuthor = postToEdit.author?._id === currentUser?.id;
+      const isCurrentUserAuthor = postToEdit.author_id?._id === currentUser?.id;
       const isCurrentUserAdmin = currentUser?.role === 'admin';
 
       if (!isCurrentUserAuthor && !isCurrentUserAdmin) {
@@ -437,7 +437,7 @@ function DashboardHome() {
             <div className="space-y-4">
               {filteredPosts.map(post => (
                 <div 
-                  key={post._id} 
+                  key={post.id} 
                   className={`rounded-lg shadow-sm p-3 hover:shadow-md transition-shadow duration-200 ${
                     post.type === 'announcement' ? 'bg-red-100 border-4 border-solid border-[#b32a2a]' : 'bg-white border border-gray-200'
                   }`}
@@ -453,23 +453,23 @@ function DashboardHome() {
                   )}
                   <div className="flex items-center mb-4">
                     <div className="w-10 h-10 rounded-full overflow-hidden mr-3">
-                      {post.author?.profilePicture ? (
+                      {post.author_id?.profilePicture ? (
                         <img 
-                          src={post.author.profilePicture}
-                          alt={post.author.username} 
+                          src={post.author_id.profilePicture}
+                          alt={post.author_id.username} 
                           className="w-full h-full object-cover"
                         />
                       ) : (
                         <div className="w-full h-full bg-[#b32a2a] flex items-center justify-center text-white font-bold">
-                          {post.author?.username?.charAt(0).toUpperCase()}
+                          {post.author_id?.username?.charAt(0).toUpperCase()}
                         </div>
                       )}
                     </div>
                     <div>
                       <div className="font-semibold text-gray-800">
-                        {post.author?.username}
-                        {post.family?.name && (
-                          <span className="ml-2 text-gray-600 text-sm">({post.family.name})</span>
+                        {post.author_id?.username}
+                        {post.family_id?.name && (
+                          <span className="ml-2 text-gray-600 text-sm">({post.family_id.name})</span>
                         )}
                         {post.type === 'announcement' && (
                           <span className="ml-2 text-[#b32a2a] font-bold">(Admin)</span>
@@ -479,15 +479,15 @@ function DashboardHome() {
                     </div>
 
                     {/* Three dots menu for edit/delete - visible only to author */}
-                    {isLoggedIn && (user?._id === post.author?._id || user?.role === 'admin') && (
+                    {isLoggedIn && (user?._id === post.author_id?._id || user?.role === 'admin') && (
                       <div className="ml-auto relative">
                         <button
-                          onClick={() => setShowMenuId(showMenuId === post._id ? null : post._id)}
+                          onClick={() => setShowMenuId(showMenuId === post.id ? null : post.id)}
                           className="text-gray-500 hover:text-gray-700 focus:outline-none z-10"
                         >
                           &#8226;&#8226;&#8226;
                         </button>
-                        {showMenuId === post._id && (
+                        {showMenuId === post.id && (
                           <div className="absolute top-0 right-0 mt-6 w-48 bg-white rounded-md shadow-lg z-10">
                             <button
                               className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
@@ -501,7 +501,7 @@ function DashboardHome() {
                             <button
                               className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
                               onClick={() => {
-                                handleDeletePost(post._id);
+                                handleDeletePost(post.id);
                                 setShowMenuId(null);
                               }}
                             >
@@ -514,8 +514,8 @@ function DashboardHome() {
                   </div>
 
                   {/* Conditional rendering for Edit Form or Post Content */}
-                  {editingPostId === post._id ? (
-                    <form onSubmit={(e) => handleEditPost(e, post._id)} className="mb-2 flex flex-col gap-2">
+                  {editingPostId === post.id ? (
+                    <form onSubmit={(e) => handleEditPost(e, post.id)} className="mb-2 flex flex-col gap-2">
                       <input
                         className="p-2 border border-gray-300 rounded-lg"
                         value={editTitle}
@@ -561,7 +561,7 @@ function DashboardHome() {
                         {post.title}
                       </h3>
                       <div className="text-gray-700 mb-2">
-                        {truncateText(post.content, post._id)}
+                        {truncateText(post.content, post.id)}
                         {post.hangoutDetails?.pointValue > 0 && (
                           <span className="ml-2 text-green-600 font-semibold">[{post.hangoutDetails.pointValue} pts]</span>
                         )}

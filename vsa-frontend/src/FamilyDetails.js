@@ -95,20 +95,20 @@ function FamilyDetails() {
   }, []);
 
   // Determine the index of the current family in the allFamilies array
-  const currentFamilyIndex = allFamilies.findIndex(fam => fam._id === id);
+  const currentFamilyIndex = allFamilies.findIndex(fam => fam.id === id);
   const hasPreviousFamily = currentFamilyIndex > 0;
   const hasNextFamily = currentFamilyIndex !== -1 && currentFamilyIndex < allFamilies.length - 1;
 
   const navigateToPreviousFamily = () => {
     if (hasPreviousFamily) {
-      const previousFamilyId = allFamilies[currentFamilyIndex - 1]._id;
+      const previousFamilyId = allFamilies[currentFamilyIndex - 1].id;
       navigate(`/families/${previousFamilyId}`);
     }
   };
 
   const navigateToNextFamily = () => {
     if (hasNextFamily) {
-      const nextFamilyId = allFamilies[currentFamilyIndex + 1]._id;
+      const nextFamilyId = allFamilies[currentFamilyIndex + 1].id;
       navigate(`/families/${nextFamilyId}`);
     }
   };
@@ -177,7 +177,7 @@ function FamilyDetails() {
 
   // Helper: check if current user is a member - now depends on currentUserId state
   // The calculation will happen on each render, but currentUserId is set in useEffect
-  const isMember = family && family.members && currentUserId && family.members.some(m => (m._id || m) === currentUserId);
+  const isMember = family && family.members && currentUserId && family.members.some(m => (m.id || m) === currentUserId);
 
   // Handle file selection for family picture
   const handleFamilyFileChange = (event) => {
@@ -203,7 +203,7 @@ function FamilyDetails() {
     try {
       const token = localStorage.getItem('token');
       console.log('Updating family - Token available:', !!token); // Log token availability before update
-      const res = await api.put(`/api/families/${family._id}`, formData, {
+      const res = await api.put(`/api/families/${family.id}`, formData, {
         headers: {
           'x-auth-token': token,
           'Content-Type': 'multipart/form-data'
@@ -238,7 +238,7 @@ function FamilyDetails() {
         title: newTitle,
         type: newType,
         content: newPost,
-        family: family._id
+        family: family.id
       };
       if (newType === 'hangout') {
         const numPoints = Number(pointValue);
@@ -258,7 +258,7 @@ function FamilyDetails() {
       setPointValue('');
       setPostLoading(false);
       // Refresh posts
-      const res = await api.get(`/api/posts/family/${family._id}`, {
+      const res = await api.get(`/api/posts/family/${family.id}`, {
         headers: { 'x-auth-token': token }
       });
       setPosts(res.data.posts);
@@ -270,11 +270,11 @@ function FamilyDetails() {
   };
 
   const startEdit = (post) => {
-    setEditingPostId(post._id);
+    setEditingPostId(post.id);
     setEditTitle(post.title);
     setEditContent(post.content);
     const currentUser = JSON.parse(localStorage.getItem('user'));
-    const isCurrentUserAuthor = post.author?._id === currentUser?.id;
+    const isCurrentUserAuthor = post.author_id === currentUser?.id;
     const isCurrentUserAdmin = currentUser?.role === 'admin';
 
     if (post.type === 'hangout' && (isCurrentUserAuthor || isCurrentUserAdmin)) {
@@ -300,7 +300,7 @@ function FamilyDetails() {
     setEditError('');
     setEditLoading(true);
 
-    const postToEdit = posts.find(post => post._id === editingPostId);
+    const postToEdit = posts.find(post => post.id === editingPostId);
     if (!postToEdit) {
         setEditError('Post not found for editing.');
         setEditLoading(false);
@@ -341,7 +341,7 @@ function FamilyDetails() {
       setEditContent('');
       setEditPointValue('');
       setIsAuthor(false);
-      const postsRes = await api.get(`/api/posts/family/${family._id}`, {
+      const postsRes = await api.get(`/api/posts/family/${family.id}`, {
         headers: { 'x-auth-token': token }
       });
       setPosts(postsRes.data.posts);
@@ -368,7 +368,7 @@ function FamilyDetails() {
         headers: { 'x-auth-token': token }
       });
       // Refresh posts
-      const res = await api.get(`/api/posts/family/${family._id}`, {
+      const res = await api.get(`/api/posts/family/${family.id}`, {
         headers: { 'x-auth-token': token }
       });
       setPosts(res.data.posts);
@@ -633,7 +633,7 @@ function FamilyDetails() {
         <div className="mb-6 text-lg text-[#b32a2a] font-semibold">
           {family.members && family.members.length > 0 ? (
             family.members.map((member, index) => (
-              <span key={member._id || member}>
+              <span key={member.id || member}>
                 {member.username || member.email || member}
                 {index < family.members.length - 1 && ' • '}
               </span>
@@ -652,11 +652,11 @@ function FamilyDetails() {
         {posts.some(post => post.imageUrl) && (
           <div className="grid grid-cols-3 gap-4 mb-6">
             {posts.map(post => (
-              post.imageUrl && post.author && (
+              post.imageUrl && post.author_id && (
                 <div 
-                  key={post._id} 
+                  key={post.id} 
                   className="aspect-square rounded overflow-hidden bg-gray-200 cursor-pointer hover:opacity-90 transition-opacity duration-200 relative"
-                  onClick={() => setExpandedPostId(expandedPostId === post._id ? null : post._id)}
+                  onClick={() => setExpandedPostId(expandedPostId === post.id ? null : post.id)}
                 >
                   <img
                     src={post.imageUrl}
@@ -665,15 +665,15 @@ function FamilyDetails() {
                   />
                   {/* Author Profile Picture Overlay */}
                   <div className="absolute bottom-2 right-2 w-8 h-8 rounded-full overflow-hidden border-2 border-white shadow-md">
-                    {post.author.profilePicture ? (
+                    {post.author_id.profilePicture ? (
                       <img 
-                        src={post.author.profilePicture}
-                        alt={post.author.username} 
+                        src={post.author_id.profilePicture}
+                        alt={post.author_id.username} 
                         className="w-full h-full object-cover"
                       />
                     ) : (
                       <div className="w-full h-full bg-[#b32a2a] flex items-center justify-center text-white text-xs font-bold">
-                        {post.author.username?.charAt(0).toUpperCase()}
+                        {post.author_id.username?.charAt(0).toUpperCase()}
                       </div>
                     )}
                   </div>
@@ -685,7 +685,7 @@ function FamilyDetails() {
 
         {/* Expanded Post View */}
         {expandedPostId && posts.length > 0 && (
-          posts.find(post => post._id === expandedPostId) ? (
+          posts.find(post => post.id === expandedPostId) ? (
             <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
               <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto relative p-6">
                 {/* Close Button */}
@@ -697,8 +697,8 @@ function FamilyDetails() {
                 </button>
 
                 {/* Expanded Post Content */}
-                {posts.filter(post => post._id === expandedPostId).map(post => (
-                   <div key={post._id} className="flex flex-col items-center">
+                {posts.filter(post => post.id === expandedPostId).map(post => (
+                   <div key={post.id} className="flex flex-col items-center">
                      <h3 className="text-xl font-bold mb-2 text-gray-800">{post.title}</h3>
                      {post.imageUrl && (
                        <img
@@ -711,9 +711,9 @@ function FamilyDetails() {
                         {truncateText(post.content)}
                      </div>
                      {/* Add more post details as needed, like author, date, points */}
-                      {post.author && (
+                      {post.author_id && (
                         <div className="w-full text-left text-sm text-gray-600 mb-2">
-                           Posted by {post.author.username} on {new Date(post.createdAt).toLocaleString()}
+                           Posted by {post.author_id.username} on {new Date(post.createdAt).toLocaleString()}
                         </div>
                       )}
                        {post.hangoutDetails?.pointValue > 0 && (

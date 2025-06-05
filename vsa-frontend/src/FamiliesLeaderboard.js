@@ -71,7 +71,7 @@ function FamiliesLeaderboard() {
         ) : (
           <div className="grid gap-6">
             {filteredFamilies.map((family, index) => (
-              <div key={family._id} className="bg-white rounded-lg shadow-md p-6">
+              <div key={family.id} className="bg-white rounded-lg shadow-md p-6">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center">
                     <span className={`text-2xl font-bold mr-4 ${index === 0 ? 'text-yellow-500' : index === 1 ? 'text-gray-400' : index === 2 ? 'text-amber-700' : 'text-[#b32a2a]'}`}>#{index + 1}</span>
@@ -84,7 +84,7 @@ function FamiliesLeaderboard() {
                 <div className="mt-2 flex flex-wrap gap-2">
                   {family.members && family.members.length > 0 ? (
                     family.members.map(member => (
-                      <span key={member._id || member} className="bg-gray-200 text-gray-700 text-sm px-3 py-1 rounded-full">
+                      <span key={member.author_id || member} className="bg-gray-200 text-gray-700 text-sm px-3 py-1 rounded-full">
                         {member.username || member.email || member}
                       </span>
                     ))
@@ -94,7 +94,7 @@ function FamiliesLeaderboard() {
                 </div>
                 <div className="mt-4">
                   <Link
-                    to={`/families/${family._id}`}
+                    to={`/families/${family.id}`}
                     className="px-4 py-2 bg-[#b32a2a] text-white rounded-lg hover:bg-[#8a1f1f] transition text-sm"
                   >
                     View Family

@@ -95,7 +95,7 @@ function AdminDashboard() {
       await api.delete(`/api/families/${familyId}`, {
         headers: { 'x-auth-token': token }
       });
-      setFamilies(families.filter(family => family._id !== familyId));
+      setFamilies(families.filter(family => family.id !== familyId));
     } catch (err) {
       alert('Failed to delete family: ' + (err.response?.data?.message || err.message));
     }
@@ -108,7 +108,7 @@ function AdminDashboard() {
       await api.delete(`/api/posts/${announcementId}`, {
         headers: { 'x-auth-token': token }
       });
-      setAnnouncements(announcements.filter(announcement => announcement._id !== announcementId));
+      setAnnouncements(announcements.filter(announcement => announcement.id !== announcementId));
     } catch (err) {
       alert('Failed to delete announcement: ' + (err.response?.data?.message || err.message));
     }
@@ -121,7 +121,7 @@ function AdminDashboard() {
       await api.delete(`/api/posts/${postId}`, {
         headers: { 'x-auth-token': token }
       });
-      setAllPosts(allPosts.filter(post => post._id !== postId));
+      setAllPosts(allPosts.filter(post => post.id !== postId));
     } catch (err) {
       alert('Failed to delete post: ' + (err.response?.data?.message || err.message));
     }
@@ -129,7 +129,7 @@ function AdminDashboard() {
 
   // Functions for editing posts/announcements
   const startEdit = (post) => {
-    setEditingPostId(post._id);
+    setEditingPostId(post.id);
     setEditTitle(post.title);
     setEditContent(post.content);
     setEditPointValue(post.hangoutDetails?.pointValue?.toString() || '');
@@ -153,16 +153,16 @@ function AdminDashboard() {
       const res = await api.put(`/api/posts/${postId}`, {
         title: editTitle,
         content: editContent,
-        ...(allPosts.find(post => post._id === postId)?.type === 'hangout' && { pointValue: editPointValue }),
+        ...(allPosts.find(post => post.id === postId)?.type === 'hangout' && { pointValue: editPointValue }),
       }, {
         headers: { 'x-auth-token': token }
       });
       if (res.data.success) {
          const updatedPost = res.data.post;
          if (updatedPost.type === 'announcement') {
-            setAnnouncements(announcements.map(ann => ann._id === postId ? updatedPost : ann));
+            setAnnouncements(announcements.map(ann => ann.id === postId ? updatedPost : ann));
          } else {
-            setAllPosts(allPosts.map(post => post._id === postId ? updatedPost : post));
+            setAllPosts(allPosts.map(post => post.id === postId ? updatedPost : post));
          }
       }
       setEditLoading(false);
@@ -223,7 +223,7 @@ function AdminDashboard() {
 
   // Functions for editing families
   const startEditFamily = (family) => {
-    setEditingFamilyId(family._id);
+    setEditingFamilyId(family.id);
     setEditFamilyName(family.name);
     setEditFamilyDescription(family.description || '');
     setEditFamilyError('');
@@ -250,7 +250,7 @@ function AdminDashboard() {
       });
       
       if (res.data.success) {
-        setFamilies(families.map(family => family._id === editingFamilyId ? res.data.family : family));
+        setFamilies(families.map(family => family.id === editingFamilyId ? res.data.family : family));
         setEditFamilyLoading(false);
         setEditingFamilyId(null);
         setEditFamilyName('');
@@ -521,8 +521,8 @@ function AdminDashboard() {
                     </thead>
                     <tbody className="divide-y divide-gray-200 bg-white">
                       {families.map((family, familyIdx) => (
-                        <tr key={family._id} className={familyIdx % 2 === 0 ? undefined : 'bg-gray-50'}>
-                          {editingFamilyId === family._id ? (
+                        <tr key={family.id} className={familyIdx % 2 === 0 ? undefined : 'bg-gray-50'}>
+                          {editingFamilyId === family.id ? (
                             <>
                               <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm sm:pl-6 w-1/5 overflow-hidden text-ellipsis">
                                 <input
@@ -601,7 +601,7 @@ function AdminDashboard() {
                                     Edit
                                   </button>
                                   <button
-                                    onClick={() => handleDeleteFamily(family._id)}
+                                    onClick={() => handleDeleteFamily(family.id)}
                                     className="text-red-600 hover:text-red-900"
                                   >
                                     Delete
@@ -654,7 +654,7 @@ function AdminDashboard() {
                     </thead>
                     <tbody className="divide-y divide-gray-200 bg-white">
                       {allPosts.map((post, postIdx) => (
-                        <tr key={post._id} className={postIdx % 2 === 0 ? undefined : 'bg-gray-50'}>
+                        <tr key={post.id} className={postIdx % 2 === 0 ? undefined : 'bg-gray-50'}>
                           <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6 w-1/5 overflow-hidden text-ellipsis">
                             <h3 className="text-sm font-medium text-gray-900">{post.title}</h3>
                           </td>
@@ -677,22 +677,22 @@ function AdminDashboard() {
                           </td>
                           <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 w-1/6 overflow-hidden text-ellipsis">
                             <div className="flex items-center">
-                              {post.author?.profilePicture ? (
+                              {post.author_id?.profilePicture ? (
                                 <img
                                   className="h-8 w-8 rounded-full mr-2"
-                                  src={post.author.profilePicture}
+                                  src={post.author_id.profilePicture}
                                   alt=""
                                 />
                               ) : (
                                 <div className="h-8 w-8 rounded-full bg-[#b32a2a] flex items-center justify-center text-white font-bold mr-2">
-                                  {post.author?.username?.charAt(0).toUpperCase() || '?'}
+                                  {post.author_id?.username?.charAt(0).toUpperCase() || '?'}
                                 </div>
                               )}
-                              <span className="text-sm text-gray-900">{post.author?.username || 'Unknown'}</span>
+                              <span className="text-sm text-gray-900">{post.author_id?.username || 'Unknown'}</span>
                             </div>
                           </td>
                           <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 w-1/6 overflow-hidden text-ellipsis">
-                            <span className="text-sm text-gray-700">{post.family?.name || 'N/A'}</span>
+                            <span className="text-sm text-gray-700">{post.family_id?.name || 'N/A'}</span>
                           </td>
                           <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 w-[120px] overflow-hidden text-ellipsis">
                             <span className="text-sm text-gray-500">{new Date(post.createdAt).toLocaleDateString()}</span>
@@ -706,7 +706,7 @@ function AdminDashboard() {
                                 Edit
                               </button>
                               <button
-                                onClick={() => handleDeletePost(post._id)}
+                                onClick={() => handleDeletePost(post.id)}
                                 className="text-red-600 hover:text-red-900"
                               >
                                 Delete
@@ -753,7 +753,7 @@ function AdminDashboard() {
                     disabled={editLoading}
                   ></textarea>
                 </div>
-                {allPosts.find(post => post._id === editingPostId)?.type === 'hangout' && (
+                {allPosts.find(post => post.id === editingPostId)?.type === 'hangout' && (
                    <div>
                      <label htmlFor="editPointValue" className="block text-sm font-medium text-gray-700">Point Value</label>
                      <input

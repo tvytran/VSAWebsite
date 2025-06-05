@@ -41,7 +41,7 @@ function CreatePostPage() {
           });
           setFamilies(familiesRes.data.families);
           if (familiesRes.data.families.length > 0) {
-             setSelectedFamilyId(familiesRes.data.families[0]._id);
+             setSelectedFamilyId(familiesRes.data.families[0].id);
           }
         } else if (userRes.data.user.family) {
           const familyRes = await api.get(`/api/families/${userRes.data.user.family}`, {
@@ -65,7 +65,7 @@ function CreatePostPage() {
     e.preventDefault();
     setPostError('');
     setPostLoading(true);
-    const targetFamilyId = user?.role === 'admin' ? selectedFamilyId : family?._id;
+    const targetFamilyId = user?.role === 'admin' ? selectedFamilyId : family?.id;
     if (!targetFamilyId) {
       setPostError('Please select a family or join one to create a post.');
       setPostLoading(false);
@@ -165,7 +165,7 @@ function CreatePostPage() {
                   disabled={postLoading}
                 >
                   {families.map(fam => (
-                    <option key={fam._id} value={fam._id}>{fam.name}</option>
+                    <option key={fam.id} value={fam.id}>{fam.name}</option>
                   ))}
                 </select>
               </div>

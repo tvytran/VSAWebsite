@@ -20,7 +20,7 @@ function Families() {
       // Fetch detailed info for each family
       const familiesWithDetails = await Promise.all(
         response.data.families.map(async (family) => {
-          const detailedResponse = await api.get(`/api/families/${family._id}`);
+          const detailedResponse = await api.get(`/api/families/${family.id}`);
           return detailedResponse.data.family;
         })
       );
@@ -91,7 +91,7 @@ function Families() {
         ) : (
           <div className="grid gap-4 md:grid-cols-2">
             {families.map((family) => (
-              <div key={family._id} className="border border-gray-200 rounded-lg p-4">
+              <div key={family.id} className="border border-gray-200 rounded-lg p-4">
                 <h3 className="text-xl font-semibold text-[#b32a2a]">{family.name}</h3>
                 <p className="text-gray-600 mt-2">{family.description}</p>
                 <div className="mt-4">
@@ -99,7 +99,7 @@ function Families() {
                   {family.members && family.members.length > 0 ? (
                     <ul className="list-disc ml-6">
                       {family.members.map(member => (
-                        <li key={member._id} className="text-sm text-gray-600">
+                        <li key={member.id} className="text-sm text-gray-600">
                           {member.username || member.email}
                         </li>
                       ))}
@@ -114,13 +114,13 @@ function Families() {
                 </div>
                 <div className="mt-4 flex justify-end gap-2">
                   <Link 
-                    to={`/family/${family._id}`}
+                    to={`/family/${family.id}`}
                     className="px-4 py-2 bg-[#b32a2a] text-white rounded-lg hover:bg-[#8a1f1f] transition"
                   >
                     View Family
                   </Link>
                   <Link 
-                    to={`/family/${family._id}/create-post`}
+                    to={`/family/${family.id}/create-post`}
                     className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
                   >
                     Create Post

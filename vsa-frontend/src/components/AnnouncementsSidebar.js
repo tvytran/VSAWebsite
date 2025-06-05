@@ -95,12 +95,12 @@ function AnnouncementsSidebar() {
         <div className="space-y-4 max-h-[calc(100vh-200px)] overflow-y-auto pr-2">
           {announcements.map(announcement => (
             <div 
-              key={announcement._id} 
+              key={announcement.id} 
               className="bg-white rounded-lg shadow-sm p-4 hover:shadow-md hover:scale-[1.02] transition-all duration-300 ease-in-out border-l-8 border-[#EFB639] transform"
             >
               <h3 className="font-bold text-gray-800 mb-2">{announcement.title}</h3>
               <p className="text-gray-600 text-sm mb-2">
-                {truncateText(announcement.content, announcement._id)}
+                {truncateText(announcement.content, announcement.id)}
               </p>
               {announcement.imageUrl && (
                 <img 

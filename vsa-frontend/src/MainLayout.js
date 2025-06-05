@@ -138,7 +138,7 @@ function MainLayout({ children }) {
                    ) : (
                      <ul className="space-y-2">
                        {topFamilies.map((family, index) => (
-                         <li key={family._id} className="flex justify-between items-center text-gray-700 text-sm">
+                         <li key={family.id} className="flex justify-between items-center text-gray-700 text-sm">
                            <span>#{index + 1} {family.name}</span>
                            <span className="font-medium text-[#ffcc00]">{family.totalPoints || 0} pts</span>
                          </li>
@@ -292,7 +292,7 @@ function MainLayout({ children }) {
                  ) : (
                    <ul className="space-y-2">
                      {topFamilies.map((family, index) => (
-                       <li key={family._id} className="flex justify-between items-center text-gray-700 text-sm">
+                       <li key={family.id} className="flex justify-between items-center text-gray-700 text-sm">
                          <span>#{index + 1} {family.name}</span>
                          <span className="font-medium text-[#EFB639]">{family.totalPoints || 0} pts</span>
                        </li>

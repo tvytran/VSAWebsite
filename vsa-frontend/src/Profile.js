@@ -455,21 +455,21 @@ function Profile() {
                         <>
                           <div className="flex items-center mb-2">
                             <div className="w-10 h-10 rounded-full overflow-hidden mr-3">
-                              {post.author?.profilePicture ? (
+                              {post.author_id?.profilePicture ? (
                                 <img 
-                                  src={post.author.profilePicture}
-                                  alt={post.author.username} 
+                                  src={post.author_id.profilePicture}
+                                  alt={post.author_id.username} 
                                   className="w-full h-full object-cover"
                                 />
                               ) : (
                                 <div className="w-full h-full bg-[#b32a2a] flex items-center justify-center text-white font-bold">
-                                  {post.author?.username?.charAt(0).toUpperCase()}
+                                  {post.author_id?.username?.charAt(0).toUpperCase()}
                                 </div>
                               )}
                             </div>
                             <div>
                               <div className="font-semibold text-gray-800">
-                                {post.author?.username}
+                                {post.author_id?.username}
                                 {post.type === 'announcement' && (
                                   <span className="ml-2 text-[#b32a2a] font-bold">(Admin)</span>
                                 )}
@@ -495,7 +495,7 @@ function Profile() {
                               )}
                             </div>
                             {/* Three dots menu for edit/delete */}
-                            {isMember && user?._id === post.author?._id && (
+                            {isMember && user?._id === post.author_id?._id && (
                               <div className="absolute top-4 right-4">
                                 <button 
                                   onClick={() => setShowMenuId(showMenuId === post._id ? null : post._id)}

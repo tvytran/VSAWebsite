@@ -8,7 +8,7 @@ function Register({ onRegister }) {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [family, setFamily] = useState('');
+  const [family_id, setFamily_id] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -21,7 +21,7 @@ function Register({ onRegister }) {
         username,
         email,
         password,
-        family,
+        family_id,
       });
       setSuccess('Registration successful! You can now log in.');
       if (onRegister) onRegister(res.data.user);
@@ -90,16 +90,16 @@ function Register({ onRegister }) {
               />
             </div>
              <div>
-              <label htmlFor="family" className="sr-only">Family ID</label>
+              <label htmlFor="family_id" className="sr-only">Family ID</label>
               <input
-                id="family"
-                name="family"
+                id="family_id"
+                name="family_id"
                 type="text"
                 required
                 className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-[#b32a2a] focus:border-[#b32a2a] focus:z-10 sm:text-sm"
                 placeholder="Family ID"
-                value={family}
-                onChange={e => setFamily(e.target.value)}
+                value={family_id}
+                onChange={e => setFamily_id(e.target.value)}
               />
             </div>
           </div>
