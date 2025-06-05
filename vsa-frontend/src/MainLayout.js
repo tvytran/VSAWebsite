@@ -59,6 +59,7 @@ function MainLayout({ children }) {
       }
     };
 
+    
     if (isLoggedIn) {
       fetchTopFamilies();
     }
