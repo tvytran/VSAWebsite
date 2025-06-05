@@ -178,9 +178,9 @@ function MainLayout({ children }) {
           {isLoggedIn && (
             <Link to="/profile" className="mb-6 group">
               <div className="w-24 h-24 bg-[#e0c9a6] rounded-full flex items-center justify-center text-white text-4xl font-bold overflow-hidden ring-4 ring-[#faecd8] group-hover:ring-[#EFB639] transition-all duration-300 ease-in-out">
-                {userData && userData.profilePicture ? (
+                {userData && userData.profile_picture ? (
                   <img
-                    src={userData.profilePicture}
+                    src={userData.profile_picture}
                     alt="Profile"
                     className="w-full h-full object-cover"
                   />

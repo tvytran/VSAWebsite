@@ -665,9 +665,9 @@ function FamilyDetails() {
                   />
                   {/* Author Profile Picture Overlay */}
                   <div className="absolute bottom-2 right-2 w-8 h-8 rounded-full overflow-hidden border-2 border-white shadow-md">
-                    {post.author_id.profilePicture ? (
+                    {post.author_id.profile_picture ? (
                       <img 
-                        src={post.author_id.profilePicture}
+                        src={post.author_id.profile_picture}
                         alt={post.author_id.username} 
                         className="w-full h-full object-cover"
                       />

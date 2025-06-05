@@ -453,9 +453,9 @@ function DashboardHome() {
                   )}
                   <div className="flex items-center mb-4">
                     <div className="w-10 h-10 rounded-full overflow-hidden mr-3">
-                      {post.author.profilePicture ? (
+                      {post.author.profile_picture ? (
                         <img 
-                          src={post.author.profilePicture}
+                          src={post.author.profile_picture}
                           alt={post.author.username} 
                           className="w-full h-full object-cover"
                         />

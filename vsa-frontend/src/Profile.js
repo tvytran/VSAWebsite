@@ -338,9 +338,9 @@ function Profile() {
             <span className="font-semibold block mb-2">Profile Picture:</span>
             <div className="flex items-center">
               <div className="w-20 h-20 rounded-full overflow-hidden mr-4 border-2 border-[#b32a2a]">
-                {user.profilePicture ? (
+                {user.profile_picture ? (
                   <img 
-                    src={user.profilePicture} 
+                    src={user.profile_picture} 
                     alt={user.username} 
                     className="w-full h-full object-cover"
                   />
@@ -455,9 +455,9 @@ function Profile() {
                         <>
                           <div className="flex items-center mb-2">
                             <div className="w-10 h-10 rounded-full overflow-hidden mr-3">
-                              {post.author.profilePicture ? (
+                              {post.author.profile_picture ? (
                                 <img 
-                                  src={post.author.profilePicture}
+                                  src={post.author.profile_picture}
                                   alt={post.author.username} 
                                   className="w-full h-full object-cover"
                                 />
