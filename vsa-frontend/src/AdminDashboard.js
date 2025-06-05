@@ -677,22 +677,22 @@ function AdminDashboard() {
                           </td>
                           <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 w-1/6 overflow-hidden text-ellipsis">
                             <div className="flex items-center">
-                              {post.author_id?.profilePicture ? (
+                              {post.author.profile_picture ? (
                                 <img
                                   className="h-8 w-8 rounded-full mr-2"
-                                  src={post.author_id.profilePicture}
-                                  alt=""
+                                  src={post.author.profile_picture}
+                                  alt={post.author.username}
                                 />
                               ) : (
                                 <div className="h-8 w-8 rounded-full bg-[#b32a2a] flex items-center justify-center text-white font-bold mr-2">
-                                  {post.author_id?.username?.charAt(0).toUpperCase() || '?'}
+                                  {post.author.username?.charAt(0).toUpperCase() || '?'}
                                 </div>
                               )}
-                              <span className="text-sm text-gray-900">{post.author_id?.username || 'Unknown'}</span>
+                              <span className="text-sm text-gray-900">{post.author.username || 'Unknown'}</span>
                             </div>
                           </td>
                           <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 w-1/6 overflow-hidden text-ellipsis">
-                            <span className="text-sm text-gray-700">{post.family_id?.name || 'N/A'}</span>
+                            <span className="text-sm text-gray-700">{post.family.name || 'N/A'}</span>
                           </td>
                           <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 w-[120px] overflow-hidden text-ellipsis">
                             <span className="text-sm text-gray-500">{new Date(post.createdAt).toLocaleDateString()}</span>

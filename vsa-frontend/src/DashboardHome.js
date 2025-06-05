@@ -97,7 +97,7 @@ function DashboardHome() {
     const filtered = posts.filter(post => 
       post.title.toLowerCase().includes(lowerCaseSearchTerm) ||
       post.content.toLowerCase().includes(lowerCaseSearchTerm) ||
-      post.author_id?.username?.toLowerCase().includes(lowerCaseSearchTerm)
+      post.author.username?.toLowerCase().includes(lowerCaseSearchTerm)
     );
     setFilteredPosts(filtered);
   }, [posts, searchTerm]);
@@ -107,7 +107,7 @@ function DashboardHome() {
     setEditTitle(post.title);
     setEditContent(post.content);
     const currentUser = JSON.parse(localStorage.getItem('user'));
-    const isCurrentUserAuthor = post.author_id?._id === currentUser?.id;
+    const isCurrentUserAuthor = post.author.id === currentUser?.id;
     const isCurrentUserAdmin = currentUser?.role === 'admin';
 
     if (post.type === 'hangout' && (isCurrentUserAuthor || isCurrentUserAdmin)) {
@@ -150,7 +150,7 @@ function DashboardHome() {
 
       // Re-check authorization based on the fresh post data
       const currentUser = JSON.parse(localStorage.getItem('user'));
-      const isCurrentUserAuthor = postToEdit.author_id?._id === currentUser?.id;
+      const isCurrentUserAuthor = postToEdit.author.id === currentUser?.id;
       const isCurrentUserAdmin = currentUser?.role === 'admin';
 
       if (!isCurrentUserAuthor && !isCurrentUserAdmin) {
@@ -453,23 +453,23 @@ function DashboardHome() {
                   )}
                   <div className="flex items-center mb-4">
                     <div className="w-10 h-10 rounded-full overflow-hidden mr-3">
-                      {post.author_id?.profilePicture ? (
+                      {post.author.profilePicture ? (
                         <img 
-                          src={post.author_id.profilePicture}
-                          alt={post.author_id.username} 
+                          src={post.author.profilePicture}
+                          alt={post.author.username} 
                           className="w-full h-full object-cover"
                         />
                       ) : (
                         <div className="w-full h-full bg-[#b32a2a] flex items-center justify-center text-white font-bold">
-                          {post.author_id?.username?.charAt(0).toUpperCase()}
+                          {post.author.username?.charAt(0).toUpperCase()}
                         </div>
                       )}
                     </div>
                     <div>
                       <div className="font-semibold text-gray-800">
-                        {post.author_id?.username}
-                        {post.family_id?.name && (
-                          <span className="ml-2 text-gray-600 text-sm">({post.family_id.name})</span>
+                        {post.author.username}
+                        {post.family.name && (
+                          <span className="ml-2 text-gray-600 text-sm">({post.family.name})</span>
                         )}
                         {post.type === 'announcement' && (
                           <span className="ml-2 text-[#b32a2a] font-bold">(Admin)</span>
@@ -479,7 +479,7 @@ function DashboardHome() {
                     </div>
 
                     {/* Three dots menu for edit/delete - visible only to author */}
-                    {isLoggedIn && (user?._id === post.author_id?._id || user?.role === 'admin') && (
+                    {isLoggedIn && (user?.id === post.author.id || user?.role === 'admin') && (
                       <div className="ml-auto relative">
                         <button
                           onClick={() => setShowMenuId(showMenuId === post.id ? null : post.id)}

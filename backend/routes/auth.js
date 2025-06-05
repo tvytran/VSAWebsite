@@ -31,7 +31,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 router.post('/register', async (req, res) => {
     try {
         const { username, email, password, family, role } = req.body;
-        console.log('Registration attempt:', { username, email, role });
+        console.log('Registration attempt:', { username, email, role, family });
 
         // Check if user already exists
         const { data: existingUser, error: userError } = await supabase
@@ -47,23 +47,19 @@ router.post('/register', async (req, res) => {
             });
         }
 
-        // Find family by code (if not admin)
+        // Look up the family by code (if not admin)
         let familyId = null;
         if (family && role !== 'admin') {
             const { data: familyDoc, error: famError } = await supabase
                 .from('families')
                 .select('id')
-                .or(`id.eq.${family},code.eq.${family}`)
+                .eq('code', family)
                 .single();
-            if (famError && famError.code !== 'PGRST116') throw famError;
-            if (familyDoc) {
-                familyId = familyDoc.id;
-            } else {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Invalid family ID or code'
-                });
+            if (famError) throw famError;
+            if (!familyDoc) {
+                return res.status(400).json({ success: false, message: 'Invalid family code' });
             }
+            familyId = familyDoc.id;
         }
 
         // Hash password
@@ -106,14 +102,15 @@ router.post('/register', async (req, res) => {
             }
         );
     } catch (err) {
+        console.error('Registration error:', err);
         res.status(500).json({ 
             success: false, 
-            message: 'Server error' 
+            message: err.message || 'Server error' 
         });
     }
 });
 
-// @route   POST /api/auth/login
+// @route  /api/auth/login
 // @desc    Login user
 // @access  Public
 router.post('/login', async (req, res) => {
@@ -177,13 +174,21 @@ router.post('/login', async (req, res) => {
 // Get current user
 router.get('/me', auth, async (req, res) => {
     try {
-        const user = await User.findById(req.user.id).select('-password');
+        console.log('Fetching user with id:', req.user.id);
+        const { data: user, error } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', req.user.id)
+            .single();
+        console.log('Supabase user:', user, 'Error:', error);
+        if (error) throw error;
         if (!user) {
             return res.status(404).json({ success: false, message: 'User not found' });
         }
         res.json({ success: true, user });
     } catch (error) {
-        res.status(500).json({ success: false, message: 'Server error' });
+        console.error('ME route error:', error);
+        res.status(500).json({ success: false, message: error.message || 'Server error' });
     }
 });
 

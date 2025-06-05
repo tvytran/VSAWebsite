@@ -50,8 +50,8 @@ function Profile() {
       setUser(userRes.data.user);
 
       // Fetch family details and posts if user is in a family
-      if (userRes.data.user.family) {
-        const familyId = userRes.data.user.family;
+      if (userRes.data.user.family_id) {
+        const familyId = userRes.data.user.family_id;
         
         // Fetch family details
         const familyRes = await api.get(`/api/families/${familyId}`, {
@@ -87,8 +87,8 @@ function Profile() {
 
   // Helper: check if current user is the logged-in user (always true on profile page)
   // This is kept for consistency with FamilyDetails post logic if needed later
-  const userId = user?._id;
-  const isMember = family && user && family.members.some(m => (m._id || m) === userId);
+  const userId = user?.id;
+  const isMember = family && user && family.members.some(m => (m.id || m) === userId);
 
   // Handle file selection
   const handleFileChange = (event) => {
@@ -152,7 +152,7 @@ function Profile() {
   };
 
   const startEdit = (post) => {
-    setEditingPostId(post._id);
+    setEditingPostId(post.id);
     setEditTitle(post.title);
     setEditContent(post.content);
     setEditError('');
@@ -182,7 +182,7 @@ function Profile() {
       setEditTitle('');
       setEditContent('');
       // Refresh posts
-       const postsRes = await api.get(`/api/posts/family/${family._id}`, {
+       const postsRes = await api.get(`/api/posts/family/${family.id}`, {
         headers: { 'x-auth-token': token }
       });
       setPosts(postsRes.data.posts);
@@ -201,7 +201,7 @@ function Profile() {
         headers: { 'x-auth-token': token }
       });
       // Refresh posts
-      const postsRes = await api.get(`/api/posts/family/${family._id}`, {
+      const postsRes = await api.get(`/api/posts/family/${family.id}`, {
         headers: { 'x-auth-token': token }
       });
       setPosts(postsRes.data.posts);
@@ -386,7 +386,7 @@ function Profile() {
             <h3 className="text-2xl font-bold text-[#b32a2a] mb-4">{family.name}</h3>
             
             {/* View Family Button */}
-            <Link to={`/families/${family._id}`}>
+            <Link to={`/families/${family.id}`}>
               <button className="mb-4 px-4 py-2 bg-[#b32a2a] text-white font-semibold rounded-md hover:bg-[#8a1f1f]">
                 View Family Page
               </button>
@@ -404,7 +404,7 @@ function Profile() {
               <ul className="list-disc ml-6 mt-2">
                 {family.members && family.members.length > 0 ? (
                   family.members.map(member => (
-                    <li key={member._id || member}>
+                    <li key={member.id || member}>
                       {member.username || member.email || member}
                     </li>
                   ))
@@ -424,9 +424,9 @@ function Profile() {
               ) : posts.length > 0 ? (
                 <ul className="list-disc ml-6 mt-2">
                   {posts.map(post => (
-                     <li key={post._id} className={`mb-4 rounded-lg shadow-md p-4 relative ${post.type === 'announcement' ? 'bg-[#fff3e6] border-2 border-[#b32a2a]' : 'bg-white'}`}>
-                      {editingPostId === post._id ? (
-                        <form onSubmit={(e) => handleEditPost(e, post._id)} className="mb-2 flex flex-col gap-2">
+                     <li key={post.id} className={`mb-4 rounded-lg shadow-md p-4 relative ${post.type === 'announcement' ? 'bg-[#fff3e6] border-2 border-[#b32a2a]' : 'bg-white'}`}>
+                      {editingPostId === post.id ? (
+                        <form onSubmit={(e) => handleEditPost(e, post.id)} className="mb-2 flex flex-col gap-2">
                           <input
                             className="p-2 border border-gray-300 rounded-lg"
                             value={editTitle}
@@ -455,21 +455,21 @@ function Profile() {
                         <>
                           <div className="flex items-center mb-2">
                             <div className="w-10 h-10 rounded-full overflow-hidden mr-3">
-                              {post.author_id?.profilePicture ? (
+                              {post.author.profilePicture ? (
                                 <img 
-                                  src={post.author_id.profilePicture}
-                                  alt={post.author_id.username} 
+                                  src={post.author.profilePicture}
+                                  alt={post.author.username} 
                                   className="w-full h-full object-cover"
                                 />
                               ) : (
                                 <div className="w-full h-full bg-[#b32a2a] flex items-center justify-center text-white font-bold">
-                                  {post.author_id?.username?.charAt(0).toUpperCase()}
+                                  {post.author.username?.charAt(0).toUpperCase()}
                                 </div>
                               )}
                             </div>
                             <div>
                               <div className="font-semibold text-gray-800">
-                                {post.author_id?.username}
+                                {post.author.username}
                                 {post.type === 'announcement' && (
                                   <span className="ml-2 text-[#b32a2a] font-bold">(Admin)</span>
                                 )}
@@ -495,15 +495,15 @@ function Profile() {
                               )}
                             </div>
                             {/* Three dots menu for edit/delete */}
-                            {isMember && user?._id === post.author_id?._id && (
+                            {isMember && user?.id === post.author.id && (
                               <div className="absolute top-4 right-4">
                                 <button 
-                                  onClick={() => setShowMenuId(showMenuId === post._id ? null : post._id)}
+                                  onClick={() => setShowMenuId(showMenuId === post.id ? null : post.id)}
                                   className="text-gray-500 hover:text-gray-700 focus:outline-none"
                                 >
                                   &#8226;&#8226;&#8226;
                                 </button>
-                                {showMenuId === post._id && (
+                                {showMenuId === post.id && (
                                   <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10">
                                     <button
                                       className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
@@ -517,7 +517,7 @@ function Profile() {
                                     <button
                                       className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
                                       onClick={() => {
-                                        handleDeletePost(post._id);
+                                        handleDeletePost(post.id);
                                         setShowMenuId(null); // Close menu after selecting delete
                                       }}
                                     >

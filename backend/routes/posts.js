@@ -80,7 +80,20 @@ router.get('/feed', auth, async (req, res) => {
     try {
         const { data: posts, error } = await supabase
             .from('posts')
-            .select('*')
+            .select(`
+                *,
+                author:author_id (
+                    id,
+                    username,
+                    profile_picture
+                ),
+                family:family_id (
+                    id,
+                    name,
+                    total_points,
+                    semester_points
+                )
+            `)
             .order('created_at', { ascending: false });
         if (error) throw error;
         // TODO: Join author and family info if needed
@@ -97,7 +110,20 @@ router.get('/family/:familyId', auth, async (req, res) => {
     try {
         const { data: posts, error } = await supabase
             .from('posts')
-            .select('*')
+            .select(`
+                *,
+                author:author_id (
+                    id,
+                    username,
+                    profile_picture
+                ),
+                family:family_id (
+                    id,
+                    name,
+                    total_points,
+                    semester_points
+                )
+            `)
             .eq('family_id', req.params.familyId)
             .order('created_at', { ascending: false });
         if (error) throw error;
@@ -114,7 +140,20 @@ router.get('/announcements', async (req, res) => {
     try {
         const { data: posts, error } = await supabase
             .from('posts')
-            .select('*')
+            .select(`
+                *,
+                author:author_id (
+                    id,
+                    username,
+                    profile_picture
+                ),
+                family:family_id (
+                    id,
+                    name,
+                    total_points,
+                    semester_points
+                )
+            `)
             .eq('type', 'announcement')
             .order('created_at', { ascending: false });
         if (error) throw error;
@@ -141,7 +180,20 @@ router.get('/all', auth, async (req, res) => {
         }
         const { data: posts, error } = await supabase
             .from('posts')
-            .select('*')
+            .select(`
+                *,
+                author:author_id (
+                    id,
+                    username,
+                    profile_picture
+                ),
+                family:family_id (
+                    id,
+                    name,
+                    total_points,
+                    semester_points
+                )
+            `)
             .order('created_at', { ascending: false });
         if (error) throw error;
         res.json({ success: true, posts });
@@ -157,7 +209,20 @@ router.get('/:id', auth, async (req, res) => {
     try {
         const { data: post, error } = await supabase
             .from('posts')
-            .select('*')
+            .select(`
+                *,
+                author:author_id (
+                    id,
+                    username,
+                    profile_picture
+                ),
+                family:family_id (
+                    id,
+                    name,
+                    total_points,
+                    semester_points
+                )
+            `)
             .eq('id', req.params.id)
             .single();
         if (error) throw error;

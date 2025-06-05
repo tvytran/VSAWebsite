@@ -5,7 +5,6 @@ import Login from './Login';
 import Register from './Register';
 import Profile from './Profile';
 import FamilyDetails from './FamilyDetails';
-import Navbar from './Navbar';
 import Events from './Events';
 import Newsletter from './Newsletter';
 import AboutVSA from './AboutVSA';
