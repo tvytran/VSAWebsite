@@ -56,7 +56,7 @@ function DashboardHome() {
       }
 
       // Ensure posts are sorted by creation date descending
-      const sortedPosts = res.data.posts.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      const sortedPosts = res.data.posts.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
       setPosts(sortedPosts || []);
       setLoading(false);
     } catch (err) {
@@ -214,7 +214,7 @@ function DashboardHome() {
       const res = await api.get(postsUrl, {
         headers: { 'x-auth-token': token }
       });
-      const sortedPosts = res.data.posts.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      const sortedPosts = res.data.posts.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
       setPosts(sortedPosts || []);
 
     } catch (err) {
@@ -475,7 +475,7 @@ function DashboardHome() {
                           <span className="ml-2 text-[#b32a2a] font-bold">(Admin)</span>
                         )}
                       </div>
-                      <div className="text-xs text-gray-500">{new Date(post.createdAt).toLocaleString()}</div>
+                      <div className="text-xs text-gray-500">{new Date(post.created_at).toLocaleString()}</div>
                     </div>
 
                     {/* Three dots menu for edit/delete - visible only to author */}

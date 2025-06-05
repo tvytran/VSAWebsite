@@ -474,7 +474,7 @@ function Profile() {
                                   <span className="ml-2 text-[#b32a2a] font-bold">(Admin)</span>
                                 )}
                               </div>
-                              <div className="text-xs text-gray-500">{new Date(post.createdAt).toLocaleString()}</div>
+                              <div className="text-xs text-gray-500">{post.created_at ? new Date(post.created_at).toLocaleString() : ''}</div>
                             </div>
                           </div>
                           <div className="ml-13">

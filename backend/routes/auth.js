@@ -183,6 +183,7 @@ router.get('/me', auth, async (req, res) => {
         console.log('Supabase user:', user, 'Error:', error);
         if (error) throw error;
         if (!user) {
+            console.log('User not found for ID:', req.user.id);
             return res.status(404).json({ success: false, message: 'User not found' });
         }
         res.json({ success: true, user });
@@ -199,11 +200,15 @@ router.put('/profile', auth, upload.single('profilePicture'), async (req, res) =
   try {
     console.log('Token decoded successfully:', req.user);
 
-    const user = await User.findById(req.user.id);
-    console.log('User found:', user);
-
+    // Fetch user from Supabase
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', req.user.id)
+      .single();
+    if (userError) throw userError;
     if (!user) {
-      console.log('User not found');
+      console.log('User not found for ID:', req.user.id);
       return res.status(404).json({ message: 'User not found' });
     }
 
@@ -212,9 +217,8 @@ router.put('/profile', auth, upload.single('profilePicture'), async (req, res) =
       return res.status(400).json({ message: 'No file uploaded' });
     }
 
-    const supabase = require('../supabaseClient');
     const fileExt = req.file.originalname.split('.').pop();
-    const fileName = `profiles/${user._id}_${Date.now()}.${fileExt}`;
+    const fileName = `profiles/${user.id}_${Date.now()}.${fileExt}`;
     console.log('Uploading to Supabase:', fileName);
 
     const { data, error } = await supabase.storage
@@ -235,18 +239,23 @@ router.put('/profile', auth, upload.single('profilePicture'), async (req, res) =
     console.log('Supabase public URL:', publicUrl);
 
     // Debug log before updating user
-    console.log('About to update user with new profile picture:', user._id);
+    console.log('About to update user with new profile picture:', user.id);
 
-    user.profilePicture = publicUrl;
-    await user.save();
+    const { data: updatedUser, error: updateError } = await supabase
+      .from('users')
+      .update({ profile_picture: publicUrl })
+      .eq('id', req.user.id)
+      .select()
+      .single();
+    if (updateError) throw updateError;
 
     // Debug log after updating user
     console.log('User updated with new profile picture.');
 
-    res.json({ success: true, profilePicture: publicUrl });
+    res.json({ success: true, user: updatedUser });
   } catch (err) {
     console.error('Error in profile picture upload route:', err);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: err.message || 'Server error' });
   }
 });
 
@@ -259,7 +268,12 @@ router.put('/password', auth, async (req, res) => {
         console.log('Password update attempt for user:', req.user.id);
 
         // Get user
-        const user = await User.findById(req.user.id);
+        const { data: user, error } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', req.user.id)
+            .single();
+        if (error) throw error;
         if (!user) {
             console.log('User not found for ID:', req.user.id);
             return res.status(404).json({ 
@@ -280,10 +294,16 @@ router.put('/password', auth, async (req, res) => {
 
         // Hash new password
         const salt = await bcrypt.genSalt(10);
-        user.password = await bcrypt.hash(newPassword, salt);
+        const hashedPassword = await bcrypt.hash(newPassword, salt);
 
         // Save user
-        await user.save();
+        const { data: updatedUser, error: updateError } = await supabase
+            .from('users')
+            .update({ password: hashedPassword })
+            .eq('id', req.user.id)
+            .select()
+            .single();
+        if (updateError) throw updateError;
         console.log('Password successfully updated for user:', req.user.id);
 
         res.json({ 
