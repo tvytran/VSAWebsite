@@ -1,6 +1,5 @@
 // Vercel deployment test - Updated for deployment
 const express = require('express'); //importing express
-const mongoose = require('mongoose'); //importing mongoose
 const cors = require('cors'); //importing cors
 require('dotenv').config(); //importing dotenv
 
@@ -22,8 +21,8 @@ app.use('/uploads', express.static('uploads')); // Serve uploaded files (for pho
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public')); // Serve static files from the 'public' directory
 
-// Import models needed for the public route
-const Post = require('./models/Post');
+// Import Supabase client
+const supabase = require('./supabaseClient');
 
 // @route    GET api/posts/announcements
 // @desc     Get all announcement posts (public) - Defined early to avoid auth middleware
@@ -31,11 +30,12 @@ const Post = require('./models/Post');
 app.get('/api/posts/announcements', async (req, res) => {
     console.log('Handling public /api/posts/announcements route directly in server.js');
     try {
-        const announcements = await Post.find({ type: 'announcement' })
-            .populate('author', ['username', 'profilePicture'])
-            .populate('family', ['name'])
-            .sort({ createdAt: -1 });
-
+        const { data: announcements, error } = await supabase
+            .from('posts')
+            .select('*')
+            .eq('type', 'announcement')
+            .order('created_at', { ascending: false });
+        if (error) throw error;
         res.json({ success: true, posts: announcements });
     } catch (err) {
         console.error('Error in public announcements route:', err.message);
@@ -83,25 +83,6 @@ app.use('/api/families', auth, familyRoutes);
 app.get('/', (req, res) => {
     res.json({ message: 'Welcome to VSA Website API' });
 });
-
-// Database Connection
-const connectDB = async () => {
-    try {
-        const conn = await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/vsa_website', {
-            // These options are no longer needed in newer versions of Mongoose
-            // but included for compatibility
-            useNewUrlParser: true,
-            useUnifiedTopology: true
-        });
-        console.log(`MongoDB Connected: ${conn.connection.host}`);
-    } catch (error) {
-        console.error(`Error: ${error.message}`);
-        process.exit(1);
-    }
-};
-
-// Connect to database
-connectDB();
 
 // Global error handling middleware
 app.use((err, req, res, next) => {

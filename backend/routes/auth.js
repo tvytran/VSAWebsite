@@ -2,13 +2,11 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');
-const Family = require('../models/Family');
+const supabase = require('../supabaseClient');
 const auth = require('../middleware/auth');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const mongoose = require('mongoose');
 
 // Configure multer for profile picture uploads
 const storage = multer.diskStorage({
@@ -36,33 +34,31 @@ router.post('/register', async (req, res) => {
         console.log('Registration attempt:', { username, email, role });
 
         // Check if user already exists
-        let user = await User.findOne({ email });
-        if (user) {
-            console.log('User already exists:', email);
+        const { data: existingUser, error: userError } = await supabase
+            .from('users')
+            .select('id')
+            .eq('email', email)
+            .single();
+        if (userError && userError.code !== 'PGRST116') throw userError;
+        if (existingUser) {
             return res.status(400).json({ 
                 success: false, 
                 message: 'User already exists' 
             });
         }
 
-        // Find family by ID or code (only if not admin)
+        // Find family by code (if not admin)
         let familyId = null;
         if (family && role !== 'admin') {
-            let familyQuery = {};
-            // Check if the provided family string is a valid MongoDB ObjectId
-            if (mongoose.Types.ObjectId.isValid(family)) {
-                familyQuery = { $or: [{ _id: family }, { code: family }] };
-            } else {
-                // If not a valid ObjectId, only search by code
-                familyQuery = { code: family };
-            }
-
-            const familyDoc = await Family.findOne(familyQuery);
-            
+            const { data: familyDoc, error: famError } = await supabase
+                .from('families')
+                .select('id')
+                .or(`id.eq.${family},code.eq.${family}`)
+                .single();
+            if (famError && famError.code !== 'PGRST116') throw famError;
             if (familyDoc) {
-                familyId = familyDoc._id;
+                familyId = familyDoc.id;
             } else {
-                console.log('Invalid family ID or code:', family);
                 return res.status(400).json({
                     success: false,
                     message: 'Invalid family ID or code'
@@ -70,76 +66,46 @@ router.post('/register', async (req, res) => {
             }
         }
 
-        // Create new user
-        user = new User({
-            username,
-            email,
-            password,
-            family: familyId,
-            role: role || 'member' // Default to member if role not specified
-        });
-
-        console.log('Creating new user:', {
-            username: user.username,
-            email: user.email,
-            role: user.role,
-            family: user.family
-        });
-
-        // Hash password slay
+        // Hash password
         const salt = await bcrypt.genSalt(10);
-        user.password = await bcrypt.hash(password, salt);
+        const hashedPassword = await bcrypt.hash(password, salt);
 
-        // Save user
-        await user.save();
-        console.log('User successfully saved to database:', user._id);
-
-        // Add user to family's members array if family is set and user is not admin
-        if (user.family && user.role !== 'admin') {
-            const result = await Family.findByIdAndUpdate(
-                user.family,
-                { $addToSet: { members: user._id } },
-                { new: true }
-            );
-            console.log('Family update result:', result);
-        }
+        // Create new user
+        const { data: newUser, error: insertError } = await supabase
+            .from('users')
+            .insert([{ username, email, password: hashedPassword, family_id: familyId, role: role || 'member', created_at: new Date().toISOString() }])
+            .select()
+            .single();
+        if (insertError) throw insertError;
 
         // Create JWT token
         const payload = {
             user: {
-                id: user.id,
-                role: user.role
+                id: newUser.id,
+                role: newUser.role
             }
         };
-
-        console.log('Creating JWT token with payload:', payload);
-        console.log('JWT_SECRET exists:', !!process.env.JWT_SECRET);
 
         jwt.sign(
             payload,
             process.env.JWT_SECRET || 'fallback_secret_key',
             { expiresIn: '24h' },
             (err, token) => {
-                if (err) {
-                    console.error('Error creating JWT token:', err);
-                    throw err;
-                }
-                console.log('JWT token created successfully');
+                if (err) throw err;
                 res.json({
                     success: true,
                     token,
                     user: {
-                        id: user.id,
-                        username: user.username,
-                        email: user.email,
-                        role: user.role,
-                        family: user.family
+                        id: newUser.id,
+                        username: newUser.username,
+                        email: newUser.email,
+                        role: newUser.role,
+                        family: newUser.family_id
                     }
                 });
             }
         );
     } catch (err) {
-        console.error('Registration error:', err.message);
         res.status(500).json({ 
             success: false, 
             message: 'Server error' 
@@ -153,36 +119,27 @@ router.post('/register', async (req, res) => {
 router.post('/login', async (req, res) => {
     try {
         const { email, password } = req.body;
-        console.log('Login attempt for email:', email);
-
         // Check if user exists
-        const user = await User.findOne({ email });
+        const { data: user, error: userError } = await supabase
+            .from('users')
+            .select('*')
+            .eq('email', email)
+            .single();
+        if (userError && userError.code !== 'PGRST116') throw userError;
         if (!user) {
-            console.log('User not found for email:', email);
             return res.status(400).json({ 
                 success: false, 
                 message: 'Invalid credentials' 
             });
         }
-
-        console.log('User found:', {
-            id: user._id,
-            email: user.email,
-            role: user.role
-        });
-
         // Check password
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
-            console.log('Password mismatch for user:', email);
             return res.status(400).json({ 
                 success: false, 
                 message: 'Invalid credentials' 
             });
         }
-
-        console.log('Password verified for user:', email);
-
         // Create JWT token
         const payload = {
             user: {
@@ -190,20 +147,12 @@ router.post('/login', async (req, res) => {
                 role: user.role
             }
         };
-
-        console.log('Creating JWT token with payload:', payload);
-        console.log('JWT_SECRET exists:', !!process.env.JWT_SECRET);
-
         jwt.sign(
             payload,
             process.env.JWT_SECRET || 'fallback_secret_key',
             { expiresIn: '24h' },
             (err, token) => {
-                if (err) {
-                    console.error('Error creating JWT token:', err);
-                    throw err;
-                }
-                console.log('JWT token created successfully');
+                if (err) throw err;
                 res.json({
                     success: true,
                     token,
@@ -212,13 +161,12 @@ router.post('/login', async (req, res) => {
                         username: user.username,
                         email: user.email,
                         role: user.role,
-                        family: user.family
+                        family: user.family_id
                     }
                 });
             }
         );
     } catch (err) {
-        console.error('Login error:', err.message);
         res.status(500).json({ 
             success: false, 
             message: 'Server error' 
