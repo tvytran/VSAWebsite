@@ -82,7 +82,7 @@ function AdminDashboard() {
       await api.delete(`/api/users/${userId}`, {
         headers: { 'x-auth-token': token }
       });
-      setUsers(users.filter(user => user._id !== userId));
+      setUsers(users.filter(user => user.id !== userId));
     } catch (err) {
       alert('Failed to delete user: ' + (err.response?.data?.message || err.message));
     }
@@ -178,7 +178,7 @@ function AdminDashboard() {
 
   // Functions for editing users
   const startEditUser = (user) => {
-    setEditingUserId(user._id);
+    setEditingUserId(user.id);
     setEditUsername(user.username);
     setEditEmail(user.email);
     setEditRole(user.role);
@@ -208,7 +208,7 @@ function AdminDashboard() {
       });
       
       if (res.data.success) {
-        setUsers(users.map(user => user._id === editingUserId ? res.data.user : user));
+        setUsers(users.map(user => user.id === editingUserId ? res.data.user : user));
         setEditLoading(false);
         setEditingUserId(null);
         setEditUsername('');
@@ -262,13 +262,9 @@ function AdminDashboard() {
     }
   };
 
-  const renderPoints = (points) => {
-    if (!points) return '0';
-    if (typeof points === 'number') return points.toString();
-    if (typeof points === 'object') {
-      return (points.total || points.semester || 0).toString();
-    }
-    return '0';
+  const renderPoints = (user) => {
+    if (!user) return '0';
+    return (user.points_total || 0) + ' (' + (user.points_semester || 0) + ')';
   };
 
   if (loading) {
@@ -370,8 +366,8 @@ function AdminDashboard() {
                     </thead>
                     <tbody className="divide-y divide-gray-200 bg-white">
                       {users.map((user, userIdx) => (
-                        <tr key={user._id} className={userIdx % 2 === 0 ? undefined : 'bg-gray-50'}>
-                          {editingUserId === user._id ? (
+                        <tr key={user.id} className={userIdx % 2 === 0 ? undefined : 'bg-gray-50'}>
+                          {editingUserId === user.id ? (
                             <>
                               <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm sm:pl-6 w-1/5 overflow-hidden text-ellipsis">
                                 <input
@@ -403,10 +399,10 @@ function AdminDashboard() {
                                 </select>
                               </td>
                               <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 w-1/6 overflow-hidden text-ellipsis">
-                                {user.family?.name || 'No family'}
+                                {user.families?.name || 'No family'}
                               </td>
                               <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 w-[80px] overflow-hidden text-ellipsis">
-                                {renderPoints(user.points)}
+                                {renderPoints(user)}
                               </td>
                               <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6 w-[120px]">
                                 <div className="flex justify-end space-x-4">
@@ -432,10 +428,10 @@ function AdminDashboard() {
                               <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm sm:pl-6 w-1/5 overflow-hidden text-ellipsis">
                                 <div className="flex items-center">
                                   <div className="h-10 w-10 flex-shrink-0">
-                                    {user.profilePicture ? (
+                                    {user.profile_picture ? (
                                       <img
                                         className="h-10 w-10 rounded-full"
-                                        src={user.profilePicture}
+                                        src={user.profile_picture}
                                         alt=""
                                       />
                                     ) : (
@@ -446,7 +442,7 @@ function AdminDashboard() {
                                   </div>
                                   <div className="ml-4">
                                     <div className="font-medium text-gray-900">{user.username || 'Unknown'}</div>
-                                    <div className="text-gray-500 text-xs">Joined {new Date(user.createdAt).toLocaleDateString()}</div>
+                                    <div className="text-gray-500 text-xs">Joined {new Date(user.created_at).toLocaleDateString()}</div>
                                   </div>
                                 </div>
                               </td>
@@ -461,10 +457,10 @@ function AdminDashboard() {
                                 </span>
                               </td>
                               <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 w-1/6 overflow-hidden text-ellipsis">
-                                {user.family?.name || 'No family'}
+                                {user.families?.name || 'No family'}
                               </td>
                               <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 w-[80px] overflow-hidden text-ellipsis">
-                                {renderPoints(user.points)}
+                                {renderPoints(user)}
                               </td>
                               <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6 w-[120px]">
                                 <div className="flex justify-end space-x-4">
@@ -475,7 +471,7 @@ function AdminDashboard() {
                                     Edit
                                   </button>
                                   <button
-                                    onClick={() => handleDeleteUser(user._id)}
+                                    onClick={() => handleDeleteUser(user.id)}
                                     className="text-red-600 hover:text-red-900"
                                   >
                                     Delete

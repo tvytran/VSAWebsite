@@ -3,9 +3,7 @@ const router = express.Router();
 console.log('POSTS ROUTER FILE EXECUTED');
 const { check, validationResult } = require('express-validator');
 const auth = require('../middleware/auth');
-const Post = require('../models/Post');
-const User = require('../models/User');
-const Family = require('../models/Family');
+const supabase = require('../supabaseClient');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -36,177 +34,94 @@ const upload = multer({
   }
 });
 
-// @route    POST api/posts
-// @desc     Create a post
-// @access   Private
-router.post(
-  '/',
-  auth,
-  upload.single('image'), // Use multer middleware here for single image upload
-  [
-    check('title', 'Title is required').not().isEmpty(),
-    check('type', 'Type is required').not().isEmpty(),
-    check('content', 'Content is required').not().isEmpty(),
-    check('family', 'Family ID is required').isMongoId()
-  ],
-  async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      // If there are validation errors from express-validator, return them
-      return res.status(400).json({ success: false, errors: errors.array() });
-    }
-
-    // Handle multer file filter errors
-    if (req.fileValidationError) {
-        return res.status(400).json({ success: false, message: req.fileValidationError });
-    }
-     if (req.fileTypeError) {
-        return res.status(400).json({ success: false, message: req.fileTypeError });
-    }
-
+// @route   POST /api/posts
+// @desc    Create a new post
+// @access  Private
+router.post('/', auth, async (req, res) => {
     try {
-      const user = await User.findById(req.user.id).select('-password');
-      const family = await Family.findById(req.body.family);
-
-      if (!user) {
-        return res.status(404).json({ success: false, message: 'User not found' });
-      }
-
-      // Add this check for announcement posts
-      if (req.body.type === 'announcement' && user.role !== 'admin') {
-        return res.status(403).json({ success: false, message: 'Only admins can create announcement posts.' });
-      }
-
-      if (!family) {
-        return res.status(404).json({ success: false, message: 'Family not found' });
-      }
-
-      // Check if user is a member of the specified family
-      const isMember = family.members.some(member => member.toString() === req.user.id);
-      if (!isMember) {
-          return res.status(403).json({ success: false, message: 'You must be a member of this family to post.' });
-      }
-
-      const { title, type, content, pointValue } = req.body;
-
-      const postData = {
-        title,
-        type,
-        content,
-        family: family.id,
-        author: user.id,
-      };
-
-      // If type is hangout and pointValue is provided, add it to hangoutDetails
-      if (type === 'hangout' && pointValue !== undefined && pointValue !== null) {
-        postData.hangoutDetails = { pointValue: parseInt(pointValue, 10) };
-      }
-
-      // If an image was uploaded, add the file path to the postData
-      if (req.file) {
-        postData.imageUrl = `/uploads/posts/${req.file.filename}`;
-      }
-
-      const newPost = new Post(postData);
-
-      const post = await newPost.save();
-
-      // If it's a hangout post with points, update family points
-      // Note: Checking post.hangoutDetails?.pointValue as it's nested now
-      if (post.type === 'hangout' && post.hangoutDetails?.pointValue > 0) {
-          console.log('Adding family points.');
-          try {
-              const pointsToAdd = post.hangoutDetails.pointValue;
-              await Family.findByIdAndUpdate(
-                  post.family,
-                  {
-                      $inc: {
-                          totalPoints: pointsToAdd,
-                          semesterPoints: pointsToAdd
-                      }
-                  },
-                  { new: true }
-              );
-              console.log('Family points updated successfully on post creation.');
-          } catch (err) {
-              console.error('Failed to update family points on post creation:', err);
-              // Decide here if failing to update points should stop post creation.
-              // Currently, it will just log the error and the post will still be created.
-          }
-      }
-
-      res.status(201).json({ success: true, post });
+        const { title, type, content, family_id, hangout_details } = req.body;
+        // Check user and family exist
+        const { data: user, error: userError } = await supabase
+            .from('users')
+            .select('id, role, family_id')
+            .eq('id', req.user.id)
+            .single();
+        if (userError) throw userError;
+        if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+        if (type === 'announcement' && user.role !== 'admin') {
+            return res.status(403).json({ success: false, message: 'Only admins can create announcement posts.' });
+        }
+        const { data: family, error: famError } = await supabase
+            .from('families')
+            .select('id')
+            .eq('id', family_id)
+            .single();
+        if (famError) throw famError;
+        if (!family) return res.status(404).json({ success: false, message: 'Family not found' });
+        // TODO: Check if user is a member of the family if needed
+        // Insert post
+        const { data: post, error } = await supabase
+            .from('posts')
+            .insert([{ title, type, content, family_id, author_id: user.id, hangout_details, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }])
+            .select()
+            .single();
+        if (error) throw error;
+        // TODO: Update family points if hangout
+        res.status(201).json({ success: true, post });
     } catch (err) {
-      console.error(err.message);
-      res.status(500).json({ success: false, message: 'Server Error' });
+        res.status(500).json({ success: false, message: 'Server Error' });
     }
-  }
-);
+});
 
 // @route    GET api/posts/feed
 // @desc     Get posts for the user's feed (family posts and public posts)
 // @access   Private
 router.get('/feed', auth, async (req, res) => {
-  try {
-    // We no longer need to check for user.family specifically for fetching posts.
-    // All authenticated users can see all posts.
-    // Fetch all posts, populate author and family, sort by date
-    const posts = await Post.find({})
-      .populate('author', ['username', 'profilePicture', 'email'])
-      .populate('family', ['name'])
-      .select('+hangoutDetails') // Include hangoutDetails
-      .sort({ createdAt: -1 });
-
-    res.json({ success: true, posts });
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).json({ success: false, message: 'Server error' });
-  }
+    try {
+        const { data: posts, error } = await supabase
+            .from('posts')
+            .select('*')
+            .order('created_at', { ascending: false });
+        if (error) throw error;
+        // TODO: Join author and family info if needed
+        res.json({ success: true, posts });
+    } catch (err) {
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
 });
 
 // @route    GET api/posts/family/:familyId
 // @desc     Get posts for a specific family
 // @access   Private
 router.get('/family/:familyId', auth, async (req, res) => {
-  try {
-    const familyId = req.params.familyId;
-     // Populate author and family, also select hangoutDetails for pointValue
-    const posts = await Post.find({ family: familyId })
-      .populate('author', ['username', 'profilePicture', 'email'])
-      .populate('family', ['name'])
-      .select('+hangoutDetails')
-      .sort({ createdAt: -1 });
-
-    if (!posts || posts.length === 0) { // Check for empty array as well
-      return res.status(404).json({ success: false, message: 'No posts found for this family' });
+    try {
+        const { data: posts, error } = await supabase
+            .from('posts')
+            .select('*')
+            .eq('family_id', req.params.familyId)
+            .order('created_at', { ascending: false });
+        if (error) throw error;
+        res.json({ success: true, posts });
+    } catch (err) {
+        res.status(500).json({ success: false, message: 'Server Error' });
     }
-
-    res.json({ success: true, posts });
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).json({ success: false, message: 'Server Error' });
-  }
 });
 
 // @route    GET api/posts/announcements
 // @desc     Get all announcement posts (public)
 // @access   Public
 router.get('/announcements', async (req, res) => {
-  console.log('Received request for /api/posts/announcements');
-  console.log('Request Headers:', req.headers);
-  try {
-    console.log('Attempting to fetch announcements from DB');
-    const announcements = await Post.find({ type: 'announcement' })
-      .populate('author', ['username', 'profilePicture'])
-      .populate('family', ['name'])
-      .sort({ createdAt: -1 });
-
-    console.log('Successfully fetched announcements', announcements.length, 'announcements found');
-    res.json({ success: true, posts: announcements });
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).json({ success: false, message: 'Server Error' });
-  }
+    try {
+        const { data: posts, error } = await supabase
+            .from('posts')
+            .select('*')
+            .eq('type', 'announcement')
+            .order('created_at', { ascending: false });
+        if (error) throw error;
+        res.json({ success: true, posts });
+    } catch (err) {
+        res.status(500).json({ success: false, message: 'Server Error' });
+    }
 });
 
 // @route    GET api/posts/all
@@ -214,27 +129,23 @@ router.get('/announcements', async (req, res) => {
 // @access   Private (Admin)
 router.get('/all', auth, async (req, res) => {
     try {
-        console.log('Attempting to fetch user for admin check.');
-        const user = await User.findById(req.user.id);
-        console.log('User fetched for admin check:', user ? user.username : 'Not found', 'Role:', user ? user.role : 'N/A');
-
+        // Check if user is admin
+        const { data: user, error: userError } = await supabase
+            .from('users')
+            .select('role')
+            .eq('id', req.user.id)
+            .single();
+        if (userError) throw userError;
         if (!user || user.role !== 'admin') {
-            console.warn('Authorization denied for /api/posts/all. User ID:', req.user.id, 'Role:', user?.role);
             return res.status(403).json({ success: false, message: 'Authorization denied. Admin access required.' });
         }
-
-        console.log('User is admin. Attempting to fetch all posts.');
-        // Fetch all posts, populate author and family, sort by date
-        const posts = await Post.find()
-            .populate('author', ['username', 'profilePicture', 'email'])
-            .populate('family', ['name'])
-            .select('+hangoutDetails') // Include hangoutDetails
-            .sort({ createdAt: -1 });
-
-        console.log('Successfully fetched posts. Count:', posts.length);
+        const { data: posts, error } = await supabase
+            .from('posts')
+            .select('*')
+            .order('created_at', { ascending: false });
+        if (error) throw error;
         res.json({ success: true, posts });
     } catch (err) {
-        console.error(err.message);
         res.status(500).json({ success: false, message: 'Server Error' });
     }
 });
@@ -243,101 +154,45 @@ router.get('/all', auth, async (req, res) => {
 // @desc     Get post by ID
 // @access   Private
 router.get('/:id', auth, async (req, res) => {
-  try {
-     // Populate author and family, also select hangoutDetails for pointValue
-    const post = await Post.findById(req.params.id)
-      .populate('author', ['username', 'profilePicture', 'email'])
-      .populate('family', ['name'])
-      .select('+hangoutDetails');
-
-    if (!post) {
-      return res.status(404).json({ success: false, message: 'Post not found' });
+    try {
+        const { data: post, error } = await supabase
+            .from('posts')
+            .select('*')
+            .eq('id', req.params.id)
+            .single();
+        if (error) throw error;
+        if (!post) return res.status(404).json({ success: false, message: 'Post not found' });
+        res.json({ success: true, post });
+    } catch (err) {
+        res.status(500).json({ success: false, message: 'Server Error' });
     }
-
-    res.json({ success: true, post });
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).json({ success: false, message: 'Server Error' });
-  }
 });
 
 // @route    DELETE api/posts/:id
 // @desc     Delete a post
 // @access   Private
 router.delete('/:id', auth, async (req, res) => {
-  try {
-    console.log('Attempting to delete post:', req.params.id);
-    const post = await Post.findById(req.params.id);
-
-    if (!post) {
-      console.log('Post not found:', req.params.id);
-      return res.status(404).json({ success: false, message: 'Post not found' });
-    }
-
-    console.log('Post found:', post._id);
-    console.log('Authenticated user ID:', req.user.id);
-    console.log('Post author ID:', post.author.toString());
-
-    // Check user
-    if (post.author.toString() !== req.user.id && req.user.role !== 'admin') {
-      console.log('User not authorized to delete this post.');
-      return res.status(401).json({ success: false, message: 'User not authorized' });
-    }
-
-    console.log('User authorized. Proceeding with deletion steps.');
-
-    // Subtract points if hangout with pointValue (check nested pointValue)
-    if (post.type === 'hangout' && post.hangoutDetails?.pointValue > 0) {
-        console.log('Subtracting family points, ensuring not negative.');
-        try {
-            const pointsToSubtract = post.hangoutDetails.pointValue;
-            // Fetch the family again to get the current points
-            const currentFamily = await Family.findById(post.family);
-
-            if (currentFamily) {
-                 // Calculate new points, ensuring they don't go below zero
-                const newTotalPoints = Math.max(0, currentFamily.totalPoints - pointsToSubtract);
-                const newSemesterPoints = Math.max(0, currentFamily.semesterPoints - pointsToSubtract);
-
-                await Family.findByIdAndUpdate(
-                    post.family,
-                    {
-                        $set: {
-                            totalPoints: newTotalPoints,
-                            semesterPoints: newSemesterPoints
-                        }
-                    },
-                    { new: true, runValidators: false } // Use $set with calculated values
-                );
-                console.log('Family points updated successfully (capped at zero).');
-            } else {
-                 console.error('Family not found for point update during post deletion.');
-            }
-        } catch (err) {
-            console.error('Error updating family points during post deletion:', err);
-            // Continue with post deletion even if points update fails
+    try {
+        // Check if post exists and user is author or admin
+        const { data: post, error: postError } = await supabase
+            .from('posts')
+            .select('id, author_id')
+            .eq('id', req.params.id)
+            .single();
+        if (postError) throw postError;
+        if (!post) return res.status(404).json({ success: false, message: 'Post not found' });
+        if (post.author_id !== req.user.id && req.user.role !== 'admin') {
+            return res.status(401).json({ success: false, message: 'User not authorized' });
         }
+        const { data, error } = await supabase
+            .from('posts')
+            .delete()
+            .eq('id', req.params.id);
+        if (error) throw error;
+        res.json({ success: true, message: 'Post deleted' });
+    } catch (err) {
+        res.status(500).json({ success: false, message: 'Server Error' });
     }
-
-    // Remove the image file if it exists
-    if (post.imageUrl) {
-        console.log('Attempting to delete image file:', post.imageUrl);
-        const imagePath = path.join(__dirname, '..', 'public', post.imageUrl);
-        fs.unlink(imagePath, (err) => {
-            if (err) console.error('Failed to delete image file:', err);
-            else console.log('Image file deleted successfully.');
-        });
-    }
-
-    console.log('Attempting to delete post from database.');
-    await post.deleteOne(); // Use deleteOne instead of remove
-    console.log('Post deleted from database.');
-
-    res.json({ success: true, message: 'Post removed' });
-  } catch (err) {
-    console.error('Error during post deletion:', err.message);
-    res.status(500).json({ success: false, message: 'Server Error' });
-  }
 });
 
 // @route    PUT api/posts/like/:id
@@ -345,7 +200,11 @@ router.delete('/:id', auth, async (req, res) => {
 // @access   Private
 router.put('/like/:id', auth, async (req, res) => {
   try {
-    const post = await Post.findById(req.params.id);
+    const post = await supabase
+      .from('posts')
+      .select('likes')
+      .eq('id', req.params.id)
+      .single();
 
     if (!post) {
         return res.status(404).json({ success: false, message: 'Post not found' });
@@ -356,11 +215,19 @@ router.put('/like/:id', auth, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Post already liked' });
     }
 
-    post.likes.unshift({ user: req.user.id });
+    const { data: updatedPost, error } = await supabase
+      .from('posts')
+      .update({
+        likes: [...post.likes, { user: req.user.id }],
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', req.params.id)
+      .select('likes')
+      .single();
 
-    await post.save();
+    if (error) throw error;
 
-    res.json({ success: true, likes: post.likes });
+    res.json({ success: true, likes: updatedPost.likes });
   } catch (err) {
     console.error(err.message);
     res.status(500).json({ success: false, message: 'Server Error' });
@@ -372,7 +239,11 @@ router.put('/like/:id', auth, async (req, res) => {
 // @access   Private
 router.put('/unlike/:id', auth, async (req, res) => {
   try {
-    const post = await Post.findById(req.params.id);
+    const post = await supabase
+      .from('posts')
+      .select('likes')
+      .eq('id', req.params.id)
+      .single();
 
     if (!post) {
         return res.status(404).json({ success: false, message: 'Post not found' });
@@ -384,13 +255,21 @@ router.put('/unlike/:id', auth, async (req, res) => {
     }
 
     // Remove the like
-    post.likes = post.likes.filter(
-      ({ user }) => user.toString() !== req.user.id
-    );
+    const { data: updatedPost, error } = await supabase
+      .from('posts')
+      .update({
+        likes: post.likes.filter(
+          ({ user }) => user.toString() !== req.user.id
+        ),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', req.params.id)
+      .select('likes')
+      .single();
 
-    await post.save();
+    if (error) throw error;
 
-    res.json({ success: true, likes: post.likes });
+    res.json({ success: true, likes: updatedPost.likes });
   } catch (err) {
     console.error(err.message);
     res.status(500).json({ success: false, message: 'Server Error' });
@@ -411,8 +290,16 @@ router.post(
     }
 
     try {
-      const user = await User.findById(req.user.id).select('-password');
-      const post = await Post.findById(req.params.id);
+      const user = await supabase
+        .from('users')
+        .select('username, avatar')
+        .eq('id', req.user.id)
+        .single();
+      const post = await supabase
+        .from('posts')
+        .select('comments')
+        .eq('id', req.params.id)
+        .single();
 
       if (!post) {
           return res.status(404).json({ success: false, message: 'Post not found.' });
@@ -420,16 +307,24 @@ router.post(
 
       const newComment = {
         text: req.body.text,
-        name: user.username, // Use username
-        avatar: user.avatar, // Use avatar if available
+        name: user.username,
+        avatar: user.avatar,
         user: req.user.id
       };
 
-      post.comments.unshift(newComment);
+      const { data: updatedPost, error } = await supabase
+        .from('posts')
+        .update({
+          comments: [...post.comments, newComment],
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', req.params.id)
+        .select('comments')
+        .single();
 
-      await post.save();
+      if (error) throw error;
 
-      res.json({ success: true, comments: post.comments });
+      res.json({ success: true, comments: updatedPost.comments });
     } catch (err) {
       console.error(err.message);
       res.status(500).json({ success: false, message: 'Server Error' });
@@ -442,7 +337,11 @@ router.post(
 // @access   Private
 router.delete('/comment/:id/:comment_id', auth, async (req, res) => {
   try {
-    const post = await Post.findById(req.params.id);
+    const post = await supabase
+      .from('posts')
+      .select('comments')
+      .eq('id', req.params.id)
+      .single();
 
     if (!post) {
         return res.status(404).json({ success: false, message: 'Post not found.' });
@@ -468,11 +367,21 @@ router.delete('/comment/:id/:comment_id', auth, async (req, res) => {
       .map(comment => comment.id)
       .indexOf(req.params.comment_id);
 
-    post.comments.splice(removeIndex, 1);
+    const { data: updatedPost, error } = await supabase
+      .from('posts')
+      .update({
+        comments: post.comments.filter(
+          (_, index) => index !== removeIndex
+        ),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', req.params.id)
+      .select('comments')
+      .single();
 
-    await post.save();
+    if (error) throw error;
 
-    res.json({ success: true, comments: post.comments });
+    res.json({ success: true, comments: updatedPost.comments });
   } catch (err) {
     console.error(err.message);
     res.status(500).json({ success: false, message: 'Server Error' });
@@ -518,26 +427,30 @@ router.put(
     const { title, content, pointValue } = req.body; // Include pointValue
 
     try {
-      let post = await Post.findById(req.params.id);
+      let post = await supabase
+        .from('posts')
+        .select('*')
+        .eq('id', req.params.id)
+        .single();
 
       if (!post) {
         return res.status(404).json({ success: false, message: 'Post not found' });
       }
 
       // Check user (Allow admin to edit any post, or author to edit their own non-announcement post)
-      if (post.author.toString() !== req.user.id && req.user.role !== 'admin') {
+      if (post.author_id !== req.user.id && req.user.role !== 'admin') {
            // Additionally, prevent non-admins from editing announcements even if they are the author
            if(post.type === 'announcement') {
              return res.status(401).json({ success: false, message: 'Admins only can edit announcements' });
            }
            // For other post types, check if the user is the author
-           if(post.author.toString() !== req.user.id) {
+           if(post.author_id !== req.user.id) {
               return res.status(401).json({ success: false, message: 'User not authorized' });
            }
       }
 
       // Store the old point value before updating
-      const oldPointValue = post.type === 'hangout' && post.hangoutDetails?.pointValue ? post.hangoutDetails.pointValue : 0;
+      const oldPointValue = post.hangout_details?.pointValue ? post.hangout_details.pointValue : 0;
 
       // Update post fields
       if (title !== undefined) post.title = title;
@@ -545,25 +458,22 @@ router.put(
 
       // Handle pointValue update for hangout posts (only if provided in request and user is admin or author)
       // Allow admin or the author of the post to edit points on a hangout post
-      if (post.type === 'hangout' && (req.user.role === 'admin' || post.author.toString() === req.user.id) && pointValue !== undefined && pointValue !== null) {
+      if (post.type === 'hangout' && (req.user.role === 'admin' || post.author_id === req.user.id) && pointValue !== undefined && pointValue !== null) {
           const newPointValue = parseInt(pointValue, 10);
           if (!isNaN(newPointValue) && newPointValue >= 0) {
-              post.hangoutDetails = { pointValue: newPointValue };
+              post.hangout_details = { pointValue: newPointValue };
 
               // Calculate point difference and update family points
               const pointDifference = newPointValue - oldPointValue;
-              if (pointDifference !== 0 && post.family) {
+              if (pointDifference !== 0 && post.family_id) {
                   try {
-                      await Family.findByIdAndUpdate(
-                          post.family,
-                          {
-                              $inc: {
-                                  totalPoints: pointDifference,
-                                  semesterPoints: pointDifference
-                              }
-                          },
-                          { new: true }
-                      );
+                      await supabase
+                        .from('families')
+                        .update({
+                          totalPoints: post.totalPoints + pointDifference,
+                          semesterPoints: post.semesterPoints + pointDifference
+                        })
+                        .eq('id', post.family_id);
                       console.log(`Family points updated by ${pointDifference} on post edit.`);
                   } catch (err) {
                       console.error('Failed to update family points on post edit:', err);
@@ -575,15 +485,16 @@ router.put(
           }
       }
 
-      await post.save();
+      const { data: updatedPost, error } = await supabase
+        .from('posts')
+        .update(post)
+        .eq('id', req.params.id)
+        .select('*')
+        .single();
 
-      // Populate the updated post before sending it back
-      post = await Post.findById(post._id)
-        .populate('author', ['username', 'profilePicture', 'email'])
-        .populate('family', ['name'])
-        .select('+hangoutDetails'); // Include hangoutDetails in the response
+      if (error) throw error;
 
-      res.json({ success: true, post });
+      res.json({ success: true, post: updatedPost });
     } catch (err) {
       console.error(err.message);
       res.status(500).json({ success: false, message: 'Server Error' });
