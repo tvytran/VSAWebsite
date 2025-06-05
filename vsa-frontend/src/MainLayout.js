@@ -59,7 +59,7 @@ function MainLayout({ children }) {
       }
     };
 
-    
+
     if (isLoggedIn) {
       fetchTopFamilies();
     }
@@ -169,7 +169,7 @@ function MainLayout({ children }) {
         <div className="w-64 bg-white flex flex-col items-center py-8 border-r border-[#e0c9a6] min-h-screen shadow-lg">
           <Link to="/" className="hover:opacity-90 transition-opacity duration-200 group">
             <img
-              src="/logo.png"
+              src="https://nnlbviehgtdyiucgdims.supabase.co/storage/v1/object/public/vsa-images/public/logo.PNG"
               alt="Columbia VSA University"
               className="w-32 mb-8 group-hover:scale-105 transition-transform duration-300 ease-in-out"
             />
