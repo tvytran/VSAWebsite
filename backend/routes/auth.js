@@ -96,7 +96,7 @@ router.post('/register', async (req, res) => {
                         username: newUser.username,
                         email: newUser.email,
                         role: newUser.role,
-                        family: newUser.family_id
+                        family_id: newUser.family_id
                     }
                 });
             }
@@ -158,7 +158,7 @@ router.post('/login', async (req, res) => {
                         username: user.username,
                         email: user.email,
                         role: user.role,
-                        family: user.family_id
+                        family_id: user.family_id
                     }
                 });
             }
@@ -315,6 +315,74 @@ router.put('/password', auth, async (req, res) => {
         res.status(500).json({ 
             success: false, 
             message: 'Server error' 
+        });
+    }
+});
+
+// @route   PUT /api/auth/user/family
+// @desc    Update a user's family (admin only)
+// @access  Private (Admin)
+router.put('/user/family', auth, async (req, res) => {
+    try {
+        // Check if requester is admin
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({
+                success: false,
+                message: 'Only admins can change user families'
+            });
+        }
+
+        const { userId, familyCode } = req.body;
+
+        if (!userId || !familyCode) {
+            return res.status(400).json({
+                success: false,
+                message: 'Both userId and familyCode are required'
+            });
+        }
+
+        // Verify the family exists
+        const { data: family, error: familyError } = await supabase
+            .from('families')
+            .select('id')
+            .eq('code', familyCode)
+            .single();
+        
+        if (familyError) throw familyError;
+        if (!family) {
+            return res.status(404).json({
+                success: false,
+                message: 'Family not found'
+            });
+        }
+
+        // Update the user's family
+        const { data: updatedUser, error: updateError } = await supabase
+            .from('users')
+            .update({ family_id: family.id })
+            .eq('id', userId)
+            .select()
+            .single();
+
+        if (updateError) throw updateError;
+        if (!updatedUser) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+
+        res.json({
+            success: true,
+            message: 'User family updated successfully',
+            user: updatedUser
+        });
+
+    } catch (err) {
+        console.error('Error updating user family:', err);
+        res.status(500).json({
+            success: false,
+            message: err.message || 'Server error'
         });
     }
 });

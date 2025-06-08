@@ -43,8 +43,8 @@ function CreatePostPage() {
           if (familiesRes.data.families.length > 0) {
              setSelectedFamilyId(familiesRes.data.families[0].id);
           }
-        } else if (userRes.data.user.family) {
-          const familyRes = await api.get(`/api/families/${userRes.data.user.family}`, {
+        } else if (userRes.data.user.family_id) {
+          const familyRes = await api.get(`/api/families/${userRes.data.user.family_id}`, {
             headers: { 'x-auth-token': token }
           });
           setFamily(familyRes.data.family);
