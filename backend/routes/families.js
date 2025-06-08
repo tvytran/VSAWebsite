@@ -86,14 +86,32 @@ router.get('/', async (req, res) => {
 // @access  Public
 router.get('/leaderboard', async (req, res) => {
     try {
+        // First get all families with their points
         const { data: families, error } = await supabase
             .from('families')
-            .select('*')
+            .select(`
+                *,
+                members:users (
+                    id,
+                    username,
+                    email
+                )
+            `)
             .order('total_points', { ascending: false });
+        
         if (error) throw error;
-        // TODO: To get members, query users table for each family_id if needed
-        res.json({ success: true, families });
+
+        // Format the response to ensure consistent data structure
+        const formattedFamilies = families.map(family => ({
+            ...family,
+            members: family.members || [],
+            total_points: family.total_points || 0,
+            semester_points: family.semester_points || 0
+        }));
+
+        res.json({ success: true, families: formattedFamilies });
     } catch (err) {
+        console.error('Leaderboard error:', err);
         res.status(500).json({ success: false, message: 'Server error' });
     }
 });
