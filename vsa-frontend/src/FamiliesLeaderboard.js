@@ -78,7 +78,7 @@ function FamiliesLeaderboard() {
                     <h3 className="text-2xl font-bold text-[#b32a2a]">{family.name}</h3>
                   </div>
                   <div className="text-right">
-                    <div className="text-lg font-bold bg-[#b32a2a] text-white rounded-full px-3 py-1">{family.totalPoints || 0} pts</div>
+                    <div className="text-lg font-bold bg-[#b32a2a] text-white rounded-full px-3 py-1">{family.total_points || 0} pts</div>
                   </div>
                 </div>
                 <div className="mt-2 flex flex-wrap gap-2">

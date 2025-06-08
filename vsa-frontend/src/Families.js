@@ -110,7 +110,7 @@ function Families() {
                 </div>
                 <div className="mt-4 flex justify-between items-center">
                   <span className="text-sm text-gray-500">{family.members?.length || 0} members</span>
-                  <span className="text-sm text-gray-500">{family.totalPoints || 0} total points</span>
+                  <span className="text-sm text-gray-500">{family.total_points || 0} total points</span>
                 </div>
                 <div className="mt-4 flex justify-end gap-2">
                   <Link 

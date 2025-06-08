@@ -75,7 +75,7 @@ function CreatePostPage() {
     formData.append('title', newTitle);
     formData.append('type', newType);
     formData.append('content', newPost);
-    formData.append('family', targetFamilyId);
+    formData.append('family_id', targetFamilyId);
     if (newType === 'hangout' && pointValue) {
         formData.append('pointValue', pointValue);
     }

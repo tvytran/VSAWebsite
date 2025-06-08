@@ -278,7 +278,7 @@ function FamilyDetails() {
     const isCurrentUserAdmin = currentUser?.role === 'admin';
 
     if (post.type === 'hangout' && (isCurrentUserAuthor || isCurrentUserAdmin)) {
-      setEditPointValue(post.hangoutDetails?.pointValue?.toString() || '');
+      setEditPointValue(post.point_value?.toString() || '');
     } else {
       setEditPointValue('');
     }
@@ -716,9 +716,9 @@ function FamilyDetails() {
                            Posted by {post.author_id.username} on {new Date(post.createdAt).toLocaleString()}
                         </div>
                       )}
-                       {post.hangoutDetails?.pointValue > 0 && (
+                       {post.point_value > 0 && (
                           <div className="w-full text-left text-sm text-green-600 font-semibold mb-2">
-                            [{post.hangoutDetails.pointValue} pts]
+                            [{post.point_value} pts]
                           </div>
                         )}
                    </div>

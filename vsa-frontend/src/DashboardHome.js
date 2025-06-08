@@ -111,7 +111,7 @@ function DashboardHome() {
     const isCurrentUserAdmin = currentUser?.role === 'admin';
 
     if (post.type === 'hangout' && (isCurrentUserAuthor || isCurrentUserAdmin)) {
-      setEditPointValue(post.hangoutDetails?.pointValue?.toString() || '');
+      setEditPointValue(post.point_value?.toString() || '');
     } else {
       setEditPointValue('');
     }
@@ -562,8 +562,8 @@ function DashboardHome() {
                       </h3>
                       <div className="text-gray-700 mb-2">
                         {truncateText(post.content, post.id)}
-                        {post.hangoutDetails?.pointValue > 0 && (
-                          <span className="ml-2 text-green-600 font-semibold">[{post.hangoutDetails.pointValue} pts]</span>
+                        {post.point_value > 0 && (
+                          <span className="ml-2 text-green-600 font-semibold">[{post.point_value} pts]</span>
                         )}
                       </div>
                     </>

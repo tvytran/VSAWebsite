@@ -490,8 +490,8 @@ function Profile() {
                             </h3>
                             <div className="text-gray-700 mb-2 whitespace-pre-wrap">
                               {post.content}
-                              {post.hangoutDetails?.pointValue > 0 && (
-                                <span className="ml-2 text-blue-600 font-semibold">[{post.hangoutDetails.pointValue} pts]</span>
+                              {post.point_value > 0 && (
+                                <span className="ml-2 text-blue-600 font-semibold">[{post.point_value} pts]</span>
                               )}
                             </div>
                             {/* Three dots menu for edit/delete */}

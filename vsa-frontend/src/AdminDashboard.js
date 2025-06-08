@@ -132,7 +132,7 @@ function AdminDashboard() {
     setEditingPostId(post.id);
     setEditTitle(post.title);
     setEditContent(post.content);
-    setEditPointValue(post.hangoutDetails?.pointValue?.toString() || '');
+    setEditPointValue(post.point_value?.toString() || '');
     setEditError('');
   };
 
@@ -153,7 +153,7 @@ function AdminDashboard() {
       const res = await api.put(`/api/posts/${postId}`, {
         title: editTitle,
         content: editContent,
-        ...(allPosts.find(post => post.id === postId)?.type === 'hangout' && { pointValue: editPointValue }),
+        ...(allPosts.find(post => post.id === postId)?.type === 'hangout' && { point_value: editPointValue }),
       }, {
         headers: { 'x-auth-token': token }
       });
@@ -660,8 +660,8 @@ function AdminDashboard() {
                           </td>
                           <td className="px-3 py-4 text-sm text-gray-500 w-1/4" style={{ wordWrap: 'break-word', overflowWrap: 'break-word' }}>
                             <p className="text-sm text-gray-700">{post.content}</p>
-                            {post.type === 'hangout' && post.hangoutDetails?.pointValue > 0 && (
-                              <div className="mt-1 text-sm text-blue-600 font-semibold">Points: {post.hangoutDetails.pointValue}</div>
+                            {post.type === 'hangout' && post.point_value > 0 && (
+                              <div className="mt-1 text-sm text-blue-600 font-semibold">Points: {post.point_value}</div>
                             )}
                           </td>
                           <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 w-[100px] overflow-hidden text-ellipsis">

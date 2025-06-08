@@ -37,9 +37,15 @@ const upload = multer({
 // @route   POST /api/posts
 // @desc    Create a new post
 // @access  Private
-router.post('/', auth, async (req, res) => {
+router.post('/', auth, upload.single('image'), async (req, res) => {
     try {
-        const { title, type, content, family_id, hangout_details } = req.body;
+        console.log('Received post creation request:', {
+            body: req.body,
+            file: req.file,
+            user: req.user,
+            headers: req.headers
+        });
+        const { title, type, content, family_id, pointValue } = req.body;
         // Check user and family exist
         const { data: user, error: userError } = await supabase
             .from('users')
@@ -60,16 +66,64 @@ router.post('/', auth, async (req, res) => {
         if (!family) return res.status(404).json({ success: false, message: 'Family not found' });
         // TODO: Check if user is a member of the family if needed
         // Insert post
+        const postData = {
+            title,
+            type,
+            content,
+            family_id,
+            author_id: user.id,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            point_value: type === 'hangout' && pointValue ? parseInt(pointValue, 10) : 0
+        };
+
+        // Add image path if an image was uploaded
+        if (req.file) {
+            postData.image_path = `/uploads/posts/${req.file.filename}`;
+        }
+
         const { data: post, error } = await supabase
             .from('posts')
-            .insert([{ title, type, content, family_id, author_id: user.id, hangout_details, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }])
+            .insert([postData])
             .select()
             .single();
         if (error) throw error;
-        // TODO: Update family points if hangout
+
+        // Update family points if this is a hangout post with points
+        if (type === 'hangout' && postData.point_value > 0) {
+            try {
+                // First get the current family points
+                const { data: family, error: familyError } = await supabase
+                    .from('families')
+                    .select('total_points, semester_points')
+                    .eq('id', family_id)
+                    .single();
+                
+                if (familyError) throw familyError;
+
+                // Then update with the new points
+                await supabase
+                    .from('families')
+                    .update({
+                        total_points: (family.total_points || 0) + postData.point_value,
+                        semester_points: (family.semester_points || 0) + postData.point_value
+                    })
+                    .eq('id', family_id);
+                console.log(`Family points updated by ${postData.point_value} on post creation.`);
+            } catch (err) {
+                console.error('Failed to update family points on post creation:', err);
+                // Log error but don't block the post creation
+            }
+        }
+
         res.status(201).json({ success: true, post });
     } catch (err) {
-        res.status(500).json({ success: false, message: 'Server Error' });
+        console.error('Post creation error:', err);
+        res.status(500).json({ 
+            success: false, 
+            message: err.message || 'Server Error',
+            details: err.details || null
+        });
     }
 });
 
@@ -515,7 +569,7 @@ router.put(
       }
 
       // Store the old point value before updating
-      const oldPointValue = post.hangout_details?.pointValue ? post.hangout_details.pointValue : 0;
+      const oldPointValue = post.point_value ? post.point_value : 0;
 
       // Update post fields
       if (title !== undefined) post.title = title;
@@ -526,19 +580,29 @@ router.put(
       if (post.type === 'hangout' && (req.user.role === 'admin' || post.author_id === req.user.id) && pointValue !== undefined && pointValue !== null) {
           const newPointValue = parseInt(pointValue, 10);
           if (!isNaN(newPointValue) && newPointValue >= 0) {
-              post.hangout_details = { pointValue: newPointValue };
+              post.point_value = newPointValue;
 
               // Calculate point difference and update family points
               const pointDifference = newPointValue - oldPointValue;
               if (pointDifference !== 0 && post.family_id) {
                   try {
+                      // First get the current family points
+                      const { data: family, error: familyError } = await supabase
+                          .from('families')
+                          .select('total_points, semester_points')
+                          .eq('id', post.family_id)
+                          .single();
+                      
+                      if (familyError) throw familyError;
+
+                      // Then update with the new points
                       await supabase
-                        .from('families')
-                        .update({
-                          totalPoints: post.totalPoints + pointDifference,
-                          semesterPoints: post.semesterPoints + pointDifference
-                        })
-                        .eq('id', post.family_id);
+                          .from('families')
+                          .update({
+                              total_points: (family.total_points || 0) + pointDifference,
+                              semester_points: (family.semester_points || 0) + pointDifference
+                          })
+                          .eq('id', post.family_id);
                       console.log(`Family points updated by ${pointDifference} on post edit.`);
                   } catch (err) {
                       console.error('Failed to update family points on post edit:', err);
