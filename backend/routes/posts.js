@@ -8,23 +8,9 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-// Configure multer for file uploads
-const storage = multer.diskStorage({
-  destination: function(req, file, cb) {
-    const uploadPath = path.join(__dirname, '..', 'public', 'uploads', 'posts');
-    // Create the directory if it doesn't exist
-    fs.mkdir(uploadPath, { recursive: true }, (err) => {
-      if (err) return cb(err, null);
-      cb(null, uploadPath);
-    });
-  },
-  filename: function(req, file, cb) {
-    cb(null, file.fieldname + '-' + Date.now() + path.extname(file.originalname));
-  }
-});
-
+// Configure multer for memory storage
 const upload = multer({
-  storage: storage,
+  storage: multer.memoryStorage(),
   fileFilter: function(req, file, cb) {
     // Allow images only
     if (!file.originalname.match(/\.(jpg|jpeg|png|gif)$/i)) {
@@ -45,6 +31,9 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
             user: req.user,
             headers: req.headers
         });
+        console.log('SUPABASE_URL:', process.env.SUPABASE_URL);
+        console.log('SUPABASE_KEY:', process.env.SUPABASE_KEY ? 'SET' : 'NOT SET');
+        console.log('SUPABASE_BUCKET:', process.env.SUPABASE_BUCKET);
         const { title, type, content, family_id, pointValue } = req.body;
         // Check user and family exist
         const { data: user, error: userError } = await supabase
@@ -77,17 +66,37 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
             point_value: type === 'hangout' && pointValue ? parseInt(pointValue, 10) : 0
         };
 
-        // Add image path if an image was uploaded
+        // Handle image upload with Supabase Storage
         if (req.file) {
-            postData.image_path = `/uploads/posts/${req.file.filename}`;
+            const fileExt = req.file.originalname.split('.').pop();
+            const fileName = `posts/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+
+            const { data: uploadData, error: uploadError } = await supabase.storage
+                .from(process.env.SUPABASE_BUCKET)
+                .upload(fileName, req.file.buffer, {
+                    contentType: req.file.mimetype,
+                    upsert: true,
+                });
+
+            if (uploadError) {
+                throw uploadError;
+            }
+
+            const { publicUrl } = supabase.storage
+                .from(process.env.SUPABASE_BUCKET)
+                .getPublicUrl(fileName).data;
+
+            console.log('Upload result:', uploadData, uploadError);
+            console.log('Public URL:', publicUrl);
+            postData.image_path = publicUrl;
         }
 
-        const { data: post, error } = await supabase
+        const { data: newPost, error: postError } = await supabase
             .from('posts')
-            .insert([postData])
+            .insert(postData)
             .select()
             .single();
-        if (error) throw error;
+        if (postError) throw postError;
 
         // Update family points if this is a hangout post with points
         if (type === 'hangout' && postData.point_value > 0) {
@@ -116,14 +125,10 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
             }
         }
 
-        res.status(201).json({ success: true, post });
+        res.status(201).json({ success: true, post: newPost });
     } catch (err) {
-        console.error('Post creation error:', err);
-        res.status(500).json({ 
-            success: false, 
-            message: err.message || 'Server Error',
-            details: err.details || null
-        });
+        console.error('Error in post creation:', err);
+        res.status(500).json({ success: false, message: 'Server Error during post creation.' });
     }
 });
 

@@ -442,10 +442,10 @@ function DashboardHome() {
                     post.type === 'announcement' ? 'bg-red-100 border-4 border-solid border-[#b32a2a]' : 'bg-white border border-gray-200'
                   }`}
                 >
-                  {post.imageUrl && (
+                  {post.image_path && (
                     <div className="mb-3">
                       <img 
-                        src={post.imageUrl}
+                        src={post.image_path}
                         alt="Post" 
                         className="w-full h-96 object-contain rounded-t-lg" 
                       />

@@ -649,17 +649,17 @@ function FamilyDetails() {
         </div>
 
         {/* Family Post Images Grid */}
-        {posts.some(post => post.imageUrl) && (
+        {posts.some(post => post.image_path) && (
           <div className="grid grid-cols-3 gap-4 mb-6">
             {posts.map(post => (
-              post.imageUrl && post.author_id && (
+              post.image_path && post.author_id && (
                 <div 
                   key={post.id} 
                   className="aspect-square rounded overflow-hidden bg-gray-200 cursor-pointer hover:opacity-90 transition-opacity duration-200 relative"
                   onClick={() => setExpandedPostId(expandedPostId === post.id ? null : post.id)}
                 >
                   <img
-                    src={post.imageUrl}
+                    src={post.image_path}
                     alt="Family Post Image"
                     className="w-full h-full object-cover"
                   />
@@ -700,9 +700,9 @@ function FamilyDetails() {
                 {posts.filter(post => post.id === expandedPostId).map(post => (
                    <div key={post.id} className="flex flex-col items-center">
                      <h3 className="text-xl font-bold mb-2 text-gray-800">{post.title}</h3>
-                     {post.imageUrl && (
+                     {post.image_path && (
                        <img
-                         src={post.imageUrl}
+                         src={post.image_path}
                          alt="Family Post Image"
                          className="w-full object-contain rounded-md mb-4"
                        />

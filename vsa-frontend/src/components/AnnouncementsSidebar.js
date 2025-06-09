@@ -102,15 +102,15 @@ function AnnouncementsSidebar() {
               <p className="text-gray-600 text-sm mb-2">
                 {truncateText(announcement.content, announcement.id)}
               </p>
-              {announcement.imageUrl && (
+              {announcement.image_path && (
                 <img 
-                  src={`http://localhost:5001${announcement.imageUrl}`} 
+                  src={announcement.image_path}
                   alt="Announcement" 
                   className="mt-2 w-full object-cover rounded-md"
                 />
               )}
               <div className="text-xs text-gray-500 mt-2">
-                {new Date(announcement.createdAt).toLocaleString()}
+                {announcement.created_at ? new Date(announcement.created_at).toLocaleString() : ''}
               </div>
             </div>
           ))}

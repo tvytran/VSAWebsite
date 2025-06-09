@@ -6,24 +6,10 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-// Configure multer for family picture uploads
-const storage = multer.diskStorage({
-  destination: function(req, file, cb) {
-    const uploadPath = path.join(__dirname, '..' , 'public', 'uploads', 'families');
-    // Create the directory if it doesn't exist
-    fs.mkdir(uploadPath, { recursive: true }, (err) => {
-      if (err) return cb(err, null);
-      cb(null, uploadPath);
-    });
-  },
-  filename: function(req, file, cb) {
-    cb(null, file.fieldname + '-' + Date.now() + path.extname(file.originalname));
-  }
-});
-
+// Configure multer for memory storage
 const upload = multer({
-  storage: storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // Increased limit to 5MB
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
   fileFilter: function(req, file, cb) {
     // Allow images only
     if (!file.originalname.match(/\.(jpg|jpeg|png|gif)$/i)) {
@@ -160,12 +146,37 @@ router.put('/:id', auth, upload.single('familyPicture'), async (req, res) => {
     if (!user) {
       return res.status(403).json({ success: false, message: 'You are not authorized to update this family' });
     }
+
     const updateFields = {};
     if (req.body.name) updateFields.name = req.body.name;
-    // TODO: Handle file upload for family picture with Supabase Storage if needed
+
+    // Handle file upload for family picture with Supabase Storage
+    if (req.file) {
+      const fileExt = req.file.originalname.split('.').pop();
+      const fileName = `families/${req.params.id}_${Date.now()}.${fileExt}`;
+
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from(process.env.SUPABASE_BUCKET)
+        .upload(fileName, req.file.buffer, {
+          contentType: req.file.mimetype,
+          upsert: true,
+        });
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      const { publicUrl } = supabase.storage
+        .from(process.env.SUPABASE_BUCKET)
+        .getPublicUrl(fileName).data;
+
+      updateFields.family_picture = publicUrl;
+    }
+
     if (Object.keys(updateFields).length === 0) {
       return res.status(400).json({ success: false, message: 'No update fields provided.' });
     }
+
     const { data: updatedFamily, error } = await supabase
       .from('families')
       .update(updateFields)
@@ -175,6 +186,7 @@ router.put('/:id', auth, upload.single('familyPicture'), async (req, res) => {
     if (error) throw error;
     res.json({ success: true, family: updatedFamily });
   } catch (err) {
+    console.error('Error in family update route:', err);
     res.status(500).json({ success: false, message: 'Server Error during family update.' });
   }
 });

@@ -17,7 +17,6 @@ app.use(cors({
 }));
 //
 app.use(express.json()); //using express.json
-app.use('/uploads', express.static('uploads')); // Serve uploaded files (for photos)
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public')); // Serve static files from the 'public' directory
 
