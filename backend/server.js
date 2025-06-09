@@ -24,7 +24,7 @@ app.use(express.static('public')); // Serve static files from the 'public' direc
 const supabase = require('./supabaseClient');
 
 // @route    GET api/posts/announcements
-// @desc     Get all announcement posts (public) - Defined early to avoid auth middleware
+// @desc     Get three most recent announcement posts (public)
 // @access   Public
 app.get('/api/posts/announcements', async (req, res) => {
     console.log('Handling public /api/posts/announcements route directly in server.js');
@@ -33,7 +33,8 @@ app.get('/api/posts/announcements', async (req, res) => {
             .from('posts')
             .select('*')
             .eq('type', 'announcement')
-            .order('created_at', { ascending: false });
+            .order('created_at', { ascending: false })
+            .limit(3);  // Limit to 3 most recent announcements
         if (error) throw error;
         res.json({ success: true, posts: announcements });
     } catch (err) {

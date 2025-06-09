@@ -197,7 +197,7 @@ function FamilyDetails() {
     // formData.append('description', editedFamilyDescription);
 
     if (selectedFamilyFile) {
-      formData.append('familyPicture', selectedFamilyFile);
+      formData.append('family_picture', selectedFamilyFile);
     }
 
     try {
@@ -537,9 +537,9 @@ function FamilyDetails() {
           {isEditingFamily ? (
             <div className="flex flex-col items-center">
                {/* Image Preview or Placeholder */}
-              {(selectedFamilyFile || family.familyPicture) ? (
+              {(selectedFamilyFile || family.family_picture) ? (
                 <img 
-                  src={selectedFamilyFile ? URL.createObjectURL(selectedFamilyFile) : `${family.familyPicture}?v=${new Date().getTime()}`}
+                  src={selectedFamilyFile ? URL.createObjectURL(selectedFamilyFile) : `${family.family_picture}?v=${new Date().getTime()}`}
                   alt="Family" 
                   className="w-48 h-48 object-cover rounded-full mb-4 border-4 border-[#b32a2a]"
                 />
@@ -567,8 +567,8 @@ function FamilyDetails() {
               )}
             </div>
           ) : (
-            (family.familyPicture ? (
-              <img src={`${family.familyPicture}?v=${new Date().getTime()}`} alt="Family" className="w-48 h-48 object-cover rounded-full mx-auto mb-4 border-4 border-[#b32a2a]" />
+            (family.family_picture ? (
+              <img src={`${family.family_picture}?v=${new Date().getTime()}`} alt="Family" className="w-48 h-48 object-cover rounded-full mx-auto mb-4 border-4 border-[#b32a2a]" />
             ) : (
               <div className="w-48 h-48 rounded-full bg-[#b32a2a] flex items-center justify-center text-white text-6xl font-bold mx-auto mb-4 border-4 border-[#b32a2a]">
                 {family.name?.charAt(0).toUpperCase()}

@@ -682,4 +682,62 @@ router.put(
   }
 );
 
+// Get posts by user ID
+router.get('/user/:userId', auth, async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // First, get all regular posts
+    const { data: regularPosts, error: regularError } = await supabase
+      .from('posts')
+      .select(`
+        *,
+        author:users!posts_author_id_fkey (
+          id,
+          username,
+          profile_picture
+        ),
+        family:families!posts_family_id_fkey (
+          id,
+          name
+        )
+      `)
+      .eq('author_id', userId)
+      .neq('type', 'announcement')
+      .order('created_at', { ascending: false });
+
+    if (regularError) throw regularError;
+
+    // Then, get only the three most recent announcements
+    const { data: announcements, error: announcementError } = await supabase
+      .from('posts')
+      .select(`
+        *,
+        author:users!posts_author_id_fkey (
+          id,
+          username,
+          profile_picture
+        ),
+        family:families!posts_family_id_fkey (
+          id,
+          name
+        )
+      `)
+      .eq('author_id', userId)
+      .eq('type', 'announcement')
+      .order('created_at', { ascending: false })
+      .limit(3);
+
+    if (announcementError) throw announcementError;
+
+    // Combine the posts, with announcements first
+    const posts = [...announcements, ...regularPosts];
+
+    res.json({ posts });
+  } catch (err) {
+    console.error('Error fetching user posts:', err);
+    res.status(500).json({ message: 'Failed to fetch user posts' });
+  }
+});
+
 module.exports = router; 

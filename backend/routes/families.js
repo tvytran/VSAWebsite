@@ -5,19 +5,35 @@ const auth = require('../middleware/auth');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const heicConvert = require('heic-convert');
 
 // Configure multer for memory storage
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
   fileFilter: function(req, file, cb) {
-    // Allow images only
-    if (!file.originalname.match(/\.(jpg|jpeg|png|gif)$/i)) {
-      return cb(new Error('Only image files are allowed!'), false);
+    // Allow images including HEIC
+    if (!file.originalname.match(/\.(jpg|jpeg|png|gif|heic|heif)$/i)) {
+      return cb(new Error('Only image files (JPG, PNG, GIF, HEIC) are allowed!'), false);
     }
     cb(null, true);
   }
 });
+
+// Helper function to convert HEIC to JPEG
+async function convertHeicToJpeg(buffer) {
+  try {
+    const jpegBuffer = await heicConvert({
+      buffer: buffer,
+      format: 'JPEG',
+      quality: 0.9
+    });
+    return jpegBuffer;
+  } catch (error) {
+    console.error('HEIC conversion error:', error);
+    throw new Error('Failed to convert HEIC image');
+  }
+}
 
 // @route   POST /api/families
 // @desc    Create a new family
@@ -135,6 +151,15 @@ router.get('/:id', async (req, res) => {
 // @access  Private (only members of the family)
 router.put('/:id', auth, upload.single('familyPicture'), async (req, res) => {
   try {
+    console.log('Family update request received:', {
+      userId: req.user.id,
+      familyId: req.params.id,
+      hasFile: !!req.file,
+      fileName: req.file?.originalname,
+      fileSize: req.file?.size,
+      fileType: req.file?.mimetype
+    });
+
     // Check if user is a member
     const { data: user, error: userError } = await supabase
       .from('users')
@@ -152,42 +177,88 @@ router.put('/:id', auth, upload.single('familyPicture'), async (req, res) => {
 
     // Handle file upload for family picture with Supabase Storage
     if (req.file) {
-      const fileExt = req.file.originalname.split('.').pop();
-      const fileName = `families/${req.params.id}_${Date.now()}.${fileExt}`;
+      console.log('Processing file upload...');
+      let fileBuffer = req.file.buffer;
+      let fileMimeType = req.file.mimetype;
+
+      // Convert HEIC to JPEG if necessary
+      if (req.file.originalname.toLowerCase().endsWith('.heic') || 
+          req.file.originalname.toLowerCase().endsWith('.heif')) {
+        console.log('Converting HEIC file to JPEG...');
+        try {
+          fileBuffer = await convertHeicToJpeg(req.file.buffer);
+          fileMimeType = 'image/jpeg';
+          console.log('HEIC conversion successful');
+        } catch (error) {
+          console.error('HEIC conversion failed:', error);
+          return res.status(400).json({ message: 'Failed to convert HEIC image' });
+        }
+      }
+
+      const fileName = `families/${req.params.id}_${Date.now()}.jpg`;
+      console.log('Uploading file to Supabase Storage:', fileName);
 
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from(process.env.SUPABASE_BUCKET)
-        .upload(fileName, req.file.buffer, {
-          contentType: req.file.mimetype,
+        .upload(fileName, fileBuffer, {
+          contentType: fileMimeType,
           upsert: true,
         });
 
       if (uploadError) {
-        throw uploadError;
+        console.error('Supabase upload error:', uploadError);
+        return res.status(500).json({ message: uploadError.message });
       }
+
+      console.log('File uploaded successfully:', uploadData);
 
       const { publicUrl } = supabase.storage
         .from(process.env.SUPABASE_BUCKET)
         .getPublicUrl(fileName).data;
 
+      console.log('Generated public URL:', publicUrl);
       updateFields.family_picture = publicUrl;
     }
 
-    if (Object.keys(updateFields).length === 0) {
-      return res.status(400).json({ success: false, message: 'No update fields provided.' });
-    }
+    console.log('Updating family in database with fields:', updateFields);
 
-    const { data: updatedFamily, error } = await supabase
+    // Update family in database
+    const { data: updatedFamily, error: updateError } = await supabase
       .from('families')
       .update(updateFields)
       .eq('id', req.params.id)
       .select()
       .single();
-    if (error) throw error;
-    res.json({ success: true, family: updatedFamily });
+
+    if (updateError) {
+      console.error('Database update error:', updateError);
+      throw updateError;
+    }
+
+    console.log('Family updated successfully:', updatedFamily);
+
+    // Fetch family members separately
+    const { data: members, error: membersError } = await supabase
+      .from('users')
+      .select('id, username, email, profile_picture')
+      .eq('family_id', req.params.id);
+
+    if (membersError) {
+      console.error('Error fetching members:', membersError);
+      throw membersError;
+    }
+
+    // Combine family data with members
+    const familyWithMembers = {
+      ...updatedFamily,
+      members: members || []
+    };
+
+    console.log('Sending response with updated family data');
+    res.json({ success: true, family: familyWithMembers });
   } catch (err) {
-    console.error('Error in family update route:', err);
-    res.status(500).json({ success: false, message: 'Server Error during family update.' });
+    console.error('Error updating family:', err);
+    res.status(500).json({ success: false, message: err.message || 'Server error' });
   }
 });
 

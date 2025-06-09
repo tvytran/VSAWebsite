@@ -7,23 +7,34 @@ const auth = require('../middleware/auth');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const heicConvert = require('heic-convert');
 
 // Configure multer for profile picture uploads
-const storage = multer.diskStorage({
-  destination: function(req, file, cb) {
-    const uploadPath = path.join(__dirname, '..' , 'public', 'uploads', 'profiles');
-    // Create the directory if it doesn't exist
-    fs.mkdir(uploadPath, { recursive: true }, (err) => {
-      if (err) return cb(err, null);
-      cb(null, uploadPath);
-    });
-  },
-  filename: function(req, file, cb) {
-    cb(null, file.fieldname + '-' + Date.now() + path.extname(file.originalname));
+const upload = multer({
+  storage: multer.memoryStorage(),
+  fileFilter: function(req, file, cb) {
+    // Allow images including HEIC
+    if (!file.originalname.match(/\.(jpg|jpeg|png|gif|heic|heif)$/i)) {
+      return cb(new Error('Only image files (JPG, PNG, GIF, HEIC) are allowed!'), false);
+    }
+    cb(null, true);
   }
 });
 
-const upload = multer({ storage: multer.memoryStorage() });
+// Helper function to convert HEIC to JPEG
+async function convertHeicToJpeg(buffer) {
+  try {
+    const jpegBuffer = await heicConvert({
+      buffer: buffer,
+      format: 'JPEG',
+      quality: 0.9
+    });
+    return jpegBuffer;
+  } catch (error) {
+    console.error('HEIC conversion error:', error);
+    throw new Error('Failed to convert HEIC image');
+  }
+}
 
 // @route   POST /api/auth/register
 // @desc    Register a new user
@@ -213,18 +224,42 @@ router.put('/profile', auth, upload.single('profilePicture'), async (req, res) =
     }
 
     if (!req.file) {
-      console.log('No file uploaded');
+      // If no file is uploaded but username is being updated
+      if (req.body.username) {
+        const { data: updatedUser, error: updateError } = await supabase
+          .from('users')
+          .update({ username: req.body.username })
+          .eq('id', req.user.id)
+          .select()
+          .single();
+        if (updateError) throw updateError;
+        return res.json({ success: true, user: updatedUser });
+      }
       return res.status(400).json({ message: 'No file uploaded' });
     }
 
-    const fileExt = req.file.originalname.split('.').pop();
-    const fileName = `profiles/${user.id}_${Date.now()}.${fileExt}`;
+    let fileBuffer = req.file.buffer;
+    let fileMimeType = req.file.mimetype;
+
+    // Convert HEIC to JPEG if necessary
+    if (req.file.originalname.toLowerCase().endsWith('.heic') || 
+        req.file.originalname.toLowerCase().endsWith('.heif')) {
+      try {
+        fileBuffer = await convertHeicToJpeg(req.file.buffer);
+        fileMimeType = 'image/jpeg';
+      } catch (error) {
+        console.error('HEIC conversion failed:', error);
+        return res.status(400).json({ message: 'Failed to convert HEIC image' });
+      }
+    }
+
+    const fileName = `profiles/${user.id}_${Date.now()}.jpg`;
     console.log('Uploading to Supabase:', fileName);
 
     const { data, error } = await supabase.storage
       .from(process.env.SUPABASE_BUCKET)
-      .upload(fileName, req.file.buffer, {
-        contentType: req.file.mimetype,
+      .upload(fileName, fileBuffer, {
+        contentType: fileMimeType,
         upsert: true,
       });
 
@@ -238,19 +273,19 @@ router.put('/profile', auth, upload.single('profilePicture'), async (req, res) =
       .getPublicUrl(fileName).data;
     console.log('Supabase public URL:', publicUrl);
 
-    // Debug log before updating user
-    console.log('About to update user with new profile picture:', user.id);
+    // Update user profile
+    const updateData = { profile_picture: publicUrl };
+    if (req.body.username) {
+      updateData.username = req.body.username;
+    }
 
     const { data: updatedUser, error: updateError } = await supabase
       .from('users')
-      .update({ profile_picture: publicUrl })
+      .update(updateData)
       .eq('id', req.user.id)
       .select()
       .single();
     if (updateError) throw updateError;
-
-    // Debug log after updating user
-    console.log('User updated with new profile picture.');
 
     res.json({ success: true, user: updatedUser });
   } catch (err) {

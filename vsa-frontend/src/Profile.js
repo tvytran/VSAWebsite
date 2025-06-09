@@ -10,17 +10,9 @@ function Profile() {
   const [family, setFamily] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [posts, setPosts] = useState([]);
+  const [userPosts, setUserPosts] = useState([]);
   const [postsLoading, setPostsLoading] = useState(false);
   const [postsError, setPostsError] = useState('');
-  const [editingPostId, setEditingPostId] = useState(null);
-  const [editTitle, setEditTitle] = useState('');
-  const [editContent, setEditContent] = useState('');
-  const [editError, setEditError] = useState('');
-  const [editLoading, setEditLoading] = useState(false);
-
-  // State for controlling the visibility of the three dots menu
-  const [showMenuId, setShowMenuId] = useState(null);
 
   // State for profile picture upload
   const [selectedFile, setSelectedFile] = useState(null);
@@ -49,7 +41,7 @@ function Profile() {
       });
       setUser(userRes.data.user);
 
-      // Fetch family details and posts if user is in a family
+      // Fetch family details if user is in a family
       if (userRes.data.user.family_id) {
         const familyId = userRes.data.user.family_id;
         
@@ -58,22 +50,19 @@ function Profile() {
           headers: { 'x-auth-token': token }
         });
         setFamily(familyRes.data.family);
-
-        // Fetch posts for the family
-        setPostsLoading(true);
-        setPostsError('');
-        try {
-          const postsRes = await api.get(`/api/posts/family/${familyId}`, {
-            headers: { 'x-auth-token': token }
-          });
-          setPosts(postsRes.data.posts);
-          setPostsLoading(false);
-        } catch (err) {
-          setPostsError('Failed to load family posts.');
-          setPostsLoading(false);
-        }
-
       }
+
+      // Fetch user's posts
+      setPostsLoading(true);
+      try {
+        const postsRes = await api.get(`/api/posts/user/${userRes.data.user.id}`, {
+          headers: { 'x-auth-token': token }
+        });
+        setUserPosts(postsRes.data.posts);
+      } catch (err) {
+        setPostsError('Failed to load your posts.');
+      }
+      setPostsLoading(false);
       setLoading(false);
     } catch (err) {
       setError('Failed to load user info or family. Please log in again.');
@@ -85,33 +74,26 @@ function Profile() {
     fetchUserData();
   }, [navigate]);
 
-  // Helper: check if current user is the logged-in user (always true on profile page)
-  // This is kept for consistency with FamilyDetails post logic if needed later
-  const userId = user?.id;
-  const isMember = family && user && family.members.some(m => (m.id || m) === userId);
-
   // Handle file selection
   const handleFileChange = (event) => {
     const file = event.target.files[0];
     if (file) {
-      // Check file type (optional, but good practice)
       if (!file.type.startsWith('image/')) {
         setUploadError('Please select an image file.');
         return;
       }
       const reader = new FileReader();
       reader.onloadend = () => {
-        setImageToCrop(reader.result); // reader.result is the data URL
-        setSelectedFile(file); // Store the original file for potential use or info
-        setUploadError(''); // Clear previous errors
+        setImageToCrop(reader.result);
+        setSelectedFile(file);
+        setUploadError('');
       };
       reader.readAsDataURL(file);
     }
   };
 
-  // Handle profile picture upload (now accepts cropped blob)
+  // Handle profile picture upload
   const handleProfilePictureUpload = async (croppedBlob) => {
-    // Use the croppedBlob directly
     if (!croppedBlob) {
       setUploadError('No image data to upload.');
       return;
@@ -121,22 +103,19 @@ function Profile() {
     setUploadError('');
 
     const formData = new FormData();
-    // Append the cropped blob with a filename and type
-    formData.append('profilePicture', croppedBlob, 'profile.jpeg'); // Provide a filename and type
+    formData.append('profilePicture', croppedBlob, 'profile.jpeg');
 
     try {
       const token = localStorage.getItem('token');
       const res = await api.put('/api/auth/profile', formData, {
         headers: {
           'x-auth-token': token,
-          // 'Content-Type': 'multipart/form-data' // Axios sets this automatically with FormData
         }
       });
-      setUser(res.data.user); // Update user state with the new profile picture path
-      setSelectedFile(null); // Clear selected file
-      setImageToCrop(null); // Close the cropper modal
+      setUser(res.data.user);
+      setSelectedFile(null);
+      setImageToCrop(null);
       setUploadLoading(false);
-      // Optionally show a success message
     } catch (err) {
       console.error('Profile picture upload failed:', err.response?.data || err.message || err);
       setUploadError(err.response?.data?.message || 'Failed to upload profile picture.');
@@ -147,71 +126,10 @@ function Profile() {
   // Function to close the cropper modal
   const handleCropperCancel = () => {
     setImageToCrop(null);
-    setSelectedFile(null); // Clear the selected file as well
-    setUploadError(''); // Clear any errors
+    setSelectedFile(null);
+    setUploadError('');
   };
 
-  const startEdit = (post) => {
-    setEditingPostId(post.id);
-    setEditTitle(post.title);
-    setEditContent(post.content);
-    setEditError('');
-  };
-
-  const cancelEdit = () => {
-    setEditingPostId(null);
-    setEditTitle('');
-    setEditContent('');
-    setEditError('');
-  };
-
-  const handleEditPost = async (e, postId) => {
-    e.preventDefault();
-    setEditError('');
-    setEditLoading(true);
-    try {
-      const token = localStorage.getItem('token');
-      await api.put(`/api/posts/${postId}`, {
-        title: editTitle,
-        content: editContent
-      }, {
-        headers: { 'x-auth-token': token }
-      });
-      setEditLoading(false);
-      setEditingPostId(null);
-      setEditTitle('');
-      setEditContent('');
-      // Refresh posts
-       const postsRes = await api.get(`/api/posts/family/${family.id}`, {
-        headers: { 'x-auth-token': token }
-      });
-      setPosts(postsRes.data.posts);
-      await fetchUserData(); // Refresh family info (especially points)
-    } catch (err) {
-      setEditError(err.response?.data?.message || 'Failed to edit post.');
-      setEditLoading(false);
-    }
-  };
-
-  const handleDeletePost = async (postId) => {
-    if (!window.confirm('Are you sure you want to delete this post?')) return;
-    try {
-      const token = localStorage.getItem('token');
-      await api.delete(`/api/posts/${postId}`, {
-        headers: { 'x-auth-token': token }
-      });
-      // Refresh posts
-      const postsRes = await api.get(`/api/posts/family/${family.id}`, {
-        headers: { 'x-auth-token': token }
-      });
-      setPosts(postsRes.data.posts);
-      await fetchUserData(); // Refresh family info (especially points)
-    } catch (err) {
-      alert(err.response?.data?.message || 'Failed to delete post.');
-    }
-  };
-
-  // Handle username edit
   const startEditUsername = () => {
     setIsEditingUsername(true);
     setEditedUsername(user.username);
@@ -228,74 +146,53 @@ function Profile() {
     e.preventDefault();
     setUsernameEditLoading(true);
     setUsernameEditError('');
-
-    if (!editedUsername.trim()) {
-        setUsernameEditError('Username cannot be empty.');
-        setUsernameEditLoading(false);
-        return;
-    }
-
     try {
       const token = localStorage.getItem('token');
-      const res = await api.put('/api/auth/profile', 
-        { username: editedUsername },
-        {
-          headers: {
-            'x-auth-token': token,
-          }
-        }
-      );
-
-      if (res.data.success) {
-        setUser(res.data.user); // Update user state with the new username
-        localStorage.setItem('user', JSON.stringify(res.data.user)); // Update user in localStorage
-        setIsEditingUsername(false);
-        setEditedUsername('');
-      } else {
-         setUsernameEditError(res.data.message || 'Failed to update username.');
-      }
+      const res = await api.put('/api/auth/profile', {
+        username: editedUsername
+      }, {
+        headers: { 'x-auth-token': token }
+      });
+      setUser(res.data.user);
+      setIsEditingUsername(false);
       setUsernameEditLoading(false);
-
     } catch (err) {
-      console.error('Username update failed:', err.response?.data || err.message || err);
       setUsernameEditError(err.response?.data?.message || 'Failed to update username.');
       setUsernameEditLoading(false);
     }
   };
 
   if (loading) {
-    return <MainLayout><div className="text-xl text-[#b32a2a]">Loading profile and family info...</div></MainLayout>;
-  }
-
-  if (error) {
-    return <MainLayout><div className="text-xl text-red-600">{error}</div></MainLayout>;
+    return <MainLayout><div>Loading...</div></MainLayout>;
   }
 
   if (!user) {
-    return <MainLayout><div className="text-xl text-gray-600">User not found.</div></MainLayout>;
+    return <MainLayout><div>Error loading user data.</div></MainLayout>;
   }
 
   return (
     <MainLayout>
-      <div className="w-full max-w-2xl bg-white rounded-lg shadow-md p-8">
-        <h2 className="mb-6 text-2xl font-bold text-[#b32a2a]">Profile</h2>
-        
+      <div className="w-full max-w-2xl mx-auto bg-white rounded-lg shadow-md p-8">
+        <h2 className="text-2xl font-bold text-[#b32a2a] mb-6">Profile</h2>
+        {error && <div className="text-red-600 mb-4">{error}</div>}
+
         {/* User Info */}
-        <div className="mb-6 pb-6 border-b border-gray-200">
+        <div className="mb-6">
           <div className="mb-4">
-            <span className="font-semibold">Username:</span> 
+            <span className="font-semibold">Username:</span>
             {isEditingUsername ? (
-              <form onSubmit={handleSaveUsername} className="inline-block ml-2">
+              <form onSubmit={handleSaveUsername} className="inline-flex items-center ml-2">
                 <input
                   type="text"
                   value={editedUsername}
-                  onChange={(e) => setEditedUsername(e.target.value)}
-                  className="border rounded px-2 py-1 mr-2 text-gray-700"
+                  onChange={e => setEditedUsername(e.target.value)}
+                  className="border border-gray-300 rounded px-2 py-1 mr-2"
+                  required
                   disabled={usernameEditLoading}
                 />
                 <button 
                   type="submit" 
-                  className="bg-[#b32a2a] hover:bg-[#8a1f1f] text-white text-sm py-1 px-3 rounded mr-2" 
+                  className="bg-[#b32a2a] hover:bg-[#8a1f1f] text-white text-sm py-1 px-3 rounded"
                   disabled={usernameEditLoading}
                 >
                   {usernameEditLoading ? 'Saving...' : 'Save'}
@@ -303,7 +200,7 @@ function Profile() {
                 <button 
                   type="button" 
                   onClick={cancelEditUsername} 
-                  className="bg-gray-300 hover:bg-gray-400 text-gray-800 text-sm py-1 px-3 rounded"
+                  className="bg-gray-300 hover:bg-gray-400 text-gray-800 text-sm py-1 px-3 rounded ml-2"
                   disabled={usernameEditLoading}
                 >
                   Cancel
@@ -333,6 +230,7 @@ function Profile() {
               <span className="font-semibold">Points:</span> {user.points.total || 0}
             </div>
           )}
+
           {/* Profile Picture Section */}
           <div className="mb-4">
             <span className="font-semibold block mb-2">Profile Picture:</span>
@@ -350,8 +248,6 @@ function Profile() {
                   </div>
                 )}
               </div>
-               {/* File input for new profile picture */}
-               {/* We style the label to look like a button */}
               <label htmlFor="profilePictureInput" className="px-4 py-2 bg-white border-2 border-[#b32a2a] text-[#b32a2a] font-semibold rounded-md cursor-pointer hover:bg-[#f5e6d6] transition duration-200 ease-in-out">
                 Change Picture
                 <input 
@@ -363,7 +259,7 @@ function Profile() {
                 />
               </label>
             </div>
-             {selectedFile && (
+            {selectedFile && (
               <div className="mt-4 text-sm text-gray-600">
                 Selected file: {selectedFile.name}
               </div>
@@ -371,12 +267,12 @@ function Profile() {
           </div>
         </div>
 
-        {/* Image Cropper Modal (conditionally rendered) */}
+        {/* Image Cropper Modal */}
         {imageToCrop && (
           <ImageCropperModal
             imageUrl={imageToCrop}
-            onCropComplete={handleProfilePictureUpload} // Pass the upload function
-            onCancel={handleCropperCancel} // Pass the cancel function
+            onCropComplete={handleProfilePictureUpload}
+            onCancel={handleCropperCancel}
           />
         )}
 
@@ -413,134 +309,66 @@ function Profile() {
                 )}
               </ul>
             </div>
-
-            {/* Family Posts */}
-            <div className="mb-4">
-              <span className="font-semibold">Posts:</span>
-              {postsLoading ? (
-                <div className="text-gray-500">Loading posts...</div>
-              ) : postsError ? (
-                <div className="text-red-600">{postsError}</div>
-              ) : posts.length > 0 ? (
-                <ul className="list-disc ml-6 mt-2">
-                  {posts.map(post => (
-                     <li key={post.id} className={`mb-4 rounded-lg shadow-md p-4 relative ${post.type === 'announcement' ? 'bg-[#fff3e6] border-2 border-[#b32a2a]' : 'bg-white'}`}>
-                      {editingPostId === post.id ? (
-                        <form onSubmit={(e) => handleEditPost(e, post.id)} className="mb-2 flex flex-col gap-2">
-                          <input
-                            className="p-2 border border-gray-300 rounded-lg"
-                            value={editTitle}
-                            onChange={e => setEditTitle(e.target.value)}
-                            required
-                            disabled={editLoading}
-                          />
-                          <textarea
-                            className="p-2 border border-gray-300 rounded-lg"
-                            value={editContent}
-                            onChange={e => setEditContent(e.target.value)}
-                            required
-                            disabled={editLoading}
-                          />
-                          <div className="flex gap-2">
-                            <button type="submit" className="px-4 py-1 bg-[#b32a2a] text-white rounded-lg hover:bg-[#8a1f1f]" disabled={editLoading}>
-                              {editLoading ? 'Saving...' : 'Save'}
-                            </button>
-                            <button type="button" className="px-4 py-1 bg-gray-300 rounded-lg" onClick={cancelEdit} disabled={editLoading}>
-                              Cancel
-                            </button>
-                          </div>
-                          {editError && <div className="text-red-600 mt-2">{editError}</div>}
-                        </form>
-                      ) : (
-                        <>
-                          <div className="flex items-center mb-2">
-                            <div className="w-10 h-10 rounded-full overflow-hidden mr-3">
-                              {post.author.profile_picture ? (
-                                <img 
-                                  src={post.author.profile_picture}
-                                  alt={post.author.username} 
-                                  className="w-full h-full object-cover"
-                                />
-                              ) : (
-                                <div className="w-full h-full bg-[#b32a2a] flex items-center justify-center text-white font-bold">
-                                  {post.author.username?.charAt(0).toUpperCase()}
-                                </div>
-                              )}
-                            </div>
-                            <div>
-                              <div className="font-semibold text-gray-800">
-                                {post.author.username}
-                                {post.type === 'announcement' && (
-                                  <span className="ml-2 text-[#b32a2a] font-bold">(Admin)</span>
-                                )}
-                              </div>
-                              <div className="text-xs text-gray-500">{post.created_at ? new Date(post.created_at).toLocaleString() : ''}</div>
-                            </div>
-                          </div>
-                          <div className="ml-13">
-                            {post.type === 'announcement' && (
-                              <div className="mb-2">
-                                <span className="bg-[#b32a2a] text-white px-3 py-1 rounded-full text-sm font-semibold">
-                                  Announcement
-                                </span>
-                              </div>
-                            )}
-                            <h3 className={`text-lg font-bold mb-2 ${post.type === 'announcement' ? 'text-[#b32a2a]' : 'text-gray-800'}`}>
-                              {post.title}
-                            </h3>
-                            <div className="text-gray-700 mb-2 whitespace-pre-wrap">
-                              {post.content}
-                              {post.point_value > 0 && (
-                                <span className="ml-2 text-blue-600 font-semibold">[{post.point_value} pts]</span>
-                              )}
-                            </div>
-                            {/* Three dots menu for edit/delete */}
-                            {isMember && user?.id === post.author.id && (
-                              <div className="absolute top-4 right-4">
-                                <button 
-                                  onClick={() => setShowMenuId(showMenuId === post.id ? null : post.id)}
-                                  className="text-gray-500 hover:text-gray-700 focus:outline-none"
-                                >
-                                  &#8226;&#8226;&#8226;
-                                </button>
-                                {showMenuId === post.id && (
-                                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10">
-                                    <button
-                                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                                      onClick={() => {
-                                         startEdit(post);
-                                         setShowMenuId(null); // Close menu after selecting edit
-                                      }}
-                                    >
-                                      Edit
-                                    </button>
-                                    <button
-                                      className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
-                                      onClick={() => {
-                                        handleDeletePost(post.id);
-                                        setShowMenuId(null); // Close menu after selecting delete
-                                      }}
-                                    >
-                                      Delete
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        </>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <div className="text-gray-500">No posts yet.</div>
-              )}
-            </div>
           </div>
         ) : (
-          <div className="mb-4 text-gray-500">Not in a family</div>
+          <div className="text-gray-600">
+            You are not currently part of any family.
+          </div>
         )}
+
+        {/* User's Posts Section */}
+        <div className="mt-8">
+          <h3 className="text-xl font-bold text-[#b32a2a] mb-4">Your Posts</h3>
+          {postsLoading ? (
+            <div className="text-gray-500">Loading your posts...</div>
+          ) : postsError ? (
+            <div className="text-red-600">{postsError}</div>
+          ) : userPosts.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {userPosts.map(post => (
+                <div 
+                  key={post.id} 
+                  className={`relative rounded-lg overflow-hidden shadow-md ${
+                    post.type === 'announcement' ? 'bg-[#fff3e6] border-2 border-[#b32a2a]' : 'bg-white'
+                  }`}
+                >
+                  {post.image_path && (
+                    <div className="aspect-w-16 aspect-h-9">
+                      <img
+                        src={post.image_path}
+                        alt={post.title}
+                        className="w-full h-48 object-cover"
+                      />
+                    </div>
+                  )}
+                  <div className="p-4">
+                    {post.type === 'announcement' && (
+                      <span className="inline-block bg-[#b32a2a] text-white px-2 py-1 rounded-full text-xs font-semibold mb-2">
+                        Announcement
+                      </span>
+                    )}
+                    <h4 className="font-semibold text-gray-800 mb-2 line-clamp-2">{post.title}</h4>
+                    <p className="text-gray-600 text-sm mb-2 line-clamp-3">{post.content}</p>
+                    {post.point_value > 0 && (
+                      <span className="inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-semibold">
+                        {post.point_value} pts
+                      </span>
+                    )}
+                    <div className="text-xs text-gray-500 mt-2">
+                      {new Date(post.created_at).toLocaleDateString()}
+                    </div>
+                  </div>
+                  <Link 
+                    to={`/families/${post.family_id}`}
+                    className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-10 transition-all duration-200"
+                  />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-gray-500">You haven't made any posts yet.</div>
+          )}
+        </div>
       </div>
     </MainLayout>
   );
