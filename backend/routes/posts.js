@@ -31,6 +31,15 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
             user: req.user,
             headers: req.headers
         });
+
+        // Validate image
+        if (!req.file) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'An image is required for all posts.' 
+            });
+        }
+
         console.log('SUPABASE_URL:', process.env.SUPABASE_URL);
         console.log('SUPABASE_KEY:', process.env.SUPABASE_KEY ? 'SET' : 'NOT SET');
         console.log('SUPABASE_BUCKET:', process.env.SUPABASE_BUCKET);
@@ -67,29 +76,27 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
         };
 
         // Handle image upload with Supabase Storage
-        if (req.file) {
-            const fileExt = req.file.originalname.split('.').pop();
-            const fileName = `posts/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+        const fileExt = req.file.originalname.split('.').pop();
+        const fileName = `posts/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
 
-            const { data: uploadData, error: uploadError } = await supabase.storage
-                .from(process.env.SUPABASE_BUCKET)
-                .upload(fileName, req.file.buffer, {
-                    contentType: req.file.mimetype,
-                    upsert: true,
-                });
+        const { data: uploadData, error: uploadError } = await supabase.storage
+            .from(process.env.SUPABASE_BUCKET)
+            .upload(fileName, req.file.buffer, {
+                contentType: req.file.mimetype,
+                upsert: true,
+            });
 
-            if (uploadError) {
-                throw uploadError;
-            }
-
-            const { publicUrl } = supabase.storage
-                .from(process.env.SUPABASE_BUCKET)
-                .getPublicUrl(fileName).data;
-
-            console.log('Upload result:', uploadData, uploadError);
-            console.log('Public URL:', publicUrl);
-            postData.image_path = publicUrl;
+        if (uploadError) {
+            throw uploadError;
         }
+
+        const { publicUrl } = supabase.storage
+            .from(process.env.SUPABASE_BUCKET)
+            .getPublicUrl(fileName).data;
+
+        console.log('Upload result:', uploadData, uploadError);
+        console.log('Public URL:', publicUrl);
+        postData.image_path = publicUrl;
 
         const { data: newPost, error: postError } = await supabase
             .from('posts')

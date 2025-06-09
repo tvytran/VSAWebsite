@@ -65,6 +65,14 @@ function CreatePostPage() {
     e.preventDefault();
     setPostError('');
     setPostLoading(true);
+
+    // Validate image
+    if (!image) {
+      setPostError('Please select an image for your post.');
+      setPostLoading(false);
+      return;
+    }
+
     const targetFamilyId = user?.role === 'admin' ? selectedFamilyId : family?.id;
     if (!targetFamilyId) {
       setPostError('Please select a family or join one to create a post.');
@@ -247,15 +255,18 @@ function CreatePostPage() {
             {/* Image Upload */}
             <div className="mb-4">
               <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="image">
-                Upload Image (Optional):
+                Image (Required) <span className="text-red-500">*</span>
               </label>
               <input
-                id="image"
                 type="file"
+                id="image"
                 accept="image/*"
+                onChange={(e) => setImage(e.target.files[0])}
                 className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-                onChange={e => setImage(e.target.files[0])}
+                required
+                disabled={postLoading}
               />
+              <p className="text-sm text-gray-500 mt-1">Please upload an image for your post (JPG, PNG, or GIF)</p>
             </div>
 
             {/* Submit Button */}
