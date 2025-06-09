@@ -165,8 +165,8 @@ function MainLayout({ children }) {
   return (
     <div className="min-h-screen w-full bg-[#faecd8] flex flex-col font-sans">
       <div className="flex flex-1">
-        {/* Left Sidebar */}
-        <div className="w-64 bg-white flex flex-col items-center py-8 border-r border-[#e0c9a6] min-h-screen shadow-lg">
+        {/* Left Sidebar - Fixed */}
+        <div className="fixed left-0 top-0 w-64 h-screen bg-white flex flex-col items-center py-8 border-r border-[#e0c9a6] shadow-lg overflow-y-auto">
           <Link to="/" className="hover:opacity-90 transition-opacity duration-200 group">
             <img
               src="https://nnlbviehgtdyiucgdims.supabase.co/storage/v1/object/public/vsa-images/public/logo.PNG"
@@ -262,19 +262,19 @@ function MainLayout({ children }) {
             )}
           </div>
         </div>
-        {/* Main Content */}
-        <div className="flex-1 flex flex-col items-center px-8 py-8 bg-[#faecd8] font-sans">
+        {/* Main Content - With margins for fixed sidebars */}
+        <div className="flex-1 ml-64 mr-72 flex flex-col items-center px-8 py-8 bg-[#faecd8] font-sans">
           {children}
         </div>
-        {/* Right Sidebar */}
-        <div className="w-72 bg-[#fff9f0] flex flex-col items-center py-8 border-l border-[#e0c9a6] min-h-screen shadow-lg">
+        {/* Right Sidebar - Fixed */}
+        <div className="fixed right-0 top-0 w-72 h-screen bg-[#fff9f0] flex flex-col items-center py-8 border-l border-[#e0c9a6] shadow-lg overflow-y-auto">
           <div className="w-full px-4">
             <div className="bg-white rounded-lg shadow-sm overflow-hidden">
               <div className="bg-[#EFB639] px-4 py-3">
                 <h2 className="text-lg font-medium text-white">Announcements</h2>
               </div>
               <div className="p-4">
-          <AnnouncementsSidebar />
+                <AnnouncementsSidebar />
               </div>
             </div>
             {/* Leaderboard Summary */}
