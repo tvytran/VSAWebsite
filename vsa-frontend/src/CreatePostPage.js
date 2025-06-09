@@ -66,8 +66,8 @@ function CreatePostPage() {
     setPostError('');
     setPostLoading(true);
 
-    // Validate image
-    if (!image) {
+    // Validate image only for non-announcement posts
+    if (newType !== 'announcement' && !image) {
       setPostError('Please select an image for your post.');
       setPostLoading(false);
       return;
@@ -255,18 +255,23 @@ function CreatePostPage() {
             {/* Image Upload */}
             <div className="mb-4">
               <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="image">
-                Image (Required) <span className="text-red-500">*</span>
+                Image {newType !== 'announcement' && <span className="text-red-500">*</span>}
+                {newType === 'announcement' ? ' (Optional)' : ' (Required)'}
               </label>
               <input
                 type="file"
                 id="image"
-                accept="image/*"
+                accept="image/*,.heic,.heif"
                 onChange={(e) => setImage(e.target.files[0])}
                 className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-                required
+                required={newType !== 'announcement'}
                 disabled={postLoading}
               />
-              <p className="text-sm text-gray-500 mt-1">Please upload an image for your post (JPG, PNG, or GIF)</p>
+              <p className="text-sm text-gray-500 mt-1">
+                {newType === 'announcement' 
+                  ? 'Optional: Upload an image for your announcement (JPG, PNG, GIF, or HEIC)'
+                  : 'Please upload an image for your post (JPG, PNG, GIF, or HEIC)'}
+              </p>
             </div>
 
             {/* Submit Button */}
