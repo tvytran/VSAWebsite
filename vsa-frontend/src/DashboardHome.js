@@ -689,8 +689,8 @@ function DashboardHome() {
                             <div className="flex items-center gap-2 mb-1">
                               {/* Profile picture as a small circle, Instagram-style */}
                               <div className="w-6 h-6 rounded-full overflow-hidden bg-[#b32a2a] flex items-center justify-center">
-                                {comment.avatar ? (
-                                  <img src={comment.avatar} alt={comment.name} className="w-full h-full object-cover" />
+                                {post.author.profile_picture? (
+                                  <img src={post.author.profile_picture} alt={comment.name} className="w-full h-full object-cover" />
                                 ) : (
                                   <span className="text-white text-xs font-bold">{comment.name?.charAt(0).toUpperCase()}</span>
                                 )}

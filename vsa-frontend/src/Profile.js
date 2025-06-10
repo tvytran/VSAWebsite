@@ -124,6 +124,7 @@ function Profile() {
       setSelectedFile(null);
       setImageToCrop(null);
       setUploadLoading(false);
+      await fetchUserData();
     } catch (err) {
       console.error('Profile picture upload failed:', err.response?.data || err.message || err);
       setUploadError(err.response?.data?.message || 'Failed to upload profile picture.');
@@ -164,6 +165,7 @@ function Profile() {
       setUser(res.data.user);
       setIsEditingUsername(false);
       setUsernameEditLoading(false);
+      await fetchUserData();
     } catch (err) {
       setUsernameEditError(err.response?.data?.message || 'Failed to update username.');
       setUsernameEditLoading(false);
@@ -298,10 +300,10 @@ function Profile() {
 
             <p className="mb-4 text-gray-700">{family.description}</p>
             <div className="mb-4">
-              <span className="font-semibold">Total Points:</span> {family.totalPoints || 0}
+              <span className="font-semibold">Total Points:</span> {family.total_points || 0}
             </div>
             <div className="mb-4">
-              <span className="font-semibold">Semester Points:</span> {family.semesterPoints || 0}
+              <span className="font-semibold">Semester Points:</span> {family.total_points || 0}
             </div>
             <div className="mb-4">
               <span className="font-semibold">Members:</span>

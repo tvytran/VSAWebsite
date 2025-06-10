@@ -576,7 +576,7 @@ function AdminDashboard() {
                             <>
                               <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm sm:pl-6 w-1/5 overflow-hidden text-ellipsis">
                                 <div className="font-medium text-gray-900">{family.name || 'Unnamed Family'}</div>
-                                <div className="text-gray-500 text-xs">Created {new Date(family.createdAt).toLocaleDateString()}</div>
+                                <div className="text-gray-500 text-xs">Created {new Date(family.created_at).toLocaleDateString()}</div>
                               </td>
                               <td className="whitespace-nowrap px-3 py-4 text-sm w-1/6 overflow-hidden text-ellipsis">
                                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
@@ -695,7 +695,7 @@ function AdminDashboard() {
                             <span className="text-sm text-gray-700">{post.family.name || 'N/A'}</span>
                           </td>
                           <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 w-[120px] overflow-hidden text-ellipsis">
-                            <span className="text-sm text-gray-500">{new Date(post.createdAt).toLocaleDateString()}</span>
+                            <span className="text-sm text-gray-500">{new Date(post.created_at).toLocaleDateString()}</span>
                           </td>
                           <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6 w-[120px]">
                             <div className="flex justify-end items-center space-x-4">

@@ -142,28 +142,30 @@ function FamilyDetails() {
     // eslint-disable-next-line
   }, [id]);
 
+  /* Moved fetchPosts outside of useEffect so that it is defined in the outer scope */
+  const fetchPosts = async () => {
+    setPostsLoading(true);
+    setPostsError('');
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setPosts([]);
+      setPostsLoading(false);
+      return;
+    }
+    try {
+      const res = await api.get(`/api/posts/family/${id}`, {
+        headers: { 'x-auth-token': token }
+      });
+      const nonAnnouncementPosts = res.data.posts.filter(post => post.type !== 'announcement');
+      setPosts(nonAnnouncementPosts);
+      setPostsLoading(false);
+    } catch (err) {
+      setPostsError('Failed to load posts.');
+      setPostsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchPosts = async () => {
-      setPostsLoading(true);
-      setPostsError('');
-      const token = localStorage.getItem('token');
-      if (!token) {
-        setPosts([]);
-        setPostsLoading(false);
-        return;
-      }
-      try {
-        const res = await api.get(`/api/posts/family/${id}`, {
-          headers: { 'x-auth-token': token }
-        });
-        const nonAnnouncementPosts = res.data.posts.filter(post => post.type !== 'announcement');
-        setPosts(nonAnnouncementPosts);
-        setPostsLoading(false);
-      } catch (err) {
-        setPostsError('Failed to load posts.');
-        setPostsLoading(false);
-      }
-    };
     fetchPosts();
     // eslint-disable-next-line
   }, [id]);
@@ -362,6 +364,8 @@ function FamilyDetails() {
       });
       // After successful deletion, re-fetch family data
       fetchFamily();
+      // Optionally, re-fetch posts if you have a separate fetchPosts function
+      if (typeof fetchPosts === 'function') fetchPosts();
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to delete post.');
     }
