@@ -352,22 +352,47 @@ router.get('/:id', auth, async (req, res) => {
 // @access   Private
 router.delete('/:id', auth, async (req, res) => {
     try {
-        // Check if post exists and user is author or admin
+        // Fetch the post to get its type, point_value, and family_id
         const { data: post, error: postError } = await supabase
             .from('posts')
-            .select('id, author_id')
+            .select('id, type, point_value, family_id, author_id')
             .eq('id', req.params.id)
             .single();
         if (postError) throw postError;
         if (!post) return res.status(404).json({ success: false, message: 'Post not found' });
+
+        // Only allow author or admin to delete
         if (post.author_id !== req.user.id && req.user.role !== 'admin') {
             return res.status(401).json({ success: false, message: 'User not authorized' });
         }
-        const { data, error } = await supabase
+
+        // If it's a hangout with points, subtract from family
+        if (post.type === 'hangout' && post.point_value > 0 && post.family_id) {
+            // Get current family points
+            const { data: family, error: familyError } = await supabase
+                .from('families')
+                .select('total_points, semester_points')
+                .eq('id', post.family_id)
+                .single();
+            if (familyError) throw familyError;
+
+            // Subtract points
+            await supabase
+                .from('families')
+                .update({
+                    total_points: Math.max(0, (family.total_points || 0) - post.point_value),
+                    semester_points: Math.max(0, (family.semester_points || 0) - post.point_value)
+                })
+                .eq('id', post.family_id);
+        }
+
+        // Delete the post
+        const { error } = await supabase
             .from('posts')
             .delete()
             .eq('id', req.params.id);
         if (error) throw error;
+
         res.json({ success: true, message: 'Post deleted' });
     } catch (err) {
         res.status(500).json({ success: false, message: 'Server Error' });

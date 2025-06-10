@@ -355,26 +355,15 @@ function FamilyDetails() {
 
   const handleDeletePost = async (postId) => {
     if (!window.confirm('Are you sure you want to delete this post?')) return;
-    
-    if (!currentUserId) { // Ensure userId is available before deleting
-         alert('User not authenticated.');
-         return;
-    }
-
     try {
       const token = localStorage.getItem('token');
-      console.log('Deleting post - Token available:', !!token); // Log token availability before delete
       await api.delete(`/api/posts/${postId}`, {
         headers: { 'x-auth-token': token }
       });
-      // Refresh posts
-      const res = await api.get(`/api/posts/family/${family.id}`, {
-        headers: { 'x-auth-token': token }
-      });
-      setPosts(res.data.posts);
-      await fetchFamily();
+      // After successful deletion, re-fetch family data
+      fetchFamily();
     } catch (err) {
-      alert('Failed to delete post.');
+      alert(err.response?.data?.message || 'Failed to delete post.');
     }
   };
 
@@ -645,7 +634,8 @@ function FamilyDetails() {
 
         {/* Total Points */}
         <div className="mb-6">
-          <span className="text-xl font-bold bg-[#b32a2a] text-white rounded-full px-4 py-2">{family.totalPoints || 0} pts</span>
+          <span className="text-xl font-bold bg-[#b32a2a] text-white rounded-full px-4 py-2">{family.total_points ?? 0} pts</span>
+          <span className="text-xl font-bold bg-[#b32a2a] text-white rounded-full px-4 py-2">Semester Points: {family.semester_points ?? 0} pts</span>
         </div>
 
         {/* Family Post Images Grid */}
