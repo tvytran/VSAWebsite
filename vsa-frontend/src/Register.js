@@ -21,7 +21,7 @@ function Register({ onRegister }) {
         username,
         email,
         password,
-        family_id,
+        family: family_id,
         role: 'member'
       });
       setSuccess('Registration successful! You can now log in.');

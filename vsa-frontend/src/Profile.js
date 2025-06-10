@@ -3,6 +3,7 @@ import api from './api';
 import { Link, useNavigate } from 'react-router-dom';
 import MainLayout from './MainLayout';
 import ImageCropperModal from './components/ImageCropperModal';
+import heic2any from 'heic2any';
 
 function Profile() {
   const navigate = useNavigate();
@@ -75,21 +76,28 @@ function Profile() {
   }, [navigate]);
 
   // Handle file selection
-  const handleFileChange = (event) => {
-    const file = event.target.files[0];
-    if (file) {
-      if (!file.type.startsWith('image/')) {
-        setUploadError('Please select an image file.');
+  const handleFileChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    let processedFile = file;
+    if (file.type === 'image/heic' || file.name.toLowerCase().endsWith('.heic')) {
+      try {
+        const convertedBlob = await heic2any({ blob: file, toType: 'image/jpeg' });
+        processedFile = new File([convertedBlob], file.name.replace(/\.heic$/i, '.jpg'), { type: 'image/jpeg' });
+      } catch (err) {
+        alert('Failed to convert HEIC image. Please try another file.');
         return;
       }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImageToCrop(reader.result);
-        setSelectedFile(file);
-        setUploadError('');
-      };
-      reader.readAsDataURL(file);
     }
+    // Now use processedFile for cropping/uploading
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setImageToCrop(reader.result);
+      setSelectedFile(processedFile);
+    };
+    reader.readAsDataURL(processedFile);
+    setUploadError('');
   };
 
   // Handle profile picture upload
@@ -253,7 +261,7 @@ function Profile() {
                 <input 
                   id="profilePictureInput"
                   type="file" 
-                  accept="image/*" 
+                  accept="image/*,.heic" 
                   onChange={handleFileChange} 
                   className="hidden"
                 />
