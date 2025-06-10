@@ -51,6 +51,23 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
 
         const { title, type, content, family_id, pointValue } = req.body;
 
+        // Check if user exists
+        const { data: user, error: userError } = await supabase
+            .from('users')
+            .select('id, role, family_id')
+            .eq('id', req.user.id)
+            .single();
+        if (userError) throw userError;
+        if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+        // Check if user is admin for announcement posts
+        if (type === 'announcement' && user.role !== 'admin') {
+            return res.status(403).json({ 
+                success: false, 
+                message: 'Only administrators can create announcements.' 
+            });
+        }
+
         // Validate image only for non-announcement posts
         if (type !== 'announcement' && !req.file) {
             return res.status(400).json({ 
@@ -63,16 +80,6 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
         console.log('SUPABASE_KEY:', process.env.SUPABASE_KEY ? 'SET' : 'NOT SET');
         console.log('SUPABASE_BUCKET:', process.env.SUPABASE_BUCKET);
         // Check user and family exist
-        const { data: user, error: userError } = await supabase
-            .from('users')
-            .select('id, role, family_id')
-            .eq('id', req.user.id)
-            .single();
-        if (userError) throw userError;
-        if (!user) return res.status(404).json({ success: false, message: 'User not found' });
-        if (type === 'announcement' && user.role !== 'admin') {
-            return res.status(403).json({ success: false, message: 'Only admins can create announcement posts.' });
-        }
         const { data: family, error: famError } = await supabase
             .from('families')
             .select('id')
@@ -90,7 +97,9 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
             author_id: user.id,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
-            point_value: type === 'hangout' && pointValue ? parseInt(pointValue, 10) : 0
+            point_value: type === 'hangout' && pointValue ? parseInt(pointValue, 10) : 0,
+            likes: [], // Initialize empty likes array
+            comments: [] // Initialize empty comments array
         };
 
         // Handle image upload with Supabase Storage if an image was provided
@@ -370,34 +379,46 @@ router.delete('/:id', auth, async (req, res) => {
 // @access   Private
 router.put('/like/:id', auth, async (req, res) => {
   try {
-    const post = await supabase
+    // Fetch the latest likes array
+    const { data: post, error: fetchError } = await supabase
       .from('posts')
       .select('likes')
       .eq('id', req.params.id)
       .single();
 
+    if (fetchError) throw fetchError;
     if (!post) {
-        return res.status(404).json({ success: false, message: 'Post not found' });
+      return res.status(404).json({ success: false, message: 'Post not found' });
     }
 
-    // Check if the post has already been liked by this user
-    if (post.likes.some(like => like.user.toString() === req.user.id)) {
+    const likes = Array.isArray(post.likes) ? post.likes : [];
+    if (likes.some(like => (like.user || '').trim() === (req.user.id || '').trim())) {
       return res.status(400).json({ success: false, message: 'Post already liked' });
     }
 
-    const { data: updatedPost, error } = await supabase
+    const updatedLikes = [...likes, { user: req.user.id }];
+
+    // Update the post with the new likes array
+    const { error: updateError } = await supabase
       .from('posts')
       .update({
-        likes: [...post.likes, { user: req.user.id }],
+        likes: updatedLikes,
         updated_at: new Date().toISOString()
       })
-      .eq('id', req.params.id)
+      .eq('id', req.params.id);
+
+    if (updateError) throw updateError;
+
+    // Re-fetch the post to get the latest likes array
+    const { data: latestPost, error: latestError } = await supabase
+      .from('posts')
       .select('likes')
+      .eq('id', req.params.id)
       .single();
 
-    if (error) throw error;
+    if (latestError) throw latestError;
 
-    res.json({ success: true, likes: updatedPost.likes });
+    res.json({ success: true, likes: latestPost.likes });
   } catch (err) {
     console.error(err.message);
     res.status(500).json({ success: false, message: 'Server Error' });
@@ -409,37 +430,46 @@ router.put('/like/:id', auth, async (req, res) => {
 // @access   Private
 router.put('/unlike/:id', auth, async (req, res) => {
   try {
-    const post = await supabase
+    // Fetch the latest likes array
+    const { data: post, error: fetchError } = await supabase
       .from('posts')
       .select('likes')
       .eq('id', req.params.id)
       .single();
 
+    if (fetchError) throw fetchError;
     if (!post) {
-        return res.status(404).json({ success: false, message: 'Post not found' });
+      return res.status(404).json({ success: false, message: 'Post not found' });
     }
 
-    // Check if the post has NOT yet been liked by this user
-    if (!post.likes.some(like => like.user.toString() === req.user.id)) {
-      return res.status(400).json({ success: false, message: 'Post has not yet been liked' });
-    }
+    const likes = Array.isArray(post.likes) ? post.likes : [];
 
-    // Remove the like
-    const { data: updatedPost, error } = await supabase
+    // Remove the like for the current user
+    const updatedLikes = likes.filter(
+      like => (like.user || '').trim() !== (req.user.id || '').trim()
+    );
+
+    // Update the post with the new likes array
+    const { error: updateError } = await supabase
       .from('posts')
       .update({
-        likes: post.likes.filter(
-          ({ user }) => user.toString() !== req.user.id
-        ),
+        likes: updatedLikes,
         updated_at: new Date().toISOString()
       })
-      .eq('id', req.params.id)
+      .eq('id', req.params.id);
+
+    if (updateError) throw updateError;
+
+    // Re-fetch the post to get the latest likes array
+    const { data: latestPost, error: latestError } = await supabase
+      .from('posts')
       .select('likes')
+      .eq('id', req.params.id)
       .single();
 
-    if (error) throw error;
+    if (latestError) throw latestError;
 
-    res.json({ success: true, likes: updatedPost.likes });
+    res.json({ success: true, likes: latestPost.likes });
   } catch (err) {
     console.error(err.message);
     res.status(500).json({ success: false, message: 'Server Error' });
@@ -475,17 +505,19 @@ router.post(
           return res.status(404).json({ success: false, message: 'Post not found.' });
       }
 
+      const comments = Array.isArray(post.comments) ? post.comments : [];
       const newComment = {
         text: req.body.text,
         name: user.username,
         avatar: user.avatar,
-        user: req.user.id
+        user: req.user.id,
+        date: new Date().toISOString()
       };
 
       const { data: updatedPost, error } = await supabase
         .from('posts')
         .update({
-          comments: [...post.comments, newComment],
+          comments: [...comments, newComment],
           updated_at: new Date().toISOString()
         })
         .eq('id', req.params.id)

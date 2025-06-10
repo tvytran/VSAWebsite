@@ -198,8 +198,7 @@ function CreatePostPage() {
                 onChange={e => setNewType(e.target.value)}
               >
                 <option value="hangout">Hangout</option>
-                <option value="announcement">Announcement</option>
-                {/* Add other types as needed */}
+                {user?.role === 'admin' && <option value="announcement">Announcement</option>}
               </select>
             </div>
 

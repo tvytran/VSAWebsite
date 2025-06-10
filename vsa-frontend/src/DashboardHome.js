@@ -1,7 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import api from './api';
 import MainLayout from './MainLayout';
 import { Link, useLocation } from 'react-router-dom';
+import { HeartIcon as HeartOutline, ChatBubbleOvalLeftIcon } from '@heroicons/react/24/outline';
+import { HeartIcon as HeartSolid } from '@heroicons/react/24/solid';
 // import { PlusCircleIcon } from '@heroicons/react/24/solid'; // Temporarily remove icon import
 
 function DashboardHome() {
@@ -31,6 +33,12 @@ function DashboardHome() {
   const [filteredPosts, setFilteredPosts] = useState([]);
 
   const [expandedPosts, setExpandedPosts] = useState({});
+
+  const [commentText, setCommentText] = useState('');
+  const [commentLoading, setCommentLoading] = useState(false);
+  const [commentError, setCommentError] = useState('');
+
+  const commentInputRefs = useRef({});
 
   const fetchPosts = async () => {
     setLoading(true);
@@ -281,6 +289,70 @@ function DashboardHome() {
 
     // Always render full text with links, no truncation
     return renderTextWithLinks(text);
+  };
+
+  const handleLike = async (postId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await api.put(`/api/posts/like/${postId}`, {}, {
+        headers: { 'x-auth-token': token }
+      });
+      if (res.data.success) {
+        setPosts(posts.map(post =>
+          post.id === postId
+            ? { ...post, likes: res.data.likes }
+            : post
+        ));
+      }
+    } catch (err) {
+      console.error('Error liking post:', err);
+    }
+  };
+
+  const handleUnlike = async (postId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await api.put(`/api/posts/unlike/${postId}`, {}, {
+        headers: { 'x-auth-token': token }
+      });
+      if (res.data.success) {
+        setPosts(posts.map(post =>
+          post.id === postId
+            ? { ...post, likes: res.data.likes }
+            : post
+        ));
+      }
+    } catch (err) {
+      console.error('Error unliking post:', err);
+    }
+  };
+
+  const handleComment = async (postId, e) => {
+    e.preventDefault();
+    if (!commentText.trim()) return;
+
+    setCommentLoading(true);
+    setCommentError('');
+    try {
+      const token = localStorage.getItem('token');
+      const res = await api.post(`/api/posts/comment/${postId}`, 
+        { text: commentText },
+        { headers: { 'x-auth-token': token } }
+      );
+      if (res.data.success) {
+        // Update the post in the local state
+        setPosts(posts.map(post => 
+          post.id === postId 
+            ? { ...post, comments: res.data.comments }
+            : post
+        ));
+        setCommentText('');
+      }
+    } catch (err) {
+      setCommentError(err.response?.data?.message || 'Failed to add comment');
+    } finally {
+      setCommentLoading(false);
+    }
   };
 
   return (
@@ -568,6 +640,95 @@ function DashboardHome() {
                       </div>
                     </>
                   )}
+
+                  {/* Instagram-style Like and Comment Row */}
+                  <div className="flex items-center gap-6 mt-3 mb-2">
+                    {/* Like Button */}
+                    <button
+                      onClick={() => {
+                        const hasLiked = post.likes?.some(like => like.user === user?.id);
+                        if (hasLiked) {
+                          handleUnlike(post.id);
+                        } else {
+                          handleLike(post.id);
+                        }
+                      }}
+                      className="flex items-center group"
+                      aria-label="Like"
+                    >
+                      {post.likes?.some(like => like.user === user?.id) ? (
+                        <HeartSolid className="w-6 h-6 text-[#b32a2a] transition" />
+                      ) : (
+                        <HeartOutline className="w-6 h-6 text-gray-700 group-hover:text-[#b32a2a] transition" />
+                      )}
+                      <span className="ml-2 text-sm text-gray-700">{post.likes?.length || 0}</span>
+                    </button>
+
+                    {/* Comment Button */}
+                    <button
+                      onClick={() => {
+                        if (commentInputRefs.current[post.id]) {
+                          commentInputRefs.current[post.id].focus();
+                        }
+                      }}
+                      className="flex items-center group"
+                      aria-label="Comment"
+                    >
+                      <ChatBubbleOvalLeftIcon className="w-6 h-6 text-gray-700 group-hover:text-[#b32a2a] transition" />
+                      <span className="ml-2 text-sm text-gray-700">{post.comments?.length || 0}</span>
+                    </button>
+                  </div>
+
+                  {/* Comments Section */}
+                  <div className="space-y-3">
+                    {/* Comment List */}
+                    {post.comments?.length > 0 && (
+                      <div className="space-y-2">
+                        {post.comments.map((comment, index) => (
+                          <div key={index} className="bg-gray-50 rounded-lg p-2">
+                            <div className="flex items-center gap-2 mb-1">
+                              {/* Profile picture as a small circle, Instagram-style */}
+                              <div className="w-6 h-6 rounded-full overflow-hidden bg-[#b32a2a] flex items-center justify-center">
+                                {comment.avatar ? (
+                                  <img src={comment.avatar} alt={comment.name} className="w-full h-full object-cover" />
+                                ) : (
+                                  <span className="text-white text-xs font-bold">{comment.name?.charAt(0).toUpperCase()}</span>
+                                )}
+                              </div>
+                              <span className="font-semibold text-sm">{comment.name}</span>
+                              <span className="text-xs text-gray-500">
+                                {comment.date ? new Date(comment.date).toLocaleString() : ''}
+                              </span>
+                            </div>
+                            <p className="text-sm text-gray-700 ml-8">{comment.text}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Comment Form */}
+                    {isLoggedIn && (
+                      <form onSubmit={(e) => handleComment(post.id, e)} className="flex gap-2">
+                        <input
+                          type="text"
+                          value={commentText}
+                          onChange={(e) => setCommentText(e.target.value)}
+                          placeholder="Write a comment..."
+                          className="flex-1 p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#b32a2a] focus:border-transparent"
+                          disabled={commentLoading}
+                          ref={el => (commentInputRefs.current[post.id] = el)}
+                        />
+                        <button
+                          type="submit"
+                          disabled={commentLoading || !commentText.trim()}
+                          className="px-4 py-2 bg-[#b32a2a] text-white rounded-lg hover:bg-[#8a1f1f] transition duration-200 disabled:opacity-50"
+                        >
+                          {commentLoading ? 'Posting...' : 'Post'}
+                        </button>
+                      </form>
+                    )}
+                    {commentError && <div className="text-red-600 text-sm mt-1">{commentError}</div>}
+                  </div>
                 </div>
               ))}
             </div>
