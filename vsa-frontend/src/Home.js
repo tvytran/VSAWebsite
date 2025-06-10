@@ -16,7 +16,7 @@ function Home() {
     <div className="min-h-screen w-full bg-[#faecd8] flex items-center justify-center">
       <div className="text-center p-8 rounded-lg bg-white shadow">
         <img
-          src="/logo.png"
+          src="https://nnlbviehgtdyiucgdims.supabase.co/storage/v1/object/public/vsa-images/public/logo.PNG"
           alt="Columbia VSA University"
           className="w-[350px] max-w-full mb-8 mx-auto"
         />
