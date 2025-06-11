@@ -36,6 +36,29 @@ function AdminDashboard() {
   const [editFamilyError, setEditFamilyError] = useState('');
   const [editFamilyLoading, setEditFamilyLoading] = useState(false);
 
+  const [userSearchTerm, setUserSearchTerm] = useState('');
+  const [postSearchTerm, setPostSearchTerm] = useState('');
+
+  // Filtered users
+  const filteredUsers = users.filter(user => {
+    const term = userSearchTerm.toLowerCase();
+    return (
+      user.username.toLowerCase().includes(term) ||
+      user.email.toLowerCase().includes(term)
+    );
+  });
+
+  // Filtered posts
+  const filteredPosts = allPosts.filter(post => {
+    const term = postSearchTerm.toLowerCase();
+    return (
+      post.title.toLowerCase().includes(term) ||
+      post.content.toLowerCase().includes(term) ||
+      (post.author_name && post.author_name.toLowerCase().includes(term)) ||
+      (post.family?.name && post.family.name.toLowerCase().includes(term))
+    );
+  });
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -166,7 +189,7 @@ function AdminDashboard() {
       if (postToEdit.type === 'hangout') {
         const points = parseInt(editPointValue);
         if (isNaN(points) || points < 0) throw new Error('Points must be a non-negative number');
-        updateData.points = points;
+        updateData.pointValue = points;
       }
       const res = await api.put(`/api/posts/${editingPostId}`, updateData, {
         headers: { 'x-auth-token': token }
@@ -449,6 +472,15 @@ function AdminDashboard() {
         {/* Users Tab Content */}
         {activeTab === 'users' && (
           <div className="mt-8 flow-root">
+            <div className="mb-4 flex justify-start pl-4 sm:pl-6">
+              <input
+                type="text"
+                placeholder="Search users..."
+                value={userSearchTerm}
+                onChange={e => setUserSearchTerm(e.target.value)}
+                className="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2"
+              />
+            </div>
             <div className="-my-2 overflow-x-auto">
               <div className="inline-block py-2 align-middle md:px-6 lg:px-8">
                 <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
@@ -473,7 +505,7 @@ function AdminDashboard() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200 bg-white">
-                      {users.map((user, userIdx) => (
+                      {filteredUsers.map((user, userIdx) => (
                         <tr key={user.id} className={userIdx % 2 === 0 ? undefined : 'bg-gray-50'}>
                           {editingUserId === user.id ? (
                             <>
@@ -636,7 +668,7 @@ function AdminDashboard() {
                                 </span>
                               </td>
                               <td className="whitespace-nowrap px-3 py-4 text-sm w-[15%]">
-                                {family.members?.length || 0} members
+                                {users.filter(user => user.families_id === family.id).length} members
                               </td>
                               <td className="whitespace-nowrap px-3 py-4 text-sm w-[20%]">
                                 {renderFamilyPoints(family)}
@@ -672,7 +704,7 @@ function AdminDashboard() {
                                 </span>
                               </td>
                               <td className="whitespace-nowrap px-3 py-4 text-sm w-[15%]">
-                                {family.members?.length || 0} members
+                                {users.filter(user => user.family_id === family.id).length} members
                               </td>
                               <td className="whitespace-nowrap px-3 py-4 text-sm w-[20%]">
                                 {renderFamilyPoints(family)}
@@ -708,6 +740,15 @@ function AdminDashboard() {
         {/* All Posts Tab Content */}
         {activeTab === 'allPosts' && (
           <div className="mt-8 flow-root">
+            <div className="mb-4 flex justify-start pl-4 sm:pl-6">
+              <input
+                type="text"
+                placeholder="Search posts..."
+                value={postSearchTerm}
+                onChange={e => setPostSearchTerm(e.target.value)}
+                className="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2"
+              />
+            </div>
             <div className="-my-2 overflow-x-auto">
               <div className="inline-block py-2 align-middle md:px-6 lg:px-8">
                 <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
@@ -723,21 +764,23 @@ function AdminDashboard() {
                           <span className="sr-only">Actions</span>
                         </th>
                       </tr>
-                    </thead>
+                    </thead>  
                     <tbody className="divide-y divide-gray-200 bg-white">
-                      {allPosts.map((post, postIdx) => (
+                      {filteredPosts.map((post, postIdx) => (
                         <tr key={post.id} className={postIdx % 2 === 0 ? undefined : 'bg-gray-50'}>
                           <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm sm:pl-6 w-1/4 overflow-hidden text-ellipsis">
                             <div className="font-medium text-gray-900">{post.title}</div>
                           </td>
                           <td className="whitespace-nowrap px-3 py-4 text-sm w-1/6 overflow-hidden text-ellipsis">
-                            <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${post.type === 'announcement' ? 'bg-blue-100 text-blue-800' : post.type === 'hangout' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>{post.type}</span>
+                            <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${post.type === 'announcement' ? 'bg-blue-100 text-blue-800' : post.type === 'hangout' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}> 
+                              {post.type}
+                            </span>
                           </td>
                           <td className="whitespace-nowrap px-3 py-4 text-sm w-1/6 overflow-hidden text-ellipsis">
                             {post.family?.name || 'No family'}
                           </td>
                           <td className="whitespace-nowrap px-3 py-4 text-sm w-1/6 overflow-hidden text-ellipsis">
-                            {post.type === 'hangout' ? (post.point_value || 1) : '-'}
+                            {post.type === 'hangout' ? (post.point_value || 0) : '-'}
                           </td>
                           <td className="whitespace-nowrap px-3 py-4 text-sm w-1/6 overflow-hidden text-ellipsis">
                             {new Date(post.created_at).toLocaleDateString()}

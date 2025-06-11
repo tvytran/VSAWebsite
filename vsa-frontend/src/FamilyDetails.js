@@ -707,7 +707,7 @@ function FamilyDetails() {
                      {/* Add more post details as needed, like author, date, points */}
                       {post.author_id && (
                         <div className="w-full text-left text-sm text-gray-600 mb-2">
-                           Posted by {post.author_id.username} on {new Date(post.createdAt).toLocaleString()}
+                           Posted by {post.author_id.username} on {new Date(post.created_at).toLocaleString()}
                         </div>
                       )}
                        {post.point_value > 0 && (
