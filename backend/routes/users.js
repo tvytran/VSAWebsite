@@ -116,4 +116,56 @@ router.delete('/:userId', auth, async (req, res) => {
     }
 });
 
+// @route   PUT /api/users/:userId/role
+// @desc    Update a user's role (admin only)
+// @access  Private (Admin)
+router.put('/:userId/role', auth, async (req, res) => {
+    try {
+        // Check if requester is admin
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({
+                success: false,
+                message: 'Only admins can change user roles'
+            });
+        }
+
+        const { role } = req.body;
+        if (!role || !['user', 'admin'].includes(role)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid role. Must be either "user" or "admin"'
+            });
+        }
+
+        // Update the user's role
+        const { data: updatedUser, error: updateError } = await supabase
+            .from('users')
+            .update({ role })
+            .eq('id', req.params.userId)
+            .select()
+            .single();
+
+        if (updateError) throw updateError;
+        if (!updatedUser) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+
+        res.json({
+            success: true,
+            message: 'User role updated successfully',
+            user: updatedUser
+        });
+
+    } catch (err) {
+        console.error('Error updating user role:', err);
+        res.status(500).json({
+            success: false,
+            message: err.message || 'Server error'
+        });
+    }
+});
+
 module.exports = router; 

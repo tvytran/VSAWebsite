@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import api from './api';
 import MainLayout from './MainLayout';
-import { useNavigate } from 'react-router-dom';
-import { Link } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
+export const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
 function AdminDashboard() {
   const [users, setUsers] = useState([]);
@@ -13,6 +13,7 @@ function AdminDashboard() {
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('users');
   const navigate = useNavigate();
+  const [token] = useState(() => localStorage.getItem('token'));
 
   // State for editing posts/announcements
   const [editingPostId, setEditingPostId] = useState(null);
@@ -24,9 +25,8 @@ function AdminDashboard() {
 
   // State for editing users
   const [editingUserId, setEditingUserId] = useState(null);
-  const [editUsername, setEditUsername] = useState('');
-  const [editEmail, setEditEmail] = useState('');
-  const [editRole, setEditRole] = useState('');
+  const [editUserRole, setEditUserRole] = useState('');
+  const [editUserFamily, setEditUserFamily] = useState('');
   const [editUserError, setEditUserError] = useState('');
 
   // State for editing families
@@ -35,12 +35,6 @@ function AdminDashboard() {
   const [editFamilyDescription, setEditFamilyDescription] = useState('');
   const [editFamilyError, setEditFamilyError] = useState('');
   const [editFamilyLoading, setEditFamilyLoading] = useState(false);
-
-  // State for creating a new family
-  const [showCreateFamilyModal, setShowCreateFamilyModal] = useState(false);
-  const [newFamilyName, setNewFamilyName] = useState('');
-  const [newFamilyCode, setNewFamilyCode] = useState('');
-  const [createFamilyLoading, setCreateFamilyLoading] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -136,6 +130,7 @@ function AdminDashboard() {
 
   // Functions for editing posts/announcements
   const startEdit = (post) => {
+    console.log('Starting edit for post:', post);
     setEditingPostId(post.id);
     setEditTitle(post.title);
     setEditContent(post.content);
@@ -149,81 +144,161 @@ function AdminDashboard() {
     setEditContent('');
     setEditPointValue('');
     setEditError('');
+    setEditLoading(false);
   };
 
-  const handleEditPost = async (e, postId) => {
+  const handleEditPost = async (e) => {
     e.preventDefault();
-    setEditError('');
-    setEditLoading(true);
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setEditError('No authentication token found');
+      return;
+    }
     try {
-      const token = localStorage.getItem('token');
-      const res = await api.put(`/api/posts/${postId}`, {
+      setEditError('');
+      setEditLoading(true);
+      const postToEdit = allPosts.find(p => p.id === editingPostId);
+      if (!postToEdit) throw new Error('Post not found');
+      const updateData = {
         title: editTitle,
         content: editContent,
-        ...(allPosts.find(post => post.id === postId)?.type === 'hangout' && { pointValue: editPointValue }),
-      }, {
+      };
+      if (postToEdit.type === 'hangout') {
+        const points = parseInt(editPointValue);
+        if (isNaN(points) || points < 0) throw new Error('Points must be a non-negative number');
+        updateData.points = points;
+      }
+      const res = await api.put(`/api/posts/${editingPostId}`, updateData, {
         headers: { 'x-auth-token': token }
       });
-      if (res.data.success) {
-         const updatedPost = res.data.post;
-         if (updatedPost.type === 'announcement') {
-            setAnnouncements(announcements.map(ann => ann.id === postId ? updatedPost : ann));
-         } else {
-            setAllPosts(allPosts.map(post => post.id === postId ? updatedPost : post));
-         }
+      if (!res.data.success) {
+        throw new Error(res.data.message || 'Failed to update post');
       }
-      setEditLoading(false);
+      setAllPosts(prev => prev.map(post => post.id === editingPostId ? res.data.post : post));
       setEditingPostId(null);
       setEditTitle('');
       setEditContent('');
       setEditPointValue('');
+      setEditError('');
+      setEditLoading(false);
     } catch (err) {
-      setEditError(err.response?.data?.message || 'Failed to edit post.');
+      setEditError(err.response?.data?.message || err.message || 'Failed to update post');
       setEditLoading(false);
     }
   };
 
   // Functions for editing users
   const startEditUser = (user) => {
+    console.log('Starting edit for user:', user);
     setEditingUserId(user.id);
-    setEditUsername(user.username);
-    setEditEmail(user.email);
-    setEditRole(user.role);
+    setEditUserRole(user.role);
+    setEditUserFamily(user.families?.id || '');
     setEditUserError('');
   };
 
   const cancelEditUser = () => {
     setEditingUserId(null);
-    setEditUsername('');
-    setEditEmail('');
-    setEditRole('');
+    setEditUserRole('');
+    setEditUserFamily('');
     setEditUserError('');
+    setEditLoading(false);
   };
 
   const handleEditUser = async (e) => {
     e.preventDefault();
+    console.log('Starting user edit with:', {
+      userId: editingUserId,
+      newRole: editUserRole,
+      newFamily: editUserFamily,
+      currentUser: users.find(u => u.id === editingUserId)
+    });
+
     setEditUserError('');
     setEditLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await api.put(`/api/users/${editingUserId}`, {
-        username: editUsername,
-        email: editEmail,
-        role: editRole
-      }, {
-        headers: { 'x-auth-token': token }
-      });
-      
-      if (res.data.success) {
-        setUsers(users.map(user => user.id === editingUserId ? res.data.user : user));
-        setEditLoading(false);
-        setEditingUserId(null);
-        setEditUsername('');
-        setEditEmail('');
-        setEditRole('');
+      if (!token) {
+        throw new Error('No authentication token found');
       }
+      
+      // First update the role if it has changed
+      const currentUser = users.find(u => u.id === editingUserId);
+      if (editUserRole && editUserRole !== currentUser.role) {
+        console.log('Updating role to:', editUserRole);
+        try {
+          const roleRes = await api.put(`/api/users/${editingUserId}/role`, {
+            role: editUserRole
+          }, {
+            headers: { 'x-auth-token': token }
+          });
+          console.log('Role update response:', roleRes.data);
+          if (!roleRes.data.success) {
+            throw new Error(roleRes.data.message || 'Failed to update user role');
+          }
+        } catch (roleErr) {
+          console.error('Role update error:', roleErr);
+          throw new Error(`Role update failed: ${roleErr.message}`);
+        }
+      }
+
+      // Then update the family if it has changed
+      const currentFamilyId = currentUser.families?.id;
+      if (editUserFamily !== currentFamilyId) {
+        console.log('Updating family from:', currentFamilyId, 'to:', editUserFamily);
+        try {
+          let familyCode = null;
+          if (editUserFamily) {
+            const selectedFamily = families.find(f => f.id === editUserFamily);
+            if (!selectedFamily) {
+              throw new Error('Selected family not found');
+            }
+            familyCode = selectedFamily.code;
+          }
+
+          console.log('Sending family update with code:', familyCode);
+          const familyRes = await api.put('/api/auth/user/family', {
+            userId: editingUserId,
+            familyCode: familyCode
+          }, {
+            headers: { 'x-auth-token': token }
+          });
+          console.log('Family update response:', familyRes.data);
+
+          if (!familyRes.data.success) {
+            throw new Error(familyRes.data.message || 'Failed to update user family');
+          }
+        } catch (familyErr) {
+          console.error('Family update error:', familyErr);
+          throw new Error(`Family update failed: ${familyErr.message}`);
+        }
+      }
+
+      // Update the users list with the new data
+      console.log('Updating local state with new user data');
+      setUsers(users.map(user => {
+        if (user.id === editingUserId) {
+          const updatedFamily = editUserFamily ? families.find(f => f.id === editUserFamily) : null;
+          const updatedUser = {
+            ...user,
+            role: editUserRole || user.role,
+            families: updatedFamily
+          };
+          console.log('Updated user data:', updatedUser);
+          return updatedUser;
+        }
+        return user;
+      }));
+
+      // Reset edit state
+      console.log('Resetting edit state');
+      setEditingUserId(null);
+      setEditUserRole('');
+      setEditUserFamily('');
+      setEditUserError('');
     } catch (err) {
-      setEditUserError(err.response?.data?.message || 'Failed to edit user.');
+      console.error('Error in handleEditUser:', err);
+      setEditUserError(err.response?.data?.message || err.message || 'Failed to update user. Please try again.');
+    } finally {
       setEditLoading(false);
     }
   };
@@ -241,6 +316,7 @@ function AdminDashboard() {
     setEditFamilyName('');
     setEditFamilyDescription('');
     setEditFamilyError('');
+    setEditFamilyLoading(false);
   };
 
   const handleEditFamily = async (e) => {
@@ -249,22 +325,45 @@ function AdminDashboard() {
     setEditFamilyLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await api.put(`/api/families/${editingFamilyId}`, {
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      console.log('Updating family:', {
+        id: editingFamilyId,
         name: editFamilyName,
-        description: editFamilyDescription
+        currentFamily: families.find(f => f.id === editingFamilyId)
+      });
+
+      const res = await api.put(`/api/families/${editingFamilyId}`, {
+        name: editFamilyName
       }, {
         headers: { 'x-auth-token': token }
       });
-      
-      if (res.data.success) {
-        setFamilies(families.map(family => family.id === editingFamilyId ? res.data.family : family));
-        setEditFamilyLoading(false);
-        setEditingFamilyId(null);
-        setEditFamilyName('');
-        setEditFamilyDescription('');
+
+      if (!res.data.success) {
+        throw new Error(res.data.message || 'Failed to update family');
       }
+
+      // Update the families list with the new data
+      setFamilies(families.map(family => {
+        if (family.id === editingFamilyId) {
+          return {
+            ...family,
+            name: editFamilyName
+          };
+        }
+        return family;
+      }));
+
+      // Reset edit state
+      setEditingFamilyId(null);
+      setEditFamilyName('');
+      setEditFamilyError('');
     } catch (err) {
-      setEditFamilyError(err.response?.data?.message || 'Failed to edit family.');
+      console.error('Error updating family:', err);
+      setEditFamilyError(err.response?.data?.message || err.message || 'Failed to update family. Please try again.');
+    } finally {
       setEditFamilyLoading(false);
     }
   };
@@ -277,84 +376,6 @@ function AdminDashboard() {
   const renderFamilyPoints = (family) => {
     if (!family) return '0';
     return `${family.total_points || 0} (${family.semester_points || 0})`;
-  };
-
-  // Add the CreateFamilyModal component
-  const CreateFamilyModal = ({ isOpen, onClose, onSubmit, loading }) => {
-    if (!isOpen) return null;
-
-    return (
-      <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4 z-50">
-        <div className="bg-white rounded-lg p-6 max-w-md w-full">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Create New Family</h3>
-          <form onSubmit={onSubmit} className="space-y-4">
-            <div>
-              <label htmlFor="familyName" className="block text-sm font-medium text-gray-700">
-                Family Name
-              </label>
-              <input
-                type="text"
-                id="familyName"
-                value={newFamilyName}
-                onChange={(e) => setNewFamilyName(e.target.value)}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                required
-              />
-            </div>
-            <div>
-              <label htmlFor="familyCode" className="block text-sm font-medium text-gray-700">
-                Family Code
-              </label>
-              <input
-                type="text"
-                id="familyCode"
-                value={newFamilyCode}
-                onChange={(e) => setNewFamilyCode(e.target.value)}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                required
-              />
-            </div>
-            <div className="mt-5 sm:mt-6 flex justify-end space-x-3">
-              <button
-                type="button"
-                onClick={onClose}
-                className="inline-flex justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={loading}
-                className="inline-flex justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loading ? 'Creating...' : 'Create Family'}
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    );
-  };
-
-  // Add the handleCreateFamily function
-  const handleCreateFamily = async (e) => {
-    e.preventDefault();
-    setCreateFamilyLoading(true);
-    try {
-      const res = await api.post('/api/families', {
-        name: newFamilyName,
-        code: newFamilyCode
-      });
-      setFamilies([...families, res.data]);
-      setShowCreateFamilyModal(false);
-      setNewFamilyName('');
-      setNewFamilyCode('');
-    } catch (err) {
-      console.error('Error creating family:', err);
-      setError('Failed to create family. Please try again.');
-    } finally {
-      setCreateFamilyLoading(false);
-    }
   };
 
   if (loading) {
@@ -456,50 +477,51 @@ function AdminDashboard() {
                         <tr key={user.id} className={userIdx % 2 === 0 ? undefined : 'bg-gray-50'}>
                           {editingUserId === user.id ? (
                             <>
-                              <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm sm:pl-6 w-1/4 overflow-hidden text-ellipsis">
-                                <input
-                                  type="text"
-                                  value={editUsername}
-                                  onChange={(e) => setEditUsername(e.target.value)}
-                                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-1"
-                                  disabled={editLoading}
-                                />
+                              <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm sm:pl-6 w-1/4">
+                                <div className="font-medium text-gray-900">{user.username}</div>
+                                <div className="text-gray-500 text-xs">Joined {new Date(user.created_at).toLocaleDateString()}</div>
                               </td>
-                              <td className="whitespace-nowrap px-3 py-4 text-sm w-1/4 overflow-hidden text-ellipsis">
-                                <input
-                                  type="email"
-                                  value={editEmail}
-                                  onChange={(e) => setEditEmail(e.target.value)}
-                                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-1"
-                                  disabled={editLoading}
-                                />
+                              <td className="whitespace-nowrap px-3 py-4 text-sm w-1/4">
+                                {user.email}
                               </td>
-                              <td className="whitespace-nowrap px-3 py-4 text-sm w-1/6 overflow-hidden text-ellipsis">
+                              <td className="whitespace-nowrap px-3 py-4 text-sm w-1/6">
                                 <select
-                                  value={editRole}
-                                  onChange={(e) => setEditRole(e.target.value)}
+                                  value={editUserRole}
+                                  onChange={(e) => setEditUserRole(e.target.value)}
                                   className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-1"
                                   disabled={editLoading}
                                 >
-                                  <option value="member">Member</option>
+                                  <option value="user">User</option>
                                   <option value="admin">Admin</option>
                                 </select>
                               </td>
-                              <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 w-1/6 overflow-hidden text-ellipsis">
-                                {user.families?.name || 'No family'}
+                              <td className="whitespace-nowrap px-3 py-4 text-sm w-1/6">
+                                <select
+                                  value={editUserFamily}
+                                  onChange={(e) => setEditUserFamily(e.target.value)}
+                                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-1"
+                                  disabled={editLoading}
+                                >
+                                  <option value="">No Family</option>
+                                  {families.map(family => (
+                                    <option key={family.id} value={family.id}>
+                                      {family.name}
+                                    </option>
+                                  ))}
+                                </select>
                               </td>
                               <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6 w-[100px]">
                                 <div className="flex justify-end space-x-4">
                                   <button
-                                    onClick={handleEditUser}
-                                    className="text-indigo-600 hover:text-indigo-900"
+                                    onClick={(e) => handleEditUser(e)}
+                                    className="text-indigo-600 hover:text-indigo-900 disabled:opacity-50 disabled:cursor-not-allowed"
                                     disabled={editLoading}
                                   >
-                                    Save
+                                    {editLoading ? 'Saving...' : 'Save'}
                                   </button>
                                   <button
                                     onClick={cancelEditUser}
-                                    className="text-gray-600 hover:text-gray-900"
+                                    className="text-gray-600 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
                                     disabled={editLoading}
                                   >
                                     Cancel
@@ -509,23 +531,21 @@ function AdminDashboard() {
                             </>
                           ) : (
                             <>
-                              <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm sm:pl-6 w-1/4 overflow-hidden text-ellipsis">
+                              <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm sm:pl-6 w-1/4">
                                 <div className="font-medium text-gray-900">{user.username}</div>
                                 <div className="text-gray-500 text-xs">Joined {new Date(user.created_at).toLocaleDateString()}</div>
                               </td>
-                              <td className="whitespace-nowrap px-3 py-4 text-sm w-1/4 overflow-hidden text-ellipsis">
+                              <td className="whitespace-nowrap px-3 py-4 text-sm w-1/4">
                                 {user.email}
                               </td>
-                              <td className="whitespace-nowrap px-3 py-4 text-sm w-1/6 overflow-hidden text-ellipsis">
-                                <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${
-                                  user.role === 'admin' 
-                                    ? 'bg-red-100 text-red-800' 
-                                    : 'bg-green-100 text-green-800'
+                              <td className="whitespace-nowrap px-3 py-4 text-sm w-1/6">
+                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                  user.role === 'admin' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
                                 }`}>
-                                  {user.role || 'member'}
+                                  {user.role}
                                 </span>
                               </td>
-                              <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 w-1/6 overflow-hidden text-ellipsis">
+                              <td className="whitespace-nowrap px-3 py-4 text-sm w-1/6">
                                 {user.families?.name || 'No family'}
                               </td>
                               <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6 w-[100px]">
@@ -568,12 +588,12 @@ function AdminDashboard() {
                       Manage family information and view family points
                     </p>
                   </div>
-                  <button
-                    onClick={() => setShowCreateFamilyModal(true)}
+                  <Link
+                    to="/create-family"
                     className="inline-flex items-center justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:w-auto"
                   >
                     Create Family
-                  </button>
+                  </Link>
                 </div>
                 <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
                   <table className="divide-y divide-gray-300 table-fixed w-full">
@@ -694,21 +714,11 @@ function AdminDashboard() {
                   <table className="divide-y divide-gray-300 table-fixed w-full">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6 w-1/4">
-                          Title
-                        </th>
-                        <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 w-1/6">
-                          Type
-                        </th>
-                        <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 w-1/6">
-                          Family
-                        </th>
-                        <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 w-1/6">
-                          Points
-                        </th>
-                        <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 w-1/6">
-                          Date
-                        </th>
+                        <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6 w-1/4">Title</th>
+                        <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 w-1/6">Type</th>
+                        <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 w-1/6">Family</th>
+                        <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 w-1/6">Points</th>
+                        <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 w-1/6">Date</th>
                         <th scope="col" className="relative py-3.5 pl-3 pr-4 text-right text-sm font-semibold text-gray-900 sm:pr-6 w-[100px]">
                           <span className="sr-only">Actions</span>
                         </th>
@@ -717,108 +727,27 @@ function AdminDashboard() {
                     <tbody className="divide-y divide-gray-200 bg-white">
                       {allPosts.map((post, postIdx) => (
                         <tr key={post.id} className={postIdx % 2 === 0 ? undefined : 'bg-gray-50'}>
-                          {editingPostId === post.id ? (
-                            <>
-                              <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm sm:pl-6 w-1/4 overflow-hidden text-ellipsis">
-                                <input
-                                  type="text"
-                                  value={editTitle}
-                                  onChange={(e) => setEditTitle(e.target.value)}
-                                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-1"
-                                  disabled={editLoading}
-                                />
-                              </td>
-                              <td className="whitespace-nowrap px-3 py-4 text-sm w-1/6 overflow-hidden text-ellipsis">
-                                <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${
-                                  post.type === 'announcement' 
-                                    ? 'bg-blue-100 text-blue-800' 
-                                    : post.type === 'hangout'
-                                    ? 'bg-green-100 text-green-800'
-                                    : 'bg-gray-100 text-gray-800'
-                                }`}>
-                                  {post.type}
-                                </span>
-                              </td>
-                              <td className="whitespace-nowrap px-3 py-4 text-sm w-1/6 overflow-hidden text-ellipsis">
-                                {post.family?.name || 'No family'}
-                              </td>
-                              <td className="whitespace-nowrap px-3 py-4 text-sm w-1/6 overflow-hidden text-ellipsis">
-                                {post.type === 'hangout' && (
-                                  <input
-                                    type="number"
-                                    value={editPointValue}
-                                    onChange={(e) => setEditPointValue(e.target.value)}
-                                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-1"
-                                    disabled={editLoading}
-                                    min="0"
-                                  />
-                                )}
-                              </td>
-                              <td className="whitespace-nowrap px-3 py-4 text-sm w-1/6 overflow-hidden text-ellipsis">
-                                {new Date(post.created_at).toLocaleDateString()}
-                              </td>
-                              <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6 w-[100px]">
-                                <div className="flex justify-end space-x-4">
-                                  <button
-                                    onClick={handleEditPost}
-                                    className="text-indigo-600 hover:text-indigo-900"
-                                    disabled={editLoading}
-                                  >
-                                    Save
-                                  </button>
-                                  <button
-                                    onClick={cancelEdit}
-                                    className="text-gray-600 hover:text-gray-900"
-                                    disabled={editLoading}
-                                  >
-                                    Cancel
-                                  </button>
-                                </div>
-                              </td>
-                            </>
-                          ) : (
-                            <>
-                              <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm sm:pl-6 w-1/4 overflow-hidden text-ellipsis">
-                                <div className="font-medium text-gray-900">{post.title}</div>
-                              </td>
-                              <td className="whitespace-nowrap px-3 py-4 text-sm w-1/6 overflow-hidden text-ellipsis">
-                                <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${
-                                  post.type === 'announcement' 
-                                    ? 'bg-blue-100 text-blue-800' 
-                                    : post.type === 'hangout'
-                                    ? 'bg-green-100 text-green-800'
-                                    : 'bg-gray-100 text-gray-800'
-                                }`}>
-                                  {post.type}
-                                </span>
-                              </td>
-                              <td className="whitespace-nowrap px-3 py-4 text-sm w-1/6 overflow-hidden text-ellipsis">
-                                {post.family?.name || 'No family'}
-                              </td>
-                              <td className="whitespace-nowrap px-3 py-4 text-sm w-1/6 overflow-hidden text-ellipsis">
-                                {post.type === 'hangout' ? (post.point_value || 0) : '-'}
-                              </td>
-                              <td className="whitespace-nowrap px-3 py-4 text-sm w-1/6 overflow-hidden text-ellipsis">
-                                {new Date(post.created_at).toLocaleDateString()}
-                              </td>
-                              <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6 w-[100px]">
-                                <div className="flex justify-end space-x-4">
-                                  <button
-                                    onClick={() => startEdit(post)}
-                                    className="text-indigo-600 hover:text-indigo-900"
-                                  >
-                                    Edit
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeletePost(post.id)}
-                                    className="text-red-600 hover:text-red-900"
-                                  >
-                                    Delete
-                                  </button>
-                                </div>
-                              </td>
-                            </>
-                          )}
+                          <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm sm:pl-6 w-1/4 overflow-hidden text-ellipsis">
+                            <div className="font-medium text-gray-900">{post.title}</div>
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-4 text-sm w-1/6 overflow-hidden text-ellipsis">
+                            <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${post.type === 'announcement' ? 'bg-blue-100 text-blue-800' : post.type === 'hangout' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>{post.type}</span>
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-4 text-sm w-1/6 overflow-hidden text-ellipsis">
+                            {post.family?.name || 'No family'}
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-4 text-sm w-1/6 overflow-hidden text-ellipsis">
+                            {post.type === 'hangout' ? (post.point_value || 1) : '-'}
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-4 text-sm w-1/6 overflow-hidden text-ellipsis">
+                            {new Date(post.created_at).toLocaleDateString()}
+                          </td>
+                          <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6 w-[100px]">
+                            <div className="flex justify-end space-x-4">
+                              <button onClick={() => startEdit(post)} className="text-indigo-600 hover:text-indigo-900">Edit</button>
+                              <button onClick={() => handleDeletePost(post.id)} className="text-red-600 hover:text-red-900">Delete</button>
+                            </div>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -831,77 +760,69 @@ function AdminDashboard() {
 
         {/* Edit Post/Announcement Form - Conditionally rendered */}
         {editingPostId && (
-           <div className="mt-8 p-6 bg-white shadow ring-1 ring-black ring-opacity-5 md:rounded-lg max-w-xl mx-auto">
-              <h2 className="text-2xl font-bold text-[#b32a2a] mb-4">Edit Post or Announcement</h2>
-              {editError && <div className="text-red-600 mb-4 text-sm">{editError}</div>}
-              <form onSubmit={(e) => handleEditPost(e, editingPostId)} className="flex flex-col gap-4">
+          <div className="mt-8 p-6 bg-white shadow ring-1 ring-black ring-opacity-5 md:rounded-lg max-w-xl mx-auto">
+            <h2 className="text-2xl font-bold text-[#b32a2a] mb-4">Edit Post or Announcement</h2>
+            {editError && <div className="text-red-600 mb-4 text-sm">{editError}</div>}
+            <form onSubmit={handleEditPost} className="flex flex-col gap-4">
+              <div>
+                <label htmlFor="editTitle" className="block text-sm font-medium text-gray-700">Title</label>
+                <input
+                  type="text"
+                  id="editTitle"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2"
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  required
+                  disabled={editLoading}
+                />
+              </div>
+              <div>
+                <label htmlFor="editContent" className="block text-sm font-medium text-gray-700">Content</label>
+                <textarea
+                  id="editContent"
+                  rows="4"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2"
+                  value={editContent}
+                  onChange={(e) => setEditContent(e.target.value)}
+                  required
+                  disabled={editLoading}
+                ></textarea>
+              </div>
+              {allPosts.find(post => post.id === editingPostId)?.type === 'hangout' && (
                 <div>
-                  <label htmlFor="editTitle" className="block text-sm font-medium text-gray-700">Title</label>
+                  <label htmlFor="editPoints" className="block text-sm font-medium text-gray-700">Point Value</label>
                   <input
-                     type="text"
-                     id="editTitle"
-                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2"
-                     value={editTitle}
-                     onChange={e => setEditTitle(e.target.value)}
-                     required
-                     disabled={editLoading}
-                  />
-                </div>
-                <div>
-                  <label htmlFor="editContent" className="block text-sm font-medium text-gray-700">Content</label>
-                  <textarea
-                    id="editContent"
-                    rows="4"
+                    type="number"
+                    id="editPoints"
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2"
-                    value={editContent}
-                    onChange={e => setEditContent(e.target.value)}
+                    value={editPointValue}
+                    onChange={(e) => setEditPointValue(e.target.value)}
                     required
                     disabled={editLoading}
-                  ></textarea>
+                    min="0"
+                  />
                 </div>
-                {allPosts.find(post => post.id === editingPostId)?.type === 'hangout' && (
-                   <div>
-                     <label htmlFor="editPointValue" className="block text-sm font-medium text-gray-700">Point Value</label>
-                     <input
-                       type="number"
-                       id="editPointValue"
-                       className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2"
-                       value={editPointValue}
-                       onChange={e => setEditPointValue(e.target.value)}
-                       required
-                       disabled={editLoading}
-                       min="0"
-                     />
-                   </div>
-                )}
-                <div className="flex justify-end space-x-4">
-                   <button
-                     type="button"
-                     onClick={cancelEdit}
-                     className="rounded-md border border-gray-300 bg-white py-2 px-4 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                     disabled={editLoading}
-                   >
-                     Cancel
-                   </button>
-                   <button
-                     type="submit"
-                     className="rounded-md border border-transparent bg-[#b32a2a] py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-[#8a1f1f] focus:outline-none focus:ring-2 focus:ring-[#b32a2a] focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                     disabled={editLoading}
-                   >
-                     {editLoading ? 'Saving...' : 'Save Changes'}
-                   </button>
-                 </div>
-              </form>
-           </div>
+              )}
+              <div className="flex justify-end space-x-4">
+                <button
+                  type="button"
+                  onClick={cancelEdit}
+                  className="rounded-md border border-gray-300 bg-white py-2 px-4 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={editLoading}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-md border border-transparent bg-[#b32a2a] py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-[#8a1f1f] focus:outline-none focus:ring-2 focus:ring-[#b32a2a] focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={editLoading}
+                >
+                  {editLoading ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
         )}
-
-        {/* Add the CreateFamilyModal component */}
-        <CreateFamilyModal
-          isOpen={showCreateFamilyModal}
-          onClose={() => setShowCreateFamilyModal(false)}
-          onSubmit={handleCreateFamily}
-          loading={createFamilyLoading}
-        />
       </div>
     </MainLayout>
   );

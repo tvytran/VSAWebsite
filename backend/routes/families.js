@@ -148,81 +148,61 @@ router.get('/:id', async (req, res) => {
 
 // @route   PUT /api/families/:id
 // @desc    Update family profile (name, description, picture)
-// @access  Private (only members of the family)
+// @access  Private (admin or family members)
 router.put('/:id', auth, upload.single('familyPicture'), async (req, res) => {
   try {
     console.log('Family update request received:', {
       userId: req.user.id,
       familyId: req.params.id,
+      userRole: req.user.role,
       hasFile: !!req.file,
       fileName: req.file?.originalname,
       fileSize: req.file?.size,
       fileType: req.file?.mimetype
     });
 
-    // Check if user is a member
-    const { data: user, error: userError } = await supabase
-      .from('users')
-      .select('id')
-      .eq('id', req.user.id)
-      .eq('family_id', req.params.id)
-      .single();
-    if (userError) throw userError;
-    if (!user) {
-      return res.status(403).json({ success: false, message: 'You are not authorized to update this family' });
+    // If user is admin, allow update without membership check
+    if (req.user.role !== 'admin') {
+      // For non-admin users, check if they are a member
+      const { data: user, error: userError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('id', req.user.id)
+        .eq('family_id', req.params.id)
+        .single();
+      
+      if (userError) throw userError;
+      if (!user) {
+        return res.status(403).json({ 
+          success: false, 
+          message: 'You are not authorized to update this family' 
+        });
+      }
     }
 
     const updateFields = {};
     if (req.body.name) updateFields.name = req.body.name;
-
-    // Handle file upload for family picture with Supabase Storage
+    if (req.body.description) updateFields.description = req.body.description;
     if (req.file) {
-      console.log('Processing file upload...');
-      let fileBuffer = req.file.buffer;
-      let fileMimeType = req.file.mimetype;
-
-      // Convert HEIC to JPEG if necessary
-      if (req.file.originalname.toLowerCase().endsWith('.heic') || 
-          req.file.originalname.toLowerCase().endsWith('.heif')) {
-        console.log('Converting HEIC file to JPEG...');
-        try {
-          fileBuffer = await convertHeicToJpeg(req.file.buffer);
-          fileMimeType = 'image/jpeg';
-          console.log('HEIC conversion successful');
-        } catch (error) {
-          console.error('HEIC conversion failed:', error);
-          return res.status(400).json({ message: 'Failed to convert HEIC image' });
-        }
-      }
-
+      // Handle file upload if present
       const fileName = `families/${req.params.id}_${Date.now()}.jpg`;
-      console.log('Uploading file to Supabase Storage:', fileName);
-
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from(process.env.SUPABASE_BUCKET)
-        .upload(fileName, fileBuffer, {
-          contentType: fileMimeType,
-          upsert: true,
+      const { data: fileData, error: fileError } = await supabase.storage
+        .from('family-pictures')
+        .upload(fileName, req.file.buffer, {
+          contentType: req.file.mimetype,
+          upsert: true
         });
-
-      if (uploadError) {
-        console.error('Supabase upload error:', uploadError);
-        return res.status(500).json({ message: uploadError.message });
-      }
-
-      console.log('File uploaded successfully:', uploadData);
-
-      const { publicUrl } = supabase.storage
-        .from(process.env.SUPABASE_BUCKET)
-        .getPublicUrl(fileName).data;
-
-      console.log('Generated public URL:', publicUrl);
+      
+      if (fileError) throw fileError;
+      
+      const { data: { publicUrl } } = supabase.storage
+        .from('family-pictures')
+        .getPublicUrl(fileName);
+      
       updateFields.family_picture = publicUrl;
     }
 
-    console.log('Updating family in database with fields:', updateFields);
-
-    // Update family in database
+    // Update the family
     const { data: updatedFamily, error: updateError } = await supabase
       .from('families')
       .update(updateFields)
@@ -233,6 +213,13 @@ router.put('/:id', auth, upload.single('familyPicture'), async (req, res) => {
     if (updateError) {
       console.error('Database update error:', updateError);
       throw updateError;
+    }
+
+    if (!updatedFamily) {
+      return res.status(404).json({
+        success: false,
+        message: 'Family not found'
+      });
     }
 
     console.log('Family updated successfully:', updatedFamily);
@@ -258,7 +245,10 @@ router.put('/:id', auth, upload.single('familyPicture'), async (req, res) => {
     res.json({ success: true, family: familyWithMembers });
   } catch (err) {
     console.error('Error updating family:', err);
-    res.status(500).json({ success: false, message: err.message || 'Server error' });
+    res.status(500).json({ 
+      success: false, 
+      message: err.message || 'Server error' 
+    });
   }
 });
 
