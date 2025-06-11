@@ -82,7 +82,7 @@ function App() {
             </ProtectedRoute>
           } />
           <Route path="/create-family" element={
-            <ProtectedRoute>
+            <ProtectedRoute requireAdmin={true}>
               <CreateFamilyPage />
             </ProtectedRoute>
           } />

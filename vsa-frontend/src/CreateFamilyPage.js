@@ -23,7 +23,7 @@ function CreateFamilyPage() {
           navigate('/login');
           return;
         }
-        const res = await api.get('/api/users/me', {
+        const res = await api.get('/api/auth/me', {
           headers: { 'x-auth-token': token }
         });
         if (res.data.user.role !== 'admin') {

@@ -654,12 +654,14 @@ router.put(
     const { title, content, pointValue } = req.body; // Include pointValue
 
     try {
-      let post = await supabase
+      // Only select the fields we need
+      const { data: post, error: fetchError } = await supabase
         .from('posts')
-        .select('*')
+        .select('id, author_id, type, point_value, family_id')
         .eq('id', req.params.id)
         .single();
 
+      if (fetchError) throw fetchError;
       if (!post) {
         return res.status(404).json({ success: false, message: 'Post not found' });
       }
@@ -677,18 +679,21 @@ router.put(
       }
 
       // Store the old point value before updating
-      const oldPointValue = post.point_value ? post.point_value : 0;
+      const oldPointValue = post.point_value || 0;
 
       // Update post fields
-      if (title !== undefined) post.title = title;
-      if (content !== undefined) post.content = content;
+      const updateData = {
+        updated_at: new Date().toISOString()
+      };
+      
+      if (title !== undefined) updateData.title = title;
+      if (content !== undefined) updateData.content = content;
 
       // Handle pointValue update for hangout posts (only if provided in request and user is admin or author)
-      // Allow admin or the author of the post to edit points on a hangout post
       if (post.type === 'hangout' && (req.user.role === 'admin' || post.author_id === req.user.id) && pointValue !== undefined && pointValue !== null) {
           const newPointValue = parseInt(pointValue, 10);
           if (!isNaN(newPointValue) && newPointValue >= 0) {
-              post.point_value = newPointValue;
+              updateData.point_value = newPointValue;
 
               // Calculate point difference and update family points
               const pointDifference = newPointValue - oldPointValue;
@@ -722,14 +727,37 @@ router.put(
           }
       }
 
-      const { data: updatedPost, error } = await supabase
+      // Update the post with only the fields we want to change
+      const { data: updatedPost, error: updateError } = await supabase
         .from('posts')
-        .update(post)
+        .update(updateData)
         .eq('id', req.params.id)
-        .select('*')
+        .select(`
+          id,
+          title,
+          content,
+          type,
+          point_value,
+          author_id,
+          family_id,
+          created_at,
+          updated_at,
+          image_path,
+          author:author_id (
+            id,
+            username,
+            profile_picture
+          ),
+          family:family_id (
+            id,
+            name,
+            total_points,
+            semester_points
+          )
+        `)
         .single();
 
-      if (error) throw error;
+      if (updateError) throw updateError;
 
       res.json({ success: true, post: updatedPost });
     } catch (err) {
