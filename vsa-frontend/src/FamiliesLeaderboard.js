@@ -51,11 +51,7 @@ function FamiliesLeaderboard() {
       <div className="w-full max-w-3xl bg-white rounded-lg shadow-md p-8">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-3xl font-bold text-[#b32a2a]">Families Leaderboard</h2>
-          <Link to="/create-family">
-            <button className="px-4 py-2 bg-[#b32a2a] text-white font-semibold rounded-md hover:bg-[#8a1f1f] transition duration-200 ease-in-out">
-              Create Family
-            </button>
-          </Link>
+          
         </div>
         <input
           type="text"

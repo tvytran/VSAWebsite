@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import MainLayout from './MainLayout';
 import api from './api';
 import { useNavigate, Link } from 'react-router-dom';
@@ -11,7 +11,38 @@ function CreateFamilyPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [successData, setSuccessData] = useState(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(true);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const checkAdminStatus = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          navigate('/login');
+          return;
+        }
+        const res = await api.get('/api/users/me', {
+          headers: { 'x-auth-token': token }
+        });
+        if (res.data.user.role !== 'admin') {
+          navigate('/dashboard');
+          return;
+        }
+        setIsAdmin(true);
+      } catch (err) {
+        if (err.response?.status === 401) {
+          navigate('/login');
+        } else {
+          navigate('/dashboard');
+        }
+      } finally {
+        setCheckingAuth(false);
+      }
+    };
+    checkAdminStatus();
+  }, [navigate]);
 
   const { name, description } = formData;
 
@@ -45,6 +76,20 @@ function CreateFamilyPage() {
       setLoading(false);
     }
   };
+
+  if (checkingAuth) {
+    return (
+      <MainLayout>
+        <div className="flex justify-center items-center min-h-screen">
+          <div className="text-2xl text-[#b32a2a]">Loading...</div>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  if (!isAdmin) {
+    return null; // This will briefly show while redirecting
+  }
 
   return (
     <MainLayout>
