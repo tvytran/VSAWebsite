@@ -49,6 +49,7 @@ const authRoutes = require('./routes/auth');
 const postRoutes = require('./routes/posts');
 const pointsRoutes = require('./routes/points');
 const familyRoutes = require('./routes/families');
+const eventsRouter = require('./routes/events');
 
 // Import auth middleware
 const auth = require('./middleware/auth');
@@ -77,6 +78,7 @@ app.use('/api/posts', auth, (req, res, next) => {
 }, postRoutes);
 app.use('/api/points', auth, pointsRoutes);
 app.use('/api/families', auth, familyRoutes);
+app.use('/api/events', eventsRouter);
 
 // Basic test route to verify the server is running
 // Vercel deployment test - Updated for deployment  

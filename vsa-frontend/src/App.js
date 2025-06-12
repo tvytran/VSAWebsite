@@ -13,6 +13,8 @@ import FamiliesLeaderboard from './FamiliesLeaderboard';
 import CreatePostPage from './CreatePostPage';
 import CreateFamilyPage from './CreateFamilyPage';
 import AdminDashboard from './AdminDashboard';
+import EventsPage from './Events';
+import EventDetailPage from './EventDetailPage';
 
 // Protected Route component
 const ProtectedRoute = ({ children, requireAdmin = false }) => {
@@ -58,7 +60,8 @@ function App() {
           <Route path="/register" element={<Register />} />
           <Route path="/families" element={<FamiliesLeaderboard />} />
           <Route path="/families/:id" element={<FamilyDetails />} />
-          <Route path="/events" element={<Events />} />
+          <Route path="/events" element={<EventsPage />} />
+          <Route path="/events/:id" element={<EventDetailPage />} />
           <Route path="/newsletter" element={<Newsletter />} />
           <Route path="/about" element={<AboutVSA />} />
           <Route path="/dashboard" element={
