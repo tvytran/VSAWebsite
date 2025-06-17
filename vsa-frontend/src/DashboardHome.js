@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
 import api from './api';
 import MainLayout from './MainLayout';
-import { Link, useLocation } from 'react-router-dom';
-import { HeartIcon as HeartOutline, ChatBubbleOvalLeftIcon } from '@heroicons/react/24/outline';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { HeartIcon as HeartOutline, ChatBubbleOvalLeftIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { HeartIcon as HeartSolid } from '@heroicons/react/24/solid';
 // import { PlusCircleIcon } from '@heroicons/react/24/solid'; // Temporarily remove icon import
 
@@ -31,14 +31,25 @@ function DashboardHome() {
   // State for search functionality
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredPosts, setFilteredPosts] = useState([]);
+  const [showSearchResults, setShowSearchResults] = useState(false);
 
   const [expandedPosts, setExpandedPosts] = useState({});
 
-  const [commentText, setCommentText] = useState('');
-  const [commentLoading, setCommentLoading] = useState(false);
-  const [commentError, setCommentError] = useState('');
+  // Comment state management
+  const [commentStates, setCommentStates] = useState({}); // Store comment text for each post
+  const [showCommentForms, setShowCommentForms] = useState({}); // Track which posts show comment forms
+  const [editingComment, setEditingComment] = useState(null); // Track which comment is being edited
+  const [commentLoading, setCommentLoading] = useState({}); // Track loading state per post
+  const [commentError, setCommentError] = useState({}); // Track errors per post
 
   const commentInputRefs = useRef({});
+
+  const [families, setFamilies] = useState([]);
+  const [familySearchTerm, setFamilySearchTerm] = useState('');
+  const [filteredFamilies, setFilteredFamilies] = useState([]);
+  const [showFamilySearch, setShowFamilySearch] = useState(false);
+
+  const navigate = useNavigate();
 
   const fetchPosts = async () => {
     setLoading(true);
@@ -99,16 +110,46 @@ function DashboardHome() {
     }
   }, [isLoggedIn, location.pathname]); // Add location.pathname as a dependency
 
-  // Effect to filter posts whenever posts or searchTerm changes
+  // Fetch families
+  useEffect(() => {
+    const fetchFamilies = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await api.get('/api/families', {
+          headers: { 'x-auth-token': token }
+        });
+        if (res.data.success) {
+          setFamilies(res.data.families || []);
+        }
+      } catch (err) {
+        console.error('Error fetching families:', err);
+      }
+    };
+    fetchFamilies();
+  }, []);
+
+  // Effect to filter posts and families whenever searchTerm changes
   useEffect(() => {
     const lowerCaseSearchTerm = searchTerm.toLowerCase();
-    const filtered = posts.filter(post => 
+    
+    // Filter posts
+    const filteredPosts = posts.filter(post => 
       post.title.toLowerCase().includes(lowerCaseSearchTerm) ||
       post.content.toLowerCase().includes(lowerCaseSearchTerm) ||
-      post.author.username?.toLowerCase().includes(lowerCaseSearchTerm)
+      post.author.username?.toLowerCase().includes(lowerCaseSearchTerm) ||
+      (post.family?.name && post.family.name.toLowerCase().includes(lowerCaseSearchTerm))
     );
-    setFilteredPosts(filtered);
-  }, [posts, searchTerm]);
+    setFilteredPosts(filteredPosts);
+
+    // Filter families
+    const filteredFamilies = families.filter(family => 
+      family.name.toLowerCase().includes(lowerCaseSearchTerm)
+    );
+    setFilteredFamilies(filteredFamilies);
+
+    // Show search results if there's a search term
+    setShowSearchResults(lowerCaseSearchTerm.length > 0);
+  }, [posts, families, searchTerm]);
 
    const startEdit = (post) => {
     setEditingPostId(post.id);
@@ -292,67 +333,170 @@ function DashboardHome() {
   };
 
   const handleLike = async (postId) => {
-    try {
-      const token = localStorage.getItem('token');
-      const res = await api.put(`/api/posts/like/${postId}`, {}, {
-        headers: { 'x-auth-token': token }
-      });
-      if (res.data.success) {
-        setPosts(posts.map(post =>
-          post.id === postId
-            ? { ...post, likes: res.data.likes }
-            : post
-        ));
-      }
-    } catch (err) {
-      console.error('Error liking post:', err);
+    if (!isLoggedIn) {
+      navigate('/login');
+      return;
     }
-  };
 
-  const handleUnlike = async (postId) => {
     try {
       const token = localStorage.getItem('token');
-      const res = await api.put(`/api/posts/unlike/${postId}`, {}, {
+      const user = JSON.parse(localStorage.getItem('user'));
+      const post = posts.find(p => p.id === postId);
+      
+      // Check if user already liked the post
+      const isLiked = post.likes?.some(like => like.user === user.id);
+      
+      const endpoint = isLiked ? 'unlike' : 'like';
+      const res = await api.put(`/api/posts/${endpoint}/${postId}`, {}, {
         headers: { 'x-auth-token': token }
       });
+      
       if (res.data.success) {
         setPosts(posts.map(post =>
           post.id === postId
-            ? { ...post, likes: res.data.likes }
+            ? { ...post, likes: res.data.likes, isLiked: !isLiked }
             : post
         ));
       }
     } catch (err) {
-      console.error('Error unliking post:', err);
+      console.error('Error liking/unliking post:', err);
     }
   };
 
   const handleComment = async (postId, e) => {
     e.preventDefault();
-    if (!commentText.trim()) return;
+    if (!isLoggedIn) {
+      navigate('/login');
+      return;
+    }
 
-    setCommentLoading(true);
-    setCommentError('');
+    const commentText = commentStates[postId]?.trim();
+    if (!commentText) return;
+
+    setCommentLoading(prev => ({ ...prev, [postId]: true }));
+    setCommentError(prev => ({ ...prev, [postId]: '' }));
+
     try {
       const token = localStorage.getItem('token');
       const res = await api.post(`/api/posts/comment/${postId}`, 
         { text: commentText },
         { headers: { 'x-auth-token': token } }
       );
+      
       if (res.data.success) {
-        // Update the post in the local state
         setPosts(posts.map(post => 
           post.id === postId 
             ? { ...post, comments: res.data.comments }
             : post
         ));
-        setCommentText('');
+        setCommentStates(prev => ({ ...prev, [postId]: '' }));
+        if (commentInputRefs.current[postId]) {
+          commentInputRefs.current[postId].focus();
+        }
       }
     } catch (err) {
-      setCommentError(err.response?.data?.message || 'Failed to add comment');
+      setCommentError(prev => ({ 
+        ...prev, 
+        [postId]: err.response?.data?.message || 'Failed to add comment' 
+      }));
     } finally {
-      setCommentLoading(false);
+      setCommentLoading(prev => ({ ...prev, [postId]: false }));
     }
+  };
+
+  const handleEditComment = async (postId, commentId, newText) => {
+    if (!newText.trim()) return;
+
+    setCommentLoading(prev => ({ ...prev, [postId]: true }));
+    setCommentError(prev => ({ ...prev, [postId]: '' }));
+
+    try {
+      const token = localStorage.getItem('token');
+      const res = await api.put(`/api/posts/comment/${postId}/${commentId}`, 
+        { text: newText },
+        { headers: { 'x-auth-token': token } }
+      );
+      
+      if (res.data.success) {
+        setPosts(posts.map(post => 
+          post.id === postId 
+            ? { ...post, comments: res.data.comments }
+            : post
+        ));
+        setEditingComment(null);
+        setCommentStates(prev => ({
+          ...prev,
+          [`edit-${commentId}`]: ''
+        }));
+      }
+    } catch (err) {
+      setCommentError(prev => ({ 
+        ...prev, 
+        [postId]: err.response?.data?.message || 'Failed to edit comment' 
+      }));
+    } finally {
+      setCommentLoading(prev => ({ ...prev, [postId]: false }));
+    }
+  };
+
+  const handleDeleteComment = async (postId, commentId) => {
+    if (!window.confirm('Are you sure you want to delete this comment?')) return;
+
+    setCommentLoading(prev => ({ ...prev, [postId]: true }));
+    setCommentError(prev => ({ ...prev, [postId]: '' }));
+
+    try {
+      const token = localStorage.getItem('token');
+      const res = await api.delete(`/api/posts/comment/${postId}/${commentId}`, {
+        headers: { 'x-auth-token': token }
+      });
+      
+      if (res.data.success) {
+        setPosts(posts.map(post => 
+          post.id === postId 
+            ? { ...post, comments: res.data.comments }
+            : post
+        ));
+      }
+    } catch (err) {
+      setCommentError(prev => ({ 
+        ...prev, 
+        [postId]: err.response?.data?.message || 'Failed to delete comment' 
+      }));
+    } finally {
+      setCommentLoading(prev => ({ ...prev, [postId]: false }));
+    }
+  };
+
+  const handlePostClick = (postId) => {
+    navigate(`/post/${postId}`);
+  };
+
+  const getAuthorInitial = (author) => {
+    if (typeof author === 'string') {
+      return author.charAt(0).toUpperCase();
+    }
+    if (author?.username) {
+      return author.username.charAt(0).toUpperCase();
+    }
+    return '?';
+  };
+
+  const getAuthorName = (author) => {
+    if (typeof author === 'string') {
+      return author;
+    }
+    if (author?.username) {
+      return author.username;
+    }
+    return 'Unknown User';
+  };
+
+  const handleCommentClick = (postId) => {
+    setShowCommentForms(prev => ({
+      ...prev,
+      [postId]: !prev[postId]
+    }));
   };
 
   return (
@@ -375,7 +519,7 @@ function DashboardHome() {
           <div className="flex justify-center space-x-4">
             <Link to="/login" className="px-6 py-3 bg-[#b32a2a] text-white rounded-lg hover:bg-[#8a1f1f] transition font-semibold text-lg">Login</Link>
             <Link to="/register" className="px-6 py-3 bg-[#b32a2a] text-white rounded-lg hover:bg-[#8a1f1f] transition font-semibold text-lg">Register</Link>
-             <button 
+            <button 
               onClick={() => {
                 localStorage.setItem('isGuest', 'true');
                 window.location.reload();
@@ -468,279 +612,378 @@ function DashboardHome() {
       )}
 
       {/* Search Bar */}
-      {isLoggedIn && (
-        <div className="w-full max-w-2xl flex items-center mb-6 relative">
-          <div className="relative flex-1">
-            <input
-              type="text"
-              placeholder="Search posts by title, content, or author..."
-              className="w-full border-2 border-[#b32a2a] rounded-lg px-4 py-3 pl-10 text-lg focus:outline-none focus:border-[#8a1f1f] focus:ring-2 focus:ring-[#b32a2a] focus:ring-opacity-50 transition-all duration-200"
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-            />
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <svg className="h-5 w-5 text-[#b32a2a]" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
+      <div className="w-full max-w-2xl flex items-center mb-6 relative">
+        <div className="relative flex-1">
+          <input
+            type="text"
+            placeholder="Search posts, families, or authors..."
+            className="w-full border-2 border-[#b32a2a] rounded-lg px-4 py-3 pl-10 text-lg focus:outline-none focus:border-[#8a1f1f] focus:ring-2 focus:ring-[#b32a2a] focus:ring-opacity-50 transition-all duration-200"
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+          />
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <svg className="h-5 w-5 text-[#b32a2a]" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
+            </svg>
+          </div>
+          {searchTerm && (
+            <button
+              onClick={() => {
+                setSearchTerm('');
+                setShowSearchResults(false);
+              }}
+              className="absolute inset-y-0 right-0 pr-3 flex items-center"
+            >
+              <svg className="h-5 w-5 text-gray-400 hover:text-gray-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
               </svg>
-            </div>
-            {searchTerm && (
-              <button
-                onClick={() => setSearchTerm('')}
-                className="absolute inset-y-0 right-0 pr-3 flex items-center"
-              >
-                <svg className="h-5 w-5 text-gray-400 hover:text-gray-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                </svg>
-              </button>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Search Results */}
+      {showSearchResults && (
+        <div className="w-full max-w-2xl mb-6">
+          <div className="bg-white rounded-lg shadow-md p-4">
+            {/* Family Results */}
+            {filteredFamilies.length > 0 && (
+              <div className="mb-4">
+                <h3 className="text-lg font-semibold text-[#b32a2a] mb-3">Families</h3>
+                <div className="space-y-3">
+                  {filteredFamilies.map(family => (
+                    <Link
+                      key={family.id}
+                      to={`/families/${family.id}`}
+                      className="block p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                    >
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <h4 className="font-medium text-gray-900">{family.name}</h4>
+                          <p className="text-sm text-gray-500">
+                            {family.members?.length || 0} members • {family.total_points || 0} points
+                          </p>
+                        </div>
+                        <span className="text-[#b32a2a]">→</span>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Post Results */}
+            {filteredPosts.length > 0 && (
+              <div>
+                <h3 className="text-lg font-semibold text-[#b32a2a] mb-3">Posts</h3>
+                <div className="space-y-3">
+                  {filteredPosts.map(post => (
+                    <div key={post.id} className="p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center mb-2">
+                        <div className="w-8 h-8 rounded-full overflow-hidden mr-2">
+                          {post.author_profile_picture ? (
+                            <img 
+                              src={post.author_profile_picture}
+                              alt={getAuthorName(post.author)} 
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-[#b32a2a] flex items-center justify-center text-white text-xs font-bold">
+                              {getAuthorInitial(post.author)}
+                            </div>
+                          )}
+                        </div>
+                        <div>
+                          <div className="font-medium text-gray-900">
+                            {getAuthorName(post.author)}
+                            {post.family?.name && (
+                              <span className="ml-2 text-gray-600 text-sm">({post.family.name})</span>
+                            )}
+                          </div>
+                          <div className="text-xs text-gray-500">{new Date(post.created_at).toLocaleString()}</div>
+                        </div>
+                      </div>
+                      <h4 className="font-medium text-gray-900 mb-1">{post.title}</h4>
+                      <p className="text-sm text-gray-600 line-clamp-2">{post.content}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* No Results Message */}
+            {filteredPosts.length === 0 && filteredFamilies.length === 0 && (
+              <p className="text-gray-600">No results found for "{searchTerm}"</p>
             )}
           </div>
         </div>
       )}
 
-      {isLoggedIn ? (
+      {/* Regular Post Feed (when not searching) */}
+      {!showSearchResults && (
         <div className="w-full max-w-2xl mx-auto">
           {loading ? (
             <div className="text-center text-[#b32a2a] text-lg py-8">Loading posts...</div>
           ) : error ? (
             <div className="text-center text-red-600 text-lg py-8">{error}</div>
-          ) : filteredPosts.length === 0 ? (
-            <div className="text-center text-gray-600 text-lg py-8">{searchTerm ? 'No posts match your search.' : 'No posts yet.'}</div>
+          ) : posts.length === 0 ? (
+            <div className="text-center text-gray-600 text-lg py-8">No posts yet.</div>
           ) : (
-            <div className="space-y-4">
-              {filteredPosts.map(post => (
+            <div className="space-y-6">
+              {posts.map((post) => (
                 <div 
                   key={post.id} 
-                  className={`rounded-lg shadow-sm p-3 hover:shadow-md transition-shadow duration-200 ${
-                    post.type === 'announcement' ? 'bg-red-100 border-4 border-solid border-[#b32a2a]' : 'bg-white border border-gray-200'
-                  }`}
+                  className="bg-white rounded-lg shadow-md overflow-hidden cursor-pointer hover:shadow-lg transition-shadow duration-200"
+                  onClick={() => handlePostClick(post.id)}
                 >
-                  {post.image_path && (
-                    <div className="mb-3">
-                      <img 
-                        src={post.image_path}
-                        alt="Post" 
-                        className="w-full h-96 object-contain rounded-t-lg" 
-                      />
-                    </div>
-                  )}
-                  <div className="flex items-center mb-4">
-                    <div className="w-10 h-10 rounded-full overflow-hidden mr-3">
-                      {post.author.profile_picture ? (
-                        <img 
-                          src={post.author.profile_picture}
-                          alt={post.author.username} 
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full bg-[#b32a2a] flex items-center justify-center text-white font-bold">
-                          {post.author.username?.charAt(0).toUpperCase()}
+                  {/* Post Header */}
+                  <div className="p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-full overflow-hidden bg-[#b32a2a] flex items-center justify-center">
+                          {post.author_profile_picture ? (
+                            <img 
+                              src={post.author_profile_picture} 
+                              alt={getAuthorName(post.author)} 
+                              className="w-full h-full object-cover" 
+                            />
+                          ) : (
+                            <span className="text-white text-xl font-bold">
+                              {getAuthorInitial(post.author)}
+                            </span>
+                          )}
                         </div>
+                        <div>
+                          <h2 className="text-xl font-bold text-gray-900">{getAuthorName(post.author)}</h2>
+                          <p className="text-sm text-gray-500">
+                            {new Date(post.created_at).toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                      {post.family_name && (
+                        <span className="px-3 py-1 bg-[#b32a2a] text-white text-sm rounded-full">
+                          {post.family_name}
+                        </span>
                       )}
                     </div>
-                    <div>
-                      <div className="font-semibold text-gray-800">
-                        {post.author.username}
-                        {post.family.name && (
-                          <span className="ml-2 text-gray-600 text-sm">({post.family.name})</span>
-                        )}
-                        {post.type === 'announcement' && (
-                          <span className="ml-2 text-[#b32a2a] font-bold">(Admin)</span>
-                        )}
-                      </div>
-                      <div className="text-xs text-gray-500">{new Date(post.created_at).toLocaleString()}</div>
-                    </div>
 
-                    {/* Three dots menu for edit/delete - visible only to author */}
-                    {isLoggedIn && (user?.id === post.author.id || user?.role === 'admin') && (
-                      <div className="ml-auto relative">
-                        <button
-                          onClick={() => setShowMenuId(showMenuId === post.id ? null : post.id)}
-                          className="text-gray-500 hover:text-gray-700 focus:outline-none z-10"
-                        >
-                          &#8226;&#8226;&#8226;
-                        </button>
-                        {showMenuId === post.id && (
-                          <div className="absolute top-0 right-0 mt-6 w-48 bg-white rounded-md shadow-lg z-10">
-                            <button
-                              className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                              onClick={() => {
-                                startEdit(post);
-                                setShowMenuId(null);
-                              }}
-                            >
-                              Edit
-                            </button>
-                            <button
-                              className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
-                              onClick={() => {
-                                handleDeletePost(post.id);
-                                setShowMenuId(null);
-                              }}
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        )}
+                    {post.type === 'announcement' && (
+                      <span className="inline-block bg-[#b32a2a] text-white px-2 py-1 rounded-full text-xs font-semibold mb-4">
+                        Announcement
+                      </span>
+                    )}
+
+                    <h3 className="text-xl font-bold text-gray-900 mb-4">{post.title}</h3>
+
+                    {post.image_path && (
+                      <div className="mb-4">
+                        <img 
+                          src={post.image_path} 
+                          alt={post.title}
+                          className="w-full h-auto object-contain rounded-lg"
+                        />
                       </div>
                     )}
+
+                    <p className="text-gray-700 mb-4 line-clamp-3">{post.content}</p>
+
+                    {post.point_value > 0 && (
+                      <div className="mb-4">
+                        <span className="inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-semibold">
+                          {post.point_value} pts
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Post Actions */}
+                    <div className="flex items-center gap-6 pt-4 border-t" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleLike(post.id);
+                        }}
+                        className="flex items-center gap-2 text-gray-600 hover:text-[#b32a2a] transition duration-200"
+                      >
+                        {post.likes?.some(like => like.user === user?.id) ? (
+                          <HeartSolid className="w-6 h-6 text-[#b32a2a]" />
+                        ) : (
+                          <HeartOutline className="w-6 h-6" />
+                        )}
+                        <span>{post.likes?.length || 0} likes</span>
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCommentClick(post.id);
+                        }}
+                        className="flex items-center gap-2 text-gray-600 hover:text-[#b32a2a] transition duration-200"
+                      >
+                        <ChatBubbleOvalLeftIcon className="w-6 h-6" />
+                        <span>{post.comments?.length || 0} comments</span>
+                      </button>
+                    </div>
                   </div>
 
-                  {/* Conditional rendering for Edit Form or Post Content */}
-                  {editingPostId === post.id ? (
-                    <form onSubmit={(e) => handleEditPost(e, post.id)} className="mb-2 flex flex-col gap-2">
-                      <input
-                        className="p-2 border border-gray-300 rounded-lg"
-                        value={editTitle}
-                        onChange={e => setEditTitle(e.target.value)}
-                        required
-                        disabled={editLoading}
-                        placeholder="Edit Title"
-                      />
-                      <textarea
-                        className="p-2 border border-gray-300 rounded-lg"
-                        value={editContent}
-                        onChange={e => setEditContent(e.target.value)}
-                        required
-                        disabled={editLoading}
-                        placeholder="Edit Content"
-                        rows={10}
-                      />
-                      {post.type === 'hangout' && (isAuthor || JSON.parse(localStorage.getItem('user'))?.role === 'admin') && (
+                  {/* Comment Form */}
+                  {showCommentForms[post.id] && (
+                    <div className="p-6 border-t bg-gray-50" onClick={(e) => e.stopPropagation()}>
+                      <form onSubmit={(e) => handleComment(post.id, e)}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="w-8 h-8 rounded-full overflow-hidden bg-[#b32a2a] flex items-center justify-center">
+                            {user?.profile_picture ? (
+                              <img 
+                                src={user.profile_picture} 
+                                alt={user.username} 
+                                className="w-full h-full object-cover" 
+                              />
+                            ) : (
+                              <span className="text-white text-sm font-bold">
+                                {user?.username?.charAt(0).toUpperCase()}
+                              </span>
+                            )}
+                          </div>
+                          <span className="font-semibold text-sm">{user?.username}</span>
+                        </div>
                         <input
-                          type="number"
-                          className="p-2 border border-gray-300 rounded-lg"
-                          value={editPointValue}
-                          onChange={e => setEditPointValue(e.target.value)}
-                          required
-                          disabled={editLoading}
-                          min="0"
-                          placeholder="Point Value"
+                          ref={el => commentInputRefs.current[post.id] = el}
+                          type="text"
+                          value={commentStates[post.id] || ''}
+                          onChange={(e) => setCommentStates(prev => ({
+                            ...prev,
+                            [post.id]: e.target.value
+                          }))}
+                          placeholder="Write a comment..."
+                          className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#b32a2a] focus:border-transparent"
+                          disabled={commentLoading[post.id]}
                         />
-                      )}
-                      <div className="flex gap-2">
-                        <button type="submit" className="px-4 py-1 bg-[#b32a2a] text-white rounded-lg hover:bg-[#8a1f1f] transition duration-200 ease-in-out" disabled={editLoading}>
-                          {editLoading ? 'Saving...' : 'Save'}
-                        </button>
-                        <button type="button" className="px-4 py-1 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 transition duration-200 ease-in-out" onClick={cancelEdit} disabled={editLoading}>
-                          Cancel
-                        </button>
-                      </div>
-                      {editError && <div className="text-red-600 mt-2">{editError}</div>}
-                    </form>
-                  ) : (
-                    <>
-                      <h3 className={`text-lg font-bold mb-2 ${post.type === 'announcement' ? 'text-[#b32a2a]' : 'text-gray-800'}`}>
-                        {post.title}
-                      </h3>
-                      <div className="text-gray-700 mb-2">
-                        {truncateText(post.content, post.id)}
-                        {post.point_value > 0 && (
-                          <span className="ml-2 text-green-600 font-semibold">[{post.point_value} pts]</span>
+                        <div className="flex gap-2 mt-2">
+                          <button
+                            type="submit"
+                            disabled={commentLoading[post.id] || !commentStates[post.id]?.trim()}
+                            className="px-4 py-2 bg-[#b32a2a] text-white rounded-lg hover:bg-[#8a1f1f] transition duration-200 disabled:opacity-50"
+                          >
+                            {commentLoading[post.id] ? 'Posting...' : 'Post'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowCommentForms(prev => ({ ...prev, [post.id]: false }));
+                              setCommentStates(prev => ({ ...prev, [post.id]: '' }));
+                            }}
+                            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-200"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                        {commentError[post.id] && (
+                          <div className="text-red-600 text-sm mt-2">{commentError[post.id]}</div>
                         )}
-                      </div>
-                    </>
+                      </form>
+                    </div>
                   )}
 
-                  {/* Instagram-style Like and Comment Row */}
-                  <div className="flex items-center gap-6 mt-3 mb-2">
-                    {/* Like Button */}
-                    <button
-                      onClick={() => {
-                        const hasLiked = post.likes?.some(like => like.user === user?.id);
-                        if (hasLiked) {
-                          handleUnlike(post.id);
-                        } else {
-                          handleLike(post.id);
-                        }
-                      }}
-                      className="flex items-center group"
-                      aria-label="Like"
-                    >
-                      {post.likes?.some(like => like.user === user?.id) ? (
-                        <HeartSolid className="w-6 h-6 text-[#b32a2a] transition" />
-                      ) : (
-                        <HeartOutline className="w-6 h-6 text-gray-700 group-hover:text-[#b32a2a] transition" />
-                      )}
-                      <span className="ml-2 text-sm text-gray-700">{post.likes?.length || 0}</span>
-                    </button>
-
-                    {/* Comment Button */}
-                    <button
-                      onClick={() => {
-                        if (commentInputRefs.current[post.id]) {
-                          commentInputRefs.current[post.id].focus();
-                        }
-                      }}
-                      className="flex items-center group"
-                      aria-label="Comment"
-                    >
-                      <ChatBubbleOvalLeftIcon className="w-6 h-6 text-gray-700 group-hover:text-[#b32a2a] transition" />
-                      <span className="ml-2 text-sm text-gray-700">{post.comments?.length || 0}</span>
-                    </button>
-                  </div>
-
-                  {/* Comments Section */}
-                  <div className="space-y-3">
-                    {/* Comment List */}
-                    {post.comments?.length > 0 && (
-                      <div className="space-y-2">
-                        {post.comments.map((comment, index) => (
-                          <div key={index} className="bg-gray-50 rounded-lg p-2">
+                  {/* Comments List */}
+                  {showCommentForms[post.id] && post.comments?.length > 0 && (
+                    <div className="p-6 border-t bg-gray-50 space-y-4" onClick={(e) => e.stopPropagation()}>
+                      {post.comments.map((comment) => (
+                        <div key={comment.id} className="bg-white rounded-lg p-4">
+                          <div className="flex items-start justify-between">
                             <div className="flex items-center gap-2 mb-1">
-                              {/* Profile picture as a small circle, Instagram-style */}
-                              <div className="w-6 h-6 rounded-full overflow-hidden bg-[#b32a2a] flex items-center justify-center">
-                                {post.author.profile_picture? (
-                                  <img src={post.author.profile_picture} alt={comment.name} className="w-full h-full object-cover" />
+                              <div className="w-8 h-8 rounded-full overflow-hidden bg-[#b32a2a] flex items-center justify-center">
+                                {comment.profile_picture ? (
+                                  <img 
+                                    src={comment.profile_picture} 
+                                    alt={comment.username} 
+                                    className="w-full h-full object-cover" 
+                                  />
                                 ) : (
-                                  <span className="text-white text-xs font-bold">{comment.name?.charAt(0).toUpperCase()}</span>
+                                  <span className="text-white text-sm font-bold">
+                                    {comment.username?.charAt(0).toUpperCase()}
+                                  </span>
                                 )}
                               </div>
-                              <span className="font-semibold text-sm">{comment.name}</span>
-                              <span className="text-xs text-gray-500">
-                                {comment.date ? new Date(comment.date).toLocaleString() : ''}
-                              </span>
+                              <div>
+                                <span className="font-semibold text-sm">{comment.username}</span>
+                                <span className="text-xs text-gray-500 ml-2">
+                                  {new Date(comment.created_at).toLocaleString()}
+                                </span>
+                              </div>
                             </div>
-                            <p className="text-sm text-gray-700 ml-8">{comment.text}</p>
+                            {(user?.id === comment.user || user?.role === 'admin') && (
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => {
+                                    setEditingComment(comment.id);
+                                    setCommentStates(prev => ({
+                                      ...prev,
+                                      [`edit-${comment.id}`]: comment.text
+                                    }));
+                                  }}
+                                  className="text-gray-500 hover:text-[#b32a2a] transition duration-200"
+                                >
+                                  <PencilIcon className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteComment(post.id, comment.id)}
+                                  className="text-gray-500 hover:text-red-600 transition duration-200"
+                                >
+                                  <TrashIcon className="w-4 h-4" />
+                                </button>
+                              </div>
+                            )}
                           </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Comment Form */}
-                    {isLoggedIn && (
-                      <form onSubmit={(e) => handleComment(post.id, e)} className="flex gap-2">
-                        <input
-                          type="text"
-                          value={commentText}
-                          onChange={(e) => setCommentText(e.target.value)}
-                          placeholder="Write a comment..."
-                          className="flex-1 p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#b32a2a] focus:border-transparent"
-                          disabled={commentLoading}
-                          ref={el => (commentInputRefs.current[post.id] = el)}
-                        />
-                        <button
-                          type="submit"
-                          disabled={commentLoading || !commentText.trim()}
-                          className="px-4 py-2 bg-[#b32a2a] text-white rounded-lg hover:bg-[#8a1f1f] transition duration-200 disabled:opacity-50"
-                        >
-                          {commentLoading ? 'Posting...' : 'Post'}
-                        </button>
-                      </form>
-                    )}
-                    {commentError && <div className="text-red-600 text-sm mt-1">{commentError}</div>}
-                  </div>
+                          {editingComment === comment.id ? (
+                            <form
+                              onSubmit={(e) => {
+                                e.preventDefault();
+                                handleEditComment(post.id, comment.id, commentStates[`edit-${comment.id}`]);
+                              }}
+                              className="mt-2"
+                            >
+                              <input
+                                type="text"
+                                value={commentStates[`edit-${comment.id}`] || ''}
+                                onChange={(e) => setCommentStates(prev => ({
+                                  ...prev,
+                                  [`edit-${comment.id}`]: e.target.value
+                                }))}
+                                className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#b32a2a] focus:border-transparent"
+                                disabled={commentLoading[post.id]}
+                              />
+                              <div className="flex gap-2 mt-2">
+                                <button
+                                  type="submit"
+                                  disabled={commentLoading[post.id] || !commentStates[`edit-${comment.id}`]?.trim()}
+                                  className="px-3 py-1 bg-[#b32a2a] text-white rounded-lg hover:bg-[#8a1f1f] transition duration-200 disabled:opacity-50"
+                                >
+                                  {commentLoading[post.id] ? 'Saving...' : 'Save'}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingComment(null);
+                                    setCommentStates(prev => ({
+                                      ...prev,
+                                      [`edit-${comment.id}`]: ''
+                                    }));
+                                  }}
+                                  className="px-3 py-1 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-200"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </form>
+                          ) : (
+                            <p className="text-gray-700 mt-1">{comment.text}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
           )}
-        </div>
-      ) : (
-        <div className="w-full max-w-2xl text-center">
-          <p className="text-gray-600 text-lg">
-            {isGuest 
-              ? "Login to see the full post feed and interact with the community."
-              : "Please log in to see the full post feed."}
-          </p>
         </div>
       )}
 

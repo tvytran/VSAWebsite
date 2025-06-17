@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import api from './api';
+import { useAuth } from './AuthContext';
 
-function Login({ setIsLoggedIn }) {
+function Login() {
   const [formData, setFormData] = useState({
     email: '',
     password: ''
   });
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   const { email, password } = formData;
 
@@ -16,14 +17,12 @@ function Login({ setIsLoggedIn }) {
 
   const onSubmit = async e => {
     e.preventDefault();
-    try {
-      const res = await api.post('/api/auth/login', formData);
-      localStorage.setItem('token', res.data.token);
-      localStorage.setItem('user', JSON.stringify(res.data.user));
-      setIsLoggedIn(true);
+    setError('');
+    const result = await login(email, password);
+    if (result.success) {
       navigate('/dashboard');
-    } catch (err) {
-      setError(err.response?.data?.message || 'Login failed');
+    } else {
+      setError(result.error);
     }
   };
 
@@ -78,15 +77,13 @@ function Login({ setIsLoggedIn }) {
               Sign in
             </button>
           </div>
-        </form>
-        <div className="text-center">
-          <p className="text-sm text-gray-600">
-            Don't have an account?{' '}
+
+          <div className="text-sm text-center">
             <Link to="/register" className="font-medium text-[#b32a2a] hover:text-[#8a1f1f]">
-              Register here
+              Don't have an account? Register here
             </Link>
-          </p>
-        </div>
+          </div>
+        </form>
       </div>
     </div>
   );

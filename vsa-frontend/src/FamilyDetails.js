@@ -34,9 +34,6 @@ function FamilyDetails() {
   // State for controlling the visibility of the three dots menu
   const [showMenuId, setShowMenuId] = useState(null);
 
-  // State for expanded post view
-  const [expandedPostId, setExpandedPostId] = useState(null);
-
   // State for editing family details
   const [isEditingFamily, setIsEditingFamily] = useState(false);
   const [editedFamilyName, setEditedFamilyName] = useState('');
@@ -650,7 +647,7 @@ function FamilyDetails() {
                 <div 
                   key={post.id} 
                   className="aspect-square rounded overflow-hidden bg-gray-200 cursor-pointer hover:opacity-90 transition-opacity duration-200 relative"
-                  onClick={() => setExpandedPostId(expandedPostId === post.id ? null : post.id)}
+                  onClick={() => navigate(`/post/${post.id}`)}
                 >
                   <img
                     src={post.image_path}
@@ -675,51 +672,6 @@ function FamilyDetails() {
               )
             ))}
           </div>
-        )}
-
-        {/* Expanded Post View */}
-        {expandedPostId && posts.length > 0 && (
-          posts.find(post => post.id === expandedPostId) ? (
-            <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-              <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto relative p-6">
-                {/* Close Button */}
-                <button
-                  onClick={() => setExpandedPostId(null)}
-                  className="absolute top-3 right-3 text-gray-500 hover:text-gray-800 text-xl font-bold"
-                >
-                  &times;
-                </button>
-
-                {/* Expanded Post Content */}
-                {posts.filter(post => post.id === expandedPostId).map(post => (
-                   <div key={post.id} className="flex flex-col items-center">
-                     <h3 className="text-xl font-bold mb-2 text-gray-800">{post.title}</h3>
-                     {post.image_path && (
-                       <img
-                         src={post.image_path}
-                         alt="Family Post Image"
-                         className="w-full object-contain rounded-md mb-4"
-                       />
-                     )}
-                     <div className="text-gray-700 mb-4 w-full text-left">
-                        {truncateText(post.content)}
-                     </div>
-                     {/* Add more post details as needed, like author, date, points */}
-                      {post.author_id && (
-                        <div className="w-full text-left text-sm text-gray-600 mb-2">
-                           Posted by {post.author_id.username} on {new Date(post.created_at).toLocaleString()}
-                        </div>
-                      )}
-                       {post.point_value > 0 && (
-                          <div className="w-full text-left text-sm text-green-600 font-semibold mb-2">
-                            [{post.point_value} pts]
-                          </div>
-                        )}
-                   </div>
-                ))}
-              </div>
-            </div>
-          ) : null
         )}
 
         <Link to="/families" className="text-[#b32a2a] underline hover:text-[#8a1f1f]">Back to Families</Link>

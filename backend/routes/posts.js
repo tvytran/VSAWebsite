@@ -515,31 +515,41 @@ router.post(
     }
 
     try {
-      const user = await supabase
+      // Get user information including profile picture
+      const { data: userData, error: userError } = await supabase
         .from('users')
-        .select('username, avatar')
+        .select('id, username, profile_picture')
         .eq('id', req.user.id)
         .single();
-      const post = await supabase
+
+      if (userError) throw userError;
+      if (!userData) {
+        return res.status(404).json({ success: false, message: 'User not found' });
+      }
+
+      // Get post and its comments
+      const { data: post, error: postError } = await supabase
         .from('posts')
         .select('comments')
         .eq('id', req.params.id)
         .single();
 
+      if (postError) throw postError;
       if (!post) {
-          return res.status(404).json({ success: false, message: 'Post not found.' });
+        return res.status(404).json({ success: false, message: 'Post not found' });
       }
 
       const comments = Array.isArray(post.comments) ? post.comments : [];
       const newComment = {
+        id: Date.now().toString(), // Generate a unique ID for the comment
         text: req.body.text,
-        name: user.username,
-        avatar: user.avatar,
         user: req.user.id,
-        date: new Date().toISOString()
+        username: userData.username,
+        profile_picture: userData.profile_picture,
+        created_at: new Date().toISOString()
       };
 
-      const { data: updatedPost, error } = await supabase
+      const { data: updatedPost, error: updateError } = await supabase
         .from('posts')
         .update({
           comments: [...comments, newComment],
@@ -549,68 +559,122 @@ router.post(
         .select('comments')
         .single();
 
-      if (error) throw error;
+      if (updateError) throw updateError;
 
       res.json({ success: true, comments: updatedPost.comments });
     } catch (err) {
-      console.error(err.message);
+      console.error('Error in comment creation:', err);
       res.status(500).json({ success: false, message: 'Server Error' });
     }
   }
 );
 
-// @route    DELETE api/posts/comment/:id/:comment_id
-// @desc     Delete comment
+// @route    PUT api/posts/comment/:id/:comment_id
+// @desc     Edit a comment
 // @access   Private
-router.delete('/comment/:id/:comment_id', auth, async (req, res) => {
+router.put('/comment/:id/:comment_id', auth, async (req, res) => {
   try {
-    const post = await supabase
+    const { text } = req.body;
+    if (!text || !text.trim()) {
+      return res.status(400).json({ success: false, message: 'Comment text is required' });
+    }
+
+    // Get post and its comments
+    const { data: post, error: postError } = await supabase
       .from('posts')
       .select('comments')
       .eq('id', req.params.id)
       .single();
 
+    if (postError) throw postError;
     if (!post) {
-        return res.status(404).json({ success: false, message: 'Post not found.' });
+      return res.status(404).json({ success: false, message: 'Post not found' });
     }
 
-    // Pull out comment
-    const comment = post.comments.find(
-      comment => comment.id === req.params.comment_id
-    );
+    const comments = Array.isArray(post.comments) ? post.comments : [];
+    const commentIndex = comments.findIndex(c => c.id === req.params.comment_id);
 
-    // Make sure comment exists
-    if (!comment) {
-      return res.status(404).json({ success: false, message: 'Comment does not exist' });
+    if (commentIndex === -1) {
+      return res.status(404).json({ success: false, message: 'Comment not found' });
     }
 
-    // Check user
-    if (comment.user.toString() !== req.user.id) {
-      return res.status(401).json({ success: false, message: 'User not authorized' });
+    // Check if user is the comment author or an admin
+    const comment = comments[commentIndex];
+    if (comment.user !== req.user.id && req.user.role !== 'admin') {
+      return res.status(401).json({ success: false, message: 'Not authorized to edit this comment' });
     }
 
-    // Get remove index
-    const removeIndex = post.comments
-      .map(comment => comment.id)
-      .indexOf(req.params.comment_id);
+    // Update the comment
+    comments[commentIndex] = {
+      ...comment,
+      text: text.trim(),
+      updated_at: new Date().toISOString()
+    };
 
-    const { data: updatedPost, error } = await supabase
+    const { data: updatedPost, error: updateError } = await supabase
       .from('posts')
       .update({
-        comments: post.comments.filter(
-          (_, index) => index !== removeIndex
-        ),
+        comments: comments,
         updated_at: new Date().toISOString()
       })
       .eq('id', req.params.id)
       .select('comments')
       .single();
 
-    if (error) throw error;
+    if (updateError) throw updateError;
 
     res.json({ success: true, comments: updatedPost.comments });
   } catch (err) {
-    console.error(err.message);
+    console.error('Error in comment edit:', err);
+    res.status(500).json({ success: false, message: 'Server Error' });
+  }
+});
+
+// @route    DELETE api/posts/comment/:id/:comment_id
+// @desc     Delete comment
+// @access   Private
+router.delete('/comment/:id/:comment_id', auth, async (req, res) => {
+  try {
+    const { data: post, error: postError } = await supabase
+      .from('posts')
+      .select('comments')
+      .eq('id', req.params.id)
+      .single();
+
+    if (postError) throw postError;
+    if (!post) {
+      return res.status(404).json({ success: false, message: 'Post not found' });
+    }
+
+    const comments = Array.isArray(post.comments) ? post.comments : [];
+    const comment = comments.find(c => c.id === req.params.comment_id);
+
+    if (!comment) {
+      return res.status(404).json({ success: false, message: 'Comment not found' });
+    }
+
+    // Check if user is the comment author or an admin
+    if (comment.user !== req.user.id && req.user.role !== 'admin') {
+      return res.status(401).json({ success: false, message: 'Not authorized to delete this comment' });
+    }
+
+    const updatedComments = comments.filter(c => c.id !== req.params.comment_id);
+
+    const { data: updatedPost, error: updateError } = await supabase
+      .from('posts')
+      .update({
+        comments: updatedComments,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', req.params.id)
+      .select('comments')
+      .single();
+
+    if (updateError) throw updateError;
+
+    res.json({ success: true, comments: updatedPost.comments });
+  } catch (err) {
+    console.error('Error in comment deletion:', err);
     res.status(500).json({ success: false, message: 'Server Error' });
   }
 });

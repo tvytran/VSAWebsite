@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './AuthContext';
 import Home from './Home';
 import Login from './Login';
 import Register from './Register';
@@ -15,83 +16,82 @@ import CreateFamilyPage from './CreateFamilyPage';
 import AdminDashboard from './AdminDashboard';
 import EventsPage from './Events';
 import EventDetailPage from './EventDetailPage';
+import PostPage from './PostPage';
 
 // Protected Route component
 const ProtectedRoute = ({ children, requireAdmin = false }) => {
-  const token = localStorage.getItem('token');
-  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const { isLoggedIn, user } = useAuth();
 
-  if (!token) {
+  if (!isLoggedIn) {
     return <Navigate to="/login" />;
   }
 
-  if (requireAdmin && user.role !== 'admin') {
+  if (requireAdmin && user?.role !== 'admin') {
     return <Navigate to="/dashboard" />;
   }
 
   return children;
 };
 
-function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('token'));
-  const [isGuest, setIsGuest] = useState(localStorage.getItem('isGuest') === 'true');
-
-  // Update state when localStorage changes
-  useEffect(() => {
-    const handleStorageChange = () => {
-      setIsLoggedIn(!!localStorage.getItem('token'));
-      setIsGuest(localStorage.getItem('isGuest') === 'true');
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, []);
+function AppRoutes() {
+  const { isLoggedIn } = useAuth();
 
   return (
-    <Router>
-      <div className="min-h-screen bg-[#faecd8]">
-        <Routes>
-          <Route path="/" element={
-            isLoggedIn ? <DashboardHome /> : 
-            isGuest ? <DashboardHome /> : 
-            <Home />
-          } />
-          <Route path="/login" element={<Login setIsLoggedIn={setIsLoggedIn} />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/families" element={<FamiliesLeaderboard />} />
-          <Route path="/families/:id" element={<FamilyDetails />} />
-          <Route path="/events" element={<EventsPage />} />
-          <Route path="/events/:id" element={<EventDetailPage />} />
-          <Route path="/newsletter" element={<Newsletter />} />
-          <Route path="/about" element={<AboutVSA />} />
-          <Route path="/dashboard" element={
-            <ProtectedRoute>
-              <DashboardHome />
-            </ProtectedRoute>
-          } />
-          <Route path="/admin" element={
-            <ProtectedRoute requireAdmin={true}>
-              <AdminDashboard />
-            </ProtectedRoute>
-          } />
-          <Route path="/profile" element={
-            <ProtectedRoute>
-              <Profile />
-            </ProtectedRoute>
-          } />
-          <Route path="/create-post" element={
-            <ProtectedRoute>
-              <CreatePostPage />
-            </ProtectedRoute>
-          } />
-          <Route path="/create-family" element={
-            <ProtectedRoute requireAdmin={true}>
-              <CreateFamilyPage />
-            </ProtectedRoute>
-          } />
-        </Routes>
-      </div>
-    </Router>
+    <Routes>
+      <Route path="/" element={
+        isLoggedIn ? <DashboardHome /> : <Home />
+      } />
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+      <Route path="/families" element={<FamiliesLeaderboard />} />
+      <Route path="/families/:id" element={<FamilyDetails />} />
+      <Route path="/events" element={<EventsPage />} />
+      <Route path="/events/:id" element={<EventDetailPage />} />
+      <Route path="/newsletter" element={<Newsletter />} />
+      <Route path="/about" element={<AboutVSA />} />
+      <Route path="/dashboard" element={
+        <ProtectedRoute>
+          <DashboardHome />
+        </ProtectedRoute>
+      } />
+      <Route path="/post/:id" element={
+        <ProtectedRoute>
+          <PostPage />
+        </ProtectedRoute>
+      } />
+      <Route path="/admin" element={
+        <ProtectedRoute requireAdmin={true}>
+          <AdminDashboard />
+        </ProtectedRoute>
+      } />
+      <Route path="/profile" element={
+        <ProtectedRoute>
+          <Profile />
+        </ProtectedRoute>
+      } />
+      <Route path="/create-post" element={
+        <ProtectedRoute>
+          <CreatePostPage />
+        </ProtectedRoute>
+      } />
+      <Route path="/create-family" element={
+        <ProtectedRoute requireAdmin={true}>
+          <CreateFamilyPage />
+        </ProtectedRoute>
+      } />
+    </Routes>
+  );
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <Router>
+        <div className="min-h-screen bg-[#faecd8]">
+          <AppRoutes />
+        </div>
+      </Router>
+    </AuthProvider>
   );
 }
 
