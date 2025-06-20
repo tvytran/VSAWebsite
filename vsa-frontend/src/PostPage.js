@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { PencilIcon, TrashIcon, HeartIcon, ChatBubbleLeftIcon } from '@heroicons/react/24/outline';
 import { HeartIcon as HeartIconSolid } from '@heroicons/react/24/solid';
 import api from './api';
@@ -10,6 +10,7 @@ const PostPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user, isLoggedIn } = useAuth();
+  const isGuest = localStorage.getItem('isGuest') === 'true';
   const [post, setPost] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -31,9 +32,15 @@ const PostPage = () => {
     const fetchPost = async () => {
       try {
         const token = localStorage.getItem('token');
-        const res = await api.get(`/api/posts/${id}`, {
-          headers: { 'x-auth-token': token }
-        });
+        let endpoint = `/api/posts/${id}`;
+        
+        // Use public endpoint for guests
+        if (isGuest) {
+          endpoint = `/api/posts/public/${id}`;
+        }
+        
+        const headers = token ? { 'x-auth-token': token } : {};
+        const res = await api.get(endpoint, { headers });
         if (res.data.success) {
           setPost(res.data.post);
         } else {
@@ -48,7 +55,7 @@ const PostPage = () => {
     };
 
     fetchPost();
-  }, [id]);
+  }, [id, isGuest]);
 
   useEffect(() => {
     if (post && user) {
@@ -58,6 +65,11 @@ const PostPage = () => {
   }, [post, user]);
 
   const handleLike = async () => {
+    if (isGuest) {
+      alert('Please log in to like posts.');
+      return;
+    }
+    
     if (!isLoggedIn) {
       navigate('/login');
       return;
@@ -85,6 +97,12 @@ const PostPage = () => {
 
   const handleComment = async (e) => {
     e.preventDefault();
+    
+    if (isGuest) {
+      alert('Please log in to comment on posts.');
+      return;
+    }
+    
     if (!isLoggedIn) {
       navigate('/login');
       return;
@@ -233,6 +251,11 @@ const PostPage = () => {
   };
 
   const handleDeletePost = async () => {
+    if (isGuest) {
+      alert('Please log in to delete posts.');
+      return;
+    }
+    
     if (!window.confirm('Are you sure you want to delete this post?')) return;
     try {
       const token = localStorage.getItem('token');
@@ -354,7 +377,7 @@ const PostPage = () => {
                       </span>
                     )}
                   </div>
-                  {(isAuthor || isAdmin) && (
+                  {(isAuthor || isAdmin) && !isGuest && (
                     <div className="flex gap-2">
                       <button
                         onClick={startEditPost}
@@ -398,7 +421,12 @@ const PostPage = () => {
                 <div className="flex items-center gap-6 pt-4 border-t">
                   <button
                     onClick={handleLike}
-                    className="flex items-center gap-2 text-gray-600 hover:text-[#b32a2a] transition duration-200"
+                    className={`flex items-center gap-2 transition duration-200 ${
+                      isGuest 
+                        ? 'text-gray-400 cursor-not-allowed' 
+                        : 'text-gray-600 hover:text-[#b32a2a]'
+                    }`}
+                    disabled={isGuest}
                   >
                     {post.likes?.some(like => like.user === user?.id) ? (
                       <HeartIconSolid className="w-6 h-6 text-[#b32a2a]" />
@@ -419,7 +447,7 @@ const PostPage = () => {
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Comments</h3>
                 
                 {/* Comment Form */}
-                {isLoggedIn && (
+                {isLoggedIn && !isGuest && (
                   <form onSubmit={handleComment} className="mb-6">
                     <div className="flex items-center gap-2 mb-2">
                       <div className="w-8 h-8 rounded-full overflow-hidden bg-[#b32a2a] flex items-center justify-center">
@@ -464,6 +492,21 @@ const PostPage = () => {
                   </form>
                 )}
 
+                {/* Guest Comment Prompt */}
+                {isGuest && (
+                  <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+                    <p className="text-gray-600 mb-3">Please log in to comment on this post.</p>
+                    <div className="flex gap-2">
+                      <Link to="/login" className="px-4 py-2 bg-[#b32a2a] text-white rounded-lg hover:bg-[#8a1f1f] transition duration-200">
+                        Login
+                      </Link>
+                      <Link to="/register" className="px-4 py-2 bg-white border-2 border-[#b32a2a] text-[#b32a2a] rounded-lg hover:bg-[#f5e6d6] transition duration-200">
+                        Register
+                      </Link>
+                    </div>
+                  </div>
+                )}
+
                 {/* Comments List */}
                 {post.comments?.length > 0 && (
                   <div className="space-y-4">
@@ -491,7 +534,7 @@ const PostPage = () => {
                               </span>
                             </div>
                           </div>
-                          {(user?.id === comment.user || user?.role === 'admin') && (
+                          {(user?.id === comment.user || user?.role === 'admin') && !isGuest && (
                             <div className="flex gap-2">
                               <button
                                 onClick={() => {

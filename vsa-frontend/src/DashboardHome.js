@@ -16,6 +16,8 @@ function DashboardHome() {
   const isGuest = localStorage.getItem('isGuest') === 'true';
   const location = useLocation(); // Get the current location
 
+  console.log('DashboardHome - isLoggedIn:', isLoggedIn, 'isGuest:', isGuest);
+
   // State for editing
   const [editingPostId, setEditingPostId] = useState(null);
   const [editTitle, setEditTitle] = useState('');
@@ -65,10 +67,14 @@ function DashboardHome() {
           postsUrl = '/api/posts/all';
       }
 
+      // For guests, fetch public posts without authentication
+      if (isGuest) {
+        postsUrl = '/api/posts/public';
+      }
+
       console.log('Fetching posts from:', postsUrl); // Debug log
-      const res = await api.get(postsUrl, {
-        headers: { 'x-auth-token': token }
-      });
+      const headers = token ? { 'x-auth-token': token } : {};
+      const res = await api.get(postsUrl, { headers });
       
       if (!res.data || !res.data.posts) {
         throw new Error('Invalid response format from server');
@@ -86,32 +92,36 @@ function DashboardHome() {
   };
 
   useEffect(() => {
-    if (isLoggedIn) {
-      // Fetch user data
-      const fetchUserData = async () => {
-        try {
-          const token = localStorage.getItem('token');
-          const res = await api.get('/api/auth/me', {
-            headers: { 'x-auth-token': token }
-          });
-          setUser(res.data.user);
-        } catch (err) {
-          console.error('Failed to fetch user data:', err);
-          // Optionally clear token if invalid
-          localStorage.removeItem('token');
-          window.location.reload();
-        }
-      };
-      fetchUserData();
+    if (isLoggedIn || isGuest) {
+      // Fetch user data only if logged in
+      if (isLoggedIn) {
+        const fetchUserData = async () => {
+          try {
+            const token = localStorage.getItem('token');
+            const res = await api.get('/api/auth/me', {
+              headers: { 'x-auth-token': token }
+            });
+            setUser(res.data.user);
+          } catch (err) {
+            console.error('Failed to fetch user data:', err);
+            // Optionally clear token if invalid
+            localStorage.removeItem('token');
+            window.location.reload();
+          }
+        };
+        fetchUserData();
+      }
       fetchPosts();
     } else {
       setLoading(false);
       setPosts([]);
     }
-  }, [isLoggedIn, location.pathname]); // Add location.pathname as a dependency
+  }, [isLoggedIn, isGuest, location.pathname]); // Add location.pathname as a dependency
 
-  // Fetch families
+  // Fetch families only for logged-in users
   useEffect(() => {
+    if (!isLoggedIn) return; // Only fetch families for logged-in users
+    
     const fetchFamilies = async () => {
       try {
         const token = localStorage.getItem('token');
@@ -126,7 +136,7 @@ function DashboardHome() {
       }
     };
     fetchFamilies();
-  }, []);
+  }, [isLoggedIn]);
 
   // Effect to filter posts and families whenever searchTerm changes
   useEffect(() => {
@@ -247,27 +257,21 @@ function DashboardHome() {
   };
 
    const handleDeletePost = async (postId) => {
+    if (isGuest) {
+      alert('Please log in to delete posts.');
+      return;
+    }
+    
     if (!window.confirm('Are you sure you want to delete this post?')) return;
+    
     try {
       const token = localStorage.getItem('token');
       await api.delete(`/api/posts/${postId}`, {
         headers: { 'x-auth-token': token }
       });
-      // After successful deletion, refetch posts based on user role
-      const userFromStorage = JSON.parse(localStorage.getItem('user') || '{}');
-      let postsUrl = '/api/posts/feed';
-       if (userFromStorage && userFromStorage.role === 'admin') {
-           postsUrl = '/api/posts/all';
-       }
-
-      const res = await api.get(postsUrl, {
-        headers: { 'x-auth-token': token }
-      });
-      const sortedPosts = res.data.posts.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-      setPosts(sortedPosts || []);
-
+      setPosts(prev => prev.filter(p => p.id !== postId));
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to delete post.');
+      console.error('Error deleting post:', err);
     }
   };
 
@@ -333,6 +337,11 @@ function DashboardHome() {
   };
 
   const handleLike = async (postId) => {
+    if (isGuest) {
+      alert('Please log in to like posts.');
+      return;
+    }
+    
     if (!isLoggedIn) {
       navigate('/login');
       return;
@@ -340,22 +349,17 @@ function DashboardHome() {
 
     try {
       const token = localStorage.getItem('token');
-      const user = JSON.parse(localStorage.getItem('user'));
       const post = posts.find(p => p.id === postId);
-      
-      // Check if user already liked the post
-      const isLiked = post.likes?.some(like => like.user === user.id);
-      
+      const isLiked = post.likes?.some(like => like.user === user?.id);
       const endpoint = isLiked ? 'unlike' : 'like';
+      
       const res = await api.put(`/api/posts/${endpoint}/${postId}`, {}, {
         headers: { 'x-auth-token': token }
       });
       
       if (res.data.success) {
-        setPosts(posts.map(post =>
-          post.id === postId
-            ? { ...post, likes: res.data.likes, isLiked: !isLiked }
-            : post
+        setPosts(prev => prev.map(p => 
+          p.id === postId ? { ...p, likes: res.data.likes } : p
         ));
       }
     } catch (err) {
@@ -363,8 +367,14 @@ function DashboardHome() {
     }
   };
 
-  const handleComment = async (postId, e) => {
+  const handleComment = async (e, postId) => {
     e.preventDefault();
+    
+    if (isGuest) {
+      alert('Please log in to comment on posts.');
+      return;
+    }
+    
     if (!isLoggedIn) {
       navigate('/login');
       return;
@@ -373,8 +383,8 @@ function DashboardHome() {
     const commentText = commentStates[postId]?.trim();
     if (!commentText) return;
 
-    setCommentLoading(prev => ({ ...prev, [postId]: true }));
-    setCommentError(prev => ({ ...prev, [postId]: '' }));
+    setCommentLoading(true);
+    setCommentError('');
 
     try {
       const token = localStorage.getItem('token');
@@ -384,23 +394,15 @@ function DashboardHome() {
       );
       
       if (res.data.success) {
-        setPosts(posts.map(post => 
-          post.id === postId 
-            ? { ...post, comments: res.data.comments }
-            : post
+        setPosts(prev => prev.map(p => 
+          p.id === postId ? { ...p, comments: res.data.comments } : p
         ));
         setCommentStates(prev => ({ ...prev, [postId]: '' }));
-        if (commentInputRefs.current[postId]) {
-          commentInputRefs.current[postId].focus();
-        }
       }
     } catch (err) {
-      setCommentError(prev => ({ 
-        ...prev, 
-        [postId]: err.response?.data?.message || 'Failed to add comment' 
-      }));
+      setCommentError(err.response?.data?.message || 'Failed to add comment');
     } finally {
-      setCommentLoading(prev => ({ ...prev, [postId]: false }));
+      setCommentLoading(false);
     }
   };
 
@@ -469,6 +471,10 @@ function DashboardHome() {
   };
 
   const handlePostClick = (postId) => {
+    if (isGuest) {
+      alert('Please log in or register to view post details.');
+      return;
+    }
     navigate(`/post/${postId}`);
   };
 
@@ -509,109 +515,16 @@ function DashboardHome() {
         </div>
       )}
 
-      {/* Guest Welcome Section */}
-      {!isLoggedIn && !isGuest && (
+      {/* Welcome Message for Guests */}
+      {isGuest && (
         <div className="w-full max-w-2xl text-center mb-6">
-          <h2 className="text-2xl font-bold text-[#b32a2a] mb-4">Welcome!</h2>
-          <p className="text-gray-700 mb-4">
-            Please log in or register to access all features.
-          </p>
-          <div className="flex justify-center space-x-4">
-            <Link to="/login" className="px-6 py-3 bg-[#b32a2a] text-white rounded-lg hover:bg-[#8a1f1f] transition font-semibold text-lg">Login</Link>
-            <Link to="/register" className="px-6 py-3 bg-[#b32a2a] text-white rounded-lg hover:bg-[#8a1f1f] transition font-semibold text-lg">Register</Link>
-            <button 
-              onClick={() => {
-                localStorage.setItem('isGuest', 'true');
-                window.location.reload();
-              }}
-              className="px-6 py-3 bg-[#b32a2a] text-white rounded-lg hover:bg-[#8a1f1f] transition font-semibold text-lg"
-            >
-              Continue as Guest
-            </button>
-          </div>
+          <h2 className="text-2xl font-bold text-[#b32a2a] mb-4">Welcome, Guest!</h2>
+          <p className="text-gray-700 mb-4">Explore the VSA community and see what we're all about.</p>
         </div>
       )}
 
-       {/* Guest View Content */}
-       {isGuest && (
-        <>
-          <div className="w-full max-w-2xl text-center mb-6">
-            <h2 className="text-2xl font-bold text-[#b32a2a] mb-4">Welcome, Guest!</h2>
-            <p className="text-gray-700 mb-4">Explore the VSA community and see what we're all about.</p>
-            <div className="mt-4 text-gray-600">
-              <p>Want to join the VSA community?</p>
-              <div className="flex justify-center space-x-4 mt-2">
-                <Link to="/login" className="px-6 py-3 bg-white border-2 border-[#b32a2a] text-[#b32a2a] rounded-lg hover:bg-[#f5e6d6] transition font-semibold text-lg">Login</Link>
-                <Link to="/register" className="px-6 py-3 bg-white border-2 border-[#b32a2a] text-[#b32a2a] rounded-lg hover:bg-[#f5e6d6] transition font-semibold text-lg">Register</Link>
-              </div>
-            </div>
-          </div>
-
-          {/* Placeholder Posts for Guest View */}
-          <div className="w-full max-w-2xl space-y-6">
-            {/* Placeholder Post 1 */}
-            <div className="bg-gray-100 rounded-lg shadow-md p-6">
-              <div className="flex items-center mb-4">
-                <div className="w-10 h-10 bg-gray-300 rounded-full"></div>
-                <div className="ml-3">
-                  <div className="h-4 w-24 bg-gray-300 rounded"></div>
-                  <div className="h-3 w-32 bg-gray-200 rounded mt-2"></div>
-                </div>
-              </div>
-              <div className="h-6 w-3/4 bg-gray-300 rounded mb-3"></div>
-              <div className="space-y-2">
-                <div className="h-4 w-full bg-gray-200 rounded"></div>
-                <div className="h-4 w-5/6 bg-gray-200 rounded"></div>
-                <div className="h-4 w-4/6 bg-gray-200 rounded"></div>
-              </div>
-            </div>
-
-            {/* Placeholder Post 2 */}
-            <div className="bg-gray-100 rounded-lg shadow-md p-6">
-              <div className="flex items-center mb-4">
-                <div className="w-10 h-10 bg-gray-300 rounded-full"></div>
-                <div className="ml-3">
-                  <div className="h-4 w-24 bg-gray-300 rounded"></div>
-                  <div className="h-3 w-32 bg-gray-200 rounded mt-2"></div>
-                </div>
-              </div>
-              <div className="h-6 w-3/4 bg-gray-300 rounded mb-3"></div>
-              <div className="space-y-2">
-                <div className="h-4 w-full bg-gray-200 rounded"></div>
-                <div className="h-4 w-5/6 bg-gray-200 rounded"></div>
-              </div>
-            </div>
-
-            {/* Placeholder Post 3 */}
-            <div className="bg-gray-100 rounded-lg shadow-md p-6">
-              <div className="flex items-center mb-4">
-                <div className="w-10 h-10 bg-gray-300 rounded-full"></div>
-                <div className="ml-3">
-                  <div className="h-4 w-24 bg-gray-300 rounded"></div>
-                  <div className="h-3 w-32 bg-gray-200 rounded mt-2"></div>
-                </div>
-              </div>
-              <div className="h-6 w-3/4 bg-gray-300 rounded mb-3"></div>
-              <div className="space-y-2">
-                <div className="h-4 w-full bg-gray-200 rounded"></div>
-                <div className="h-4 w-5/6 bg-gray-200 rounded"></div>
-                <div className="h-4 w-4/6 bg-gray-200 rounded"></div>
-              </div>
-            </div>
-
-            {/* Login Prompt */}
-            <div className="text-center py-6">
-              <p className="text-gray-600 mb-4">Log in to see the full post feed and interact with the community</p>
-              <div className="flex justify-center space-x-4">
-                <Link to="/login" className="px-6 py-3 bg-[#b32a2a] text-white rounded-lg hover:bg-[#8a1f1f] transition font-semibold text-lg">Login</Link>
-                <Link to="/register" className="px-6 py-3 bg-white border-2 border-[#b32a2a] text-[#b32a2a] rounded-lg hover:bg-[#f5e6d6] transition font-semibold text-lg">Register</Link>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
-
       {/* Search Bar */}
+      {(isLoggedIn || isGuest) && (
       <div className="w-full max-w-2xl flex items-center mb-6 relative">
         <div className="relative flex-1">
           <input
@@ -641,6 +554,7 @@ function DashboardHome() {
           )}
         </div>
       </div>
+      )}
 
       {/* Search Results */}
       {showSearchResults && (
@@ -708,7 +622,7 @@ function DashboardHome() {
                         <p className="text-sm text-gray-600 line-clamp-2">{post.content}</p>
                       </div>
                       {/* Delete button for author or admin */}
-                      {(user && (user.id === post.author.id || user.role === 'admin')) && (
+                      {!isGuest && (user && (user.id === post.author.id || user.role === 'admin')) && (
                         <button
                           onClick={e => { e.stopPropagation(); handleDeletePost(post.id); }}
                           className="ml-4 text-red-600 hover:text-red-900 font-bold px-2 py-1 rounded"
@@ -814,7 +728,12 @@ function DashboardHome() {
                           e.stopPropagation();
                           handleLike(post.id);
                         }}
-                        className="flex items-center gap-2 text-gray-600 hover:text-[#b32a2a] transition duration-200"
+                        className={`flex items-center gap-2 transition duration-200 ${
+                          isGuest 
+                            ? 'text-gray-400 cursor-not-allowed' 
+                            : 'text-gray-600 hover:text-[#b32a2a]'
+                        }`}
+                        disabled={isGuest}
                       >
                         {post.likes?.some(like => like.user === user?.id) ? (
                           <HeartSolid className="w-6 h-6 text-[#b32a2a]" />
@@ -840,7 +759,7 @@ function DashboardHome() {
       )}
 
       {/* Floating Create Post Button */}
-      {isLoggedIn && (
+      {isLoggedIn && !isGuest && (
         <div className="fixed bottom-8 right-1/2 translate-x-[calc(50%+max(0px,calc((100vw-32rem)/2))-6rem)]">
           <Link 
             to="/create-post"

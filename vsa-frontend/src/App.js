@@ -23,23 +23,39 @@ const ProtectedRoute = ({ children, requireAdmin = false }) => {
   const { isLoggedIn, user } = useAuth();
 
   if (!isLoggedIn) {
+    // If not logged in, redirect to login page
     return <Navigate to="/login" />;
   }
 
   if (requireAdmin && user?.role !== 'admin') {
+    // If admin is required and user is not admin, redirect to dashboard
     return <Navigate to="/dashboard" />;
   }
 
+  // If logged in and has correct role, render the children components
   return children;
+};
+
+// Guest Route component - only allows guests and logged-in users
+const GuestRoute = ({ children }) => {
+  const { isLoggedIn } = useAuth();
+  const isGuest = localStorage.getItem('isGuest') === 'true';
+
+  if (isLoggedIn || isGuest) {
+    return children;
+  }
+
+  return <Navigate to="/" />;
 };
 
 function AppRoutes() {
   const { isLoggedIn } = useAuth();
+  const isGuest = localStorage.getItem('isGuest') === 'true';
 
   return (
     <Routes>
       <Route path="/" element={
-        isLoggedIn ? <DashboardHome /> : <Home />
+        (isLoggedIn || isGuest) ? <DashboardHome /> : <Home />
       } />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
@@ -50,9 +66,9 @@ function AppRoutes() {
       <Route path="/newsletter" element={<Newsletter />} />
       <Route path="/about" element={<AboutVSA />} />
       <Route path="/dashboard" element={
-        <ProtectedRoute>
+        <GuestRoute>
           <DashboardHome />
-        </ProtectedRoute>
+        </GuestRoute>
       } />
       <Route path="/post/:id" element={
         <ProtectedRoute>

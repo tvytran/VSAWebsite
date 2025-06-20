@@ -277,6 +277,68 @@ router.get('/announcements', async (req, res) => {
     }
 });
 
+// @route    GET api/posts/public
+// @desc     Get public posts for guests (announcements and hangouts)
+// @access   Public
+router.get('/public', async (req, res) => {
+    try {
+        const { data: posts, error } = await supabase
+            .from('posts')
+            .select(`
+                *,
+                author:author_id (
+                    id,
+                    username,
+                    profile_picture
+                ),
+                family:family_id (
+                    id,
+                    name,
+                    total_points,
+                    semester_points
+                )
+            `)
+            .in('type', ['announcement', 'hangout'])
+            .order('created_at', { ascending: false });
+        if (error) throw error;
+        res.json({ success: true, posts });
+    } catch (err) {
+        res.status(500).json({ success: false, message: 'Server Error' });
+    }
+});
+
+// @route    GET api/posts/public/:id
+// @desc     Get public post by ID (for guests)
+// @access   Public
+router.get('/public/:id', async (req, res) => {
+    try {
+        const { data: post, error } = await supabase
+            .from('posts')
+            .select(`
+                *,
+                author:author_id (
+                    id,
+                    username,
+                    profile_picture
+                ),
+                family:family_id (
+                    id,
+                    name,
+                    total_points,
+                    semester_points
+                )
+            `)
+            .eq('id', req.params.id)
+            .in('type', ['announcement', 'hangout'])
+            .single();
+        if (error) throw error;
+        if (!post) return res.status(404).json({ success: false, message: 'Post not found' });
+        res.json({ success: true, post });
+    } catch (err) {
+        res.status(500).json({ success: false, message: 'Server Error' });
+    }
+});
+
 // @route    GET api/posts/all
 // @desc     Get all posts (Admin only)
 // @access   Private (Admin)

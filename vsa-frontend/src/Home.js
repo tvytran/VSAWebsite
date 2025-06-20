@@ -1,15 +1,20 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 //import './Home.css'; // We'll add styles here
 
 function Home() {
+  const navigate = useNavigate();
+
   const handleGuestClick = () => {
+    console.log('Guest button clicked');
     // Clear any existing auth state
     localStorage.removeItem('token');
+    localStorage.removeItem('user');
     // Set guest mode
     localStorage.setItem('isGuest', 'true');
-    // Force reload
-    window.location.reload();
+    console.log('Guest mode set, navigating to dashboard...');
+    // Navigate to dashboard instead of reloading
+    navigate('/dashboard');
   };
 
   return (

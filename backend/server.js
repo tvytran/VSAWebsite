@@ -23,26 +23,6 @@ app.use(express.static('public')); // Serve static files from the 'public' direc
 // Import Supabase client
 const supabase = require('./supabaseClient');
 
-// @route    GET api/posts/announcements
-// @desc     Get three most recent announcement posts (public)
-// @access   Public
-app.get('/api/posts/announcements', async (req, res) => {
-    console.log('Handling public /api/posts/announcements route directly in server.js');
-    try {
-        const { data: announcements, error } = await supabase
-            .from('posts')
-            .select('*')
-            .eq('type', 'announcement')
-            .order('created_at', { ascending: false })
-            .limit(3);  // Limit to 3 most recent announcements
-        if (error) throw error;
-        res.json({ success: true, posts: announcements });
-    } catch (err) {
-        console.error('Error in public announcements route:', err.message);
-        res.status(500).json({ success: false, message: 'Server Error' });
-    }
-});
-
 // Import routes
 const userRoutes = require('./routes/users');
 const authRoutes = require('./routes/auth');
@@ -56,9 +36,6 @@ const auth = require('./middleware/auth');
 
 // Use routes
 
-// Public route for announcements - handle directly before authenticated routes
-app.use('/api/posts/announcements', postRoutes);
-
 // Apply auth middleware to routes that require it
 app.use('/api/users', auth, userRoutes);
 app.use('/api/auth', (req, res, next) => {
@@ -69,13 +46,21 @@ app.use('/api/auth', (req, res, next) => {
     // Apply auth middleware for all other auth routes
     auth(req, res, next);
 }, authRoutes);
-app.use('/api/posts', auth, (req, res, next) => {
-    // This check is technically redundant if the announcements route is handled first, but as a safeguard:
-    if (req.path === '/announcements') {
-        return next(); // Skip auth - should have been handled by the specific route above
+
+// Posts routes - some are public (for guests), some require auth
+app.use('/api/posts', (req, res, next) => {
+    // Public routes that don't require authentication
+    const publicRoutes = ['/announcements', '/public'];
+    const isPublicRoute = publicRoutes.some(route => req.path.startsWith(route));
+    
+    if (isPublicRoute) {
+        return next(); // Skip auth for public routes
     }
-    next(); // Continue with auth middleware for other post routes
+    
+    // Apply auth middleware for protected routes
+    auth(req, res, next);
 }, postRoutes);
+
 app.use('/api/points', auth, pointsRoutes);
 app.use('/api/families', auth, familyRoutes);
 app.use('/api/events', eventsRouter);

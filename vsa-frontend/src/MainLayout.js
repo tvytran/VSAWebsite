@@ -8,6 +8,8 @@ function MainLayout({ children }) {
   const isLoggedIn = !!localStorage.getItem('token');
   const isGuest = localStorage.getItem('isGuest') === 'true';
 
+  console.log('MainLayout - isLoggedIn:', isLoggedIn, 'isGuest:', isGuest);
+
   const [userData, setUserData] = useState(null);
   const [topFamilies, setTopFamilies] = useState([]);
   const [loadingFamilies, setLoadingFamilies] = useState(true);
@@ -94,9 +96,7 @@ function MainLayout({ children }) {
             </div>
             <div className="flex flex-col space-y-2 w-full px-4">
               <Link to="/about"><button className="w-full py-2 border border-gray-300 text-gray-700 font-semibold rounded-md hover:bg-gray-100 hover:text-[#b32a2a] hover:scale-105 transition-all duration-300 ease-in-out text-base transform">About</button></Link>
-              <Link to="/families"><button className="w-full py-2 border border-gray-300 text-gray-700 font-semibold rounded-md hover:bg-gray-100 hover:text-[#b32a2a] hover:scale-105 transition-all duration-300 ease-in-out text-base transform">Leaderboard</button></Link>
-              <Link to="/events"><button className="w-full py-2 border border-gray-300 text-gray-700 font-semibold rounded-md hover:bg-gray-100 hover:text-[#b32a2a] hover:scale-105 transition-all duration-300 ease-in-out text-base transform">Events</button></Link>
-              <Link to="/newsletter"><button className="w-full py-2 border border-gray-300 text-gray-700 font-semibold rounded-md hover:bg-gray-100 hover:text-[#b32a2a] hover:scale-105 transition-all duration-300 ease-in-out text-base transform">Newsletter</button></Link>
+              <Link to="/dashboard"><button className="w-full py-2 border border-gray-300 text-gray-700 font-semibold rounded-md hover:bg-gray-100 hover:text-[#b32a2a] hover:scale-105 transition-all duration-300 ease-in-out text-base transform">Dashboard</button></Link>
               {/* Exit Guest Mode Button */}
               <button
                 onClick={() => {
