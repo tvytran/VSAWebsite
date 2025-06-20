@@ -251,7 +251,9 @@ router.get('/family/:familyId', auth, async (req, res) => {
 // @desc     Get all announcement posts (public)
 // @access   Public
 router.get('/announcements', async (req, res) => {
+    console.log('--- Received request for /api/posts/announcements ---');
     try {
+        console.log('Attempting to fetch announcements from Supabase...');
         const { data: posts, error } = await supabase
             .from('posts')
             .select(`
@@ -270,10 +272,20 @@ router.get('/announcements', async (req, res) => {
             `)
             .eq('type', 'announcement')
             .order('created_at', { ascending: false });
-        if (error) throw error;
+
+        if (error) {
+            console.error('Supabase error fetching announcements:', error);
+            throw error; // This will be caught by the catch block
+        }
+
+        console.log(`Successfully fetched ${posts.length} announcement(s).`);
         res.json({ success: true, posts });
+
     } catch (err) {
-        res.status(500).json({ success: false, message: 'Server Error' });
+        console.error('--- CRITICAL ERROR in /api/posts/announcements route ---');
+        console.error('Error message:', err.message);
+        console.error('Full error object:', err);
+        res.status(500).json({ success: false, message: 'Server Error while fetching announcements.' });
     }
 });
 
