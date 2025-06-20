@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import api from '../../api'; // Use the configured api instance
 
 function AnnouncementsSidebar() {
   const [announcements, setAnnouncements] = useState([]);
@@ -12,10 +12,8 @@ function AnnouncementsSidebar() {
       setLoading(true);
       setError('');
       try {
-        // Use the public announcements endpoint
-        const apiUrl = 'http://localhost:5001/api/posts/announcements';
-        console.log(`Fetching announcements from: ${apiUrl}`);
-        const res = await axios.get(apiUrl);
+        // Use the public announcements endpoint with a relative path
+        const res = await api.get('/api/posts/announcements');
         setAnnouncements(res.data.posts || []);
         setLoading(false);
       } catch (err) {
