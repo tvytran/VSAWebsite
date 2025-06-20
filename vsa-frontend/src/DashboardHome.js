@@ -592,7 +592,11 @@ function DashboardHome() {
                 <h3 className="text-lg font-semibold text-[#b32a2a] mb-3">Posts</h3>
                 <div className="space-y-3">
                   {filteredPosts.map(post => (
-                    <div key={post.id} className="p-3 bg-gray-50 rounded-lg flex justify-between items-center">
+                    <div 
+                      key={post.id} 
+                      className="p-3 bg-gray-50 rounded-lg flex justify-between items-center cursor-pointer hover:bg-gray-100 transition-colors"
+                      onClick={() => handlePostClick(post.id)}
+                    >
                       <div>
                         <div className="flex items-center mb-2">
                           <div className="w-8 h-8 rounded-full overflow-hidden mr-2">
