@@ -744,7 +744,12 @@ function DashboardHome() {
                       </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); handlePostClick(post.id); }}
-                        className="flex items-center gap-2 text-gray-600 hover:text-[#b32a2a] transition duration-200"
+                        className={`flex items-center gap-2 transition duration-200 ${
+                          isGuest 
+                            ? 'text-gray-400 cursor-not-allowed' 
+                            : 'text-gray-600 hover:text-[#b32a2a]'
+                        }`}
+                        disabled={isGuest}
                       >
                         <ChatBubbleOvalLeftIcon className="w-6 h-6" />
                         <span>{post.comments?.length || 0} comments</span>
