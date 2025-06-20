@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import api from '../../api'; // Use the configured api instance
+import api from '../api'; // Corrected import path
 
 function AnnouncementsSidebar() {
   const [announcements, setAnnouncements] = useState([]);
