@@ -78,9 +78,61 @@ function MainLayout({ children }) {
   if (isGuest) {
     return (
       <div className="min-h-screen w-full bg-[#faecd8] flex flex-col font-sans">
+        {/* Mobile Top Bar for Guests */}
+        <div className="md:hidden flex items-center justify-between bg-white px-4 py-3 border-b border-[#e0c9a6] shadow-lg">
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="text-[#b32a2a] focus:outline-none"
+            aria-label="Open sidebar menu"
+          >
+            {mobileMenuOpen ? (
+              <XMarkIcon className="h-7 w-7" />
+            ) : (
+              <Bars3Icon className="h-7 w-7" />
+            )}
+          </button>
+          <div className="flex-1 flex justify-center">
+            <img src="https://nnlbviehgtdyiucgdims.supabase.co/storage/v1/object/public/vsa-images/public/logo.PNG" alt="Logo" className="h-12" />
+          </div>
+          <div className="w-7" /> {/* Spacer for symmetry */}
+        </div>
+
+        {/* Mobile Collapsible Sidebar for Guests */}
+        {mobileMenuOpen && (
+          <div className="md:hidden bg-white border-b border-[#e0c9a6] shadow-lg px-4 py-4 z-50">
+            <div className="bg-white flex flex-col items-center justify-center min-h-[60vh] py-8 mx-auto w-full max-w-xs">
+               <Link to="/" className="hover:opacity-90 transition-opacity duration-200 group">
+                <img
+                  src="https://nnlbviehgtdyiucgdims.supabase.co/storage/v1/object/public/vsa-images/public/logo.PNG"
+                  alt="Columbia VSA University"
+                  className="w-40 mb-8 group-hover:scale-105 transition-transform duration-300 ease-in-out"
+                />
+              </Link>
+              <div className="mb-8 group">
+                <div className="w-24 h-24 bg-gray-200 rounded-full flex items-center justify-center text-gray-600 text-4xl font-bold ring-4 ring-transparent group-hover:ring-[#ffcc00] transition-all duration-300 ease-in-out">
+                  G
+                </div>
+              </div>
+              <div className="flex flex-col space-y-2 w-full px-4">
+                <Link to="/about"><button className="w-full py-2 border border-gray-300 text-gray-700 font-semibold rounded-md hover:bg-gray-100 hover:text-[#b32a2a] hover:scale-105 transition-all duration-300 ease-in-out text-base transform">About</button></Link>
+                <Link to="/dashboard"><button className="w-full py-2 border border-gray-300 text-gray-700 font-semibold rounded-md hover:bg-gray-100 hover:text-[#b32a2a] hover:scale-105 transition-all duration-300 ease-in-out text-base transform">Dashboard</button></Link>
+                <button
+                  onClick={() => {
+                    localStorage.removeItem('isGuest');
+                    window.location.href = '/';
+                  }}
+                  className="w-full py-2 mt-4 border border-gray-300 text-gray-700 font-semibold rounded-md hover:bg-gray-100 hover:scale-105 transition-all duration-300 ease-in-out text-base transform"
+                >
+                  Exit Guest Mode
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="flex flex-1">
-          {/* Left Sidebar */}
-          <div className="w-64 bg-white flex flex-col items-center py-8 border-r border-[#e0c9a6] min-h-screen">
+          {/* Left Sidebar - Desktop Only for Guests */}
+          <div className="hidden md:flex fixed left-0 top-0 w-64 h-screen bg-white flex-col items-center py-8 border-r border-[#e0c9a6] shadow-lg overflow-y-auto">
             <Link to="/" className="hover:opacity-90 transition-opacity duration-200 group">
               <img
                 src="https://nnlbviehgtdyiucgdims.supabase.co/storage/v1/object/public/vsa-images/public/logo.PNG"
@@ -109,12 +161,14 @@ function MainLayout({ children }) {
               </button>
             </div>
           </div>
+
           {/* Main Content */}
-          <div className="flex-1 flex flex-col items-center px-8 py-8 bg-[#faecd8] font-sans">
+          <div className="flex-1 px-2 py-4 md:ml-64 md:mr-72 flex flex-col items-center bg-[#faecd8] font-sans">
             {children}
           </div>
-          {/* Right Sidebar */}
-          <div className="w-72 bg-[#fff9f0] flex flex-col items-center py-8 border-l border-[#e0c9a6] min-h-screen shadow-lg">
+
+          {/* Right Sidebar - Desktop Only for Guests */}
+          <div className="hidden md:flex fixed right-0 top-0 w-72 h-screen bg-[#fff9f0] flex-col items-center py-8 border-l border-[#e0c9a6] shadow-lg overflow-y-auto">
             <div className="w-full px-4">
               <div className="bg-white rounded-lg shadow-sm overflow-hidden">
                 <div className="bg-[#ffcc00] px-4 py-3">
@@ -130,29 +184,7 @@ function MainLayout({ children }) {
                    <h2 className="text-lg font-medium text-white">Leaderboard</h2>
                  </div>
                  <div className="p-4">
-                   {loadingFamilies ? (
-                     <p className="text-gray-600">Loading leaderboard...</p>
-                   ) : familiesError ? (
-                     <p className="text-red-600">{familiesError}</p>
-                   ) : topFamilies.length === 0 ? (
-                     <p className="text-gray-600">No families on the leaderboard yet.</p>
-                   ) : (
-                     <ul className="space-y-2">
-                       {topFamilies.map((family, index) => (
-                         <li key={family.id} className="flex justify-between items-center text-gray-700 text-sm">
-                           <span>#{index + 1} {family.name}</span>
-                           <span className="font-medium text-[#ffcc00]">{family.total_points || 0} pts</span>
-                         </li>
-                       ))}
-                     </ul>
-                   )}
-                   {!loadingFamilies && !familiesError && (
-                      <div className="mt-4 text-center">
-                        <Link to="/families" className="text-sm text-[#b32a2a] hover:underline">
-                          View Full Leaderboard
-                        </Link>
-                      </div>
-                   )}
+                    <p className="text-gray-600">Log in to view the leaderboard.</p>
                  </div>
                </div>
             </div>
