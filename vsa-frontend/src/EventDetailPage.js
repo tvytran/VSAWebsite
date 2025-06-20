@@ -44,7 +44,7 @@ function EventDetailPage() {
             <p className="mb-4">{event.description}</p>
             {event.drive_link && (
               <a href={event.drive_link} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">
-                View Event Photos on Google Drive
+                Photos
               </a>
             )}
             <div className="mt-6">

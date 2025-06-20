@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import api from './api';
 import MainLayout from './MainLayout';
 import { useNavigate, Link } from 'react-router-dom';
@@ -11,9 +11,10 @@ function AdminDashboard() {
   const [allPosts, setAllPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState('users');
+  const [activeTab, setActiveTab] = useState(() => localStorage.getItem('adminDashboardActiveTab') || 'users');
   const navigate = useNavigate();
   const [token] = useState(() => localStorage.getItem('token'));
+  const scrollRestored = useRef(false);
 
   // State for editing posts/announcements
   const [editingPostId, setEditingPostId] = useState(null);
@@ -36,8 +37,8 @@ function AdminDashboard() {
   const [editFamilyError, setEditFamilyError] = useState('');
   const [editFamilyLoading, setEditFamilyLoading] = useState(false);
 
-  const [userSearchTerm, setUserSearchTerm] = useState('');
-  const [postSearchTerm, setPostSearchTerm] = useState('');
+  const [userSearchTerm, setUserSearchTerm] = useState(() => localStorage.getItem('adminDashboardUserSearch') || '');
+  const [postSearchTerm, setPostSearchTerm] = useState(() => localStorage.getItem('adminDashboardPostSearch') || '');
 
   // Filtered users
   const filteredUsers = users.filter(user => {
@@ -400,6 +401,41 @@ function AdminDashboard() {
     if (!family) return '0';
     return `${family.total_points || 0} (${family.semester_points || 0})`;
   };
+
+  // Save active tab to localStorage
+  useEffect(() => {
+    localStorage.setItem('adminDashboardActiveTab', activeTab);
+  }, [activeTab]);
+
+  // Save scroll position on scroll
+  useEffect(() => {
+    const handleScroll = () => {
+      localStorage.setItem('adminDashboardScroll', window.scrollY.toString());
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Restore scroll position after data loads and tab is set
+  useEffect(() => {
+    if (!loading && !scrollRestored.current) {
+      const savedScroll = localStorage.getItem('adminDashboardScroll');
+      if (savedScroll) {
+        window.scrollTo(0, parseInt(savedScroll, 10));
+      }
+      scrollRestored.current = true;
+    }
+  }, [loading, activeTab]);
+
+  // Save user search term
+  useEffect(() => {
+    localStorage.setItem('adminDashboardUserSearch', userSearchTerm);
+  }, [userSearchTerm]);
+
+  // Save post search term
+  useEffect(() => {
+    localStorage.setItem('adminDashboardPostSearch', postSearchTerm);
+  }, [postSearchTerm]);
 
   if (loading) {
     return (
@@ -769,7 +805,12 @@ function AdminDashboard() {
                       {filteredPosts.map((post, postIdx) => (
                         <tr key={post.id} className={postIdx % 2 === 0 ? undefined : 'bg-gray-50'}>
                           <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm sm:pl-6 w-1/4 overflow-hidden text-ellipsis">
-                            <div className="font-medium text-gray-900">{post.title}</div>
+                            <Link
+                              to={`/post/${post.id}`}
+                              className="font-medium text-[#b32a2a] hover:underline hover:text-[#8a1f1f] transition-colors"
+                            >
+                              {post.title}
+                            </Link>
                           </td>
                           <td className="whitespace-nowrap px-3 py-4 text-sm w-1/6 overflow-hidden text-ellipsis">
                             <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${post.type === 'announcement' ? 'bg-blue-100 text-blue-800' : post.type === 'hangout' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}> 
@@ -840,9 +881,9 @@ function AdminDashboard() {
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2"
                     value={editPointValue}
                     onChange={(e) => setEditPointValue(e.target.value)}
-                    required
-                    disabled={editLoading}
                     min="0"
+                    max="13"
+                    disabled={editLoading}
                   />
                 </div>
               )}

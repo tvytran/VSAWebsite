@@ -202,7 +202,7 @@ const PostPage = () => {
       content: editContent,
     };
 
-    if (post.type === 'hangout' && (isAuthor || isAdmin)) {
+    if (post.type === 'hangout' && isAdmin) {
       const newPointValue = parseInt(editPointValue, 10);
       if (!isNaN(newPointValue) && newPointValue >= 0) {
         updatedData.pointValue = newPointValue;
@@ -307,7 +307,7 @@ const PostPage = () => {
                 />
               </div>
 
-              {post.type === 'hangout' && (isAuthor || isAdmin) && (
+              {post.type === 'hangout' && isAdmin && (
                 <div className="mb-4">
                   <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="editPointValue">
                     Point Value
@@ -319,6 +319,7 @@ const PostPage = () => {
                     onChange={(e) => setEditPointValue(e.target.value)}
                     className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
                     min="0"
+                    max="13"
                   />
                 </div>
               )}

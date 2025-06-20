@@ -678,33 +678,45 @@ function DashboardHome() {
                 <h3 className="text-lg font-semibold text-[#b32a2a] mb-3">Posts</h3>
                 <div className="space-y-3">
                   {filteredPosts.map(post => (
-                    <div key={post.id} className="p-3 bg-gray-50 rounded-lg">
-                      <div className="flex items-center mb-2">
-                        <div className="w-8 h-8 rounded-full overflow-hidden mr-2">
-                          {post.author_profile_picture ? (
-                            <img 
-                              src={post.author_profile_picture}
-                              alt={getAuthorName(post.author)} 
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full bg-[#b32a2a] flex items-center justify-center text-white text-xs font-bold">
-                              {getAuthorInitial(post.author)}
-                            </div>
-                          )}
-                        </div>
-                        <div>
-                          <div className="font-medium text-gray-900">
-                            {getAuthorName(post.author)}
-                            {post.family?.name && (
-                              <span className="ml-2 text-gray-600 text-sm">({post.family.name})</span>
+                    <div key={post.id} className="p-3 bg-gray-50 rounded-lg flex justify-between items-center">
+                      <div>
+                        <div className="flex items-center mb-2">
+                          <div className="w-8 h-8 rounded-full overflow-hidden mr-2">
+                            {post.author_profile_picture ? (
+                              <img 
+                                src={post.author_profile_picture}
+                                alt={getAuthorName(post.author)} 
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full bg-[#b32a2a] flex items-center justify-center text-white text-xs font-bold">
+                                {getAuthorInitial(post.author)}
+                              </div>
                             )}
                           </div>
-                          <div className="text-xs text-gray-500">{new Date(post.created_at).toLocaleString()}</div>
+                          <div>
+                            <div className="font-medium text-gray-900">
+                              {getAuthorName(post.author)}
+                              {post.family?.name && (
+                                <span className="ml-2 text-gray-600 text-sm">({post.family.name})</span>
+                              )}
+                            </div>
+                            <div className="text-xs text-gray-500">{new Date(post.created_at).toLocaleString()}</div>
+                          </div>
                         </div>
+                        <h4 className="font-medium text-gray-900 mb-1">{post.title}</h4>
+                        <p className="text-sm text-gray-600 line-clamp-2">{post.content}</p>
                       </div>
-                      <h4 className="font-medium text-gray-900 mb-1">{post.title}</h4>
-                      <p className="text-sm text-gray-600 line-clamp-2">{post.content}</p>
+                      {/* Delete button for author or admin */}
+                      {(user && (user.id === post.author.id || user.role === 'admin')) && (
+                        <button
+                          onClick={e => { e.stopPropagation(); handleDeletePost(post.id); }}
+                          className="ml-4 text-red-600 hover:text-red-900 font-bold px-2 py-1 rounded"
+                          title="Delete Post"
+                        >
+                          Delete
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -812,10 +824,7 @@ function DashboardHome() {
                         <span>{post.likes?.length || 0} likes</span>
                       </button>
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleCommentClick(post.id);
-                        }}
+                        onClick={(e) => { e.stopPropagation(); handlePostClick(post.id); }}
                         className="flex items-center gap-2 text-gray-600 hover:text-[#b32a2a] transition duration-200"
                       >
                         <ChatBubbleOvalLeftIcon className="w-6 h-6" />
@@ -823,163 +832,6 @@ function DashboardHome() {
                       </button>
                     </div>
                   </div>
-
-                  {/* Comment Form */}
-                  {showCommentForms[post.id] && (
-                    <div className="p-6 border-t bg-gray-50" onClick={(e) => e.stopPropagation()}>
-                      <form onSubmit={(e) => handleComment(post.id, e)}>
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="w-8 h-8 rounded-full overflow-hidden bg-[#b32a2a] flex items-center justify-center">
-                            {user?.profile_picture ? (
-                              <img 
-                                src={user.profile_picture} 
-                                alt={user.username} 
-                                className="w-full h-full object-cover" 
-                              />
-                            ) : (
-                              <span className="text-white text-sm font-bold">
-                                {user?.username?.charAt(0).toUpperCase()}
-                              </span>
-                            )}
-                          </div>
-                          <span className="font-semibold text-sm">{user?.username}</span>
-                        </div>
-                        <input
-                          ref={el => commentInputRefs.current[post.id] = el}
-                          type="text"
-                          value={commentStates[post.id] || ''}
-                          onChange={(e) => setCommentStates(prev => ({
-                            ...prev,
-                            [post.id]: e.target.value
-                          }))}
-                          placeholder="Write a comment..."
-                          className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#b32a2a] focus:border-transparent"
-                          disabled={commentLoading[post.id]}
-                        />
-                        <div className="flex gap-2 mt-2">
-                          <button
-                            type="submit"
-                            disabled={commentLoading[post.id] || !commentStates[post.id]?.trim()}
-                            className="px-4 py-2 bg-[#b32a2a] text-white rounded-lg hover:bg-[#8a1f1f] transition duration-200 disabled:opacity-50"
-                          >
-                            {commentLoading[post.id] ? 'Posting...' : 'Post'}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setShowCommentForms(prev => ({ ...prev, [post.id]: false }));
-                              setCommentStates(prev => ({ ...prev, [post.id]: '' }));
-                            }}
-                            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-200"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                        {commentError[post.id] && (
-                          <div className="text-red-600 text-sm mt-2">{commentError[post.id]}</div>
-                        )}
-                      </form>
-                    </div>
-                  )}
-
-                  {/* Comments List */}
-                  {showCommentForms[post.id] && post.comments?.length > 0 && (
-                    <div className="p-6 border-t bg-gray-50 space-y-4" onClick={(e) => e.stopPropagation()}>
-                      {post.comments.map((comment) => (
-                        <div key={comment.id} className="bg-white rounded-lg p-4">
-                          <div className="flex items-start justify-between">
-                            <div className="flex items-center gap-2 mb-1">
-                              <div className="w-8 h-8 rounded-full overflow-hidden bg-[#b32a2a] flex items-center justify-center">
-                                {comment.profile_picture ? (
-                                  <img 
-                                    src={comment.profile_picture} 
-                                    alt={comment.username} 
-                                    className="w-full h-full object-cover" 
-                                  />
-                                ) : (
-                                  <span className="text-white text-sm font-bold">
-                                    {comment.username?.charAt(0).toUpperCase()}
-                                  </span>
-                                )}
-                              </div>
-                              <div>
-                                <span className="font-semibold text-sm">{comment.username}</span>
-                                <span className="text-xs text-gray-500 ml-2">
-                                  {new Date(comment.created_at).toLocaleString()}
-                                </span>
-                              </div>
-                            </div>
-                            {(user?.id === comment.user || user?.role === 'admin') && (
-                              <div className="flex gap-2">
-                                <button
-                                  onClick={() => {
-                                    setEditingComment(comment.id);
-                                    setCommentStates(prev => ({
-                                      ...prev,
-                                      [`edit-${comment.id}`]: comment.text
-                                    }));
-                                  }}
-                                  className="text-gray-500 hover:text-[#b32a2a] transition duration-200"
-                                >
-                                  <PencilIcon className="w-4 h-4" />
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteComment(post.id, comment.id)}
-                                  className="text-gray-500 hover:text-red-600 transition duration-200"
-                                >
-                                  <TrashIcon className="w-4 h-4" />
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                          {editingComment === comment.id ? (
-                            <form
-                              onSubmit={(e) => {
-                                e.preventDefault();
-                                handleEditComment(post.id, comment.id, commentStates[`edit-${comment.id}`]);
-                              }}
-                              className="mt-2"
-                            >
-                              <input
-                                type="text"
-                                value={commentStates[`edit-${comment.id}`] || ''}
-                                onChange={(e) => setCommentStates(prev => ({
-                                  ...prev,
-                                  [`edit-${comment.id}`]: e.target.value
-                                }))}
-                                className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#b32a2a] focus:border-transparent"
-                                disabled={commentLoading[post.id]}
-                              />
-                              <div className="flex gap-2 mt-2">
-                                <button
-                                  type="submit"
-                                  disabled={commentLoading[post.id] || !commentStates[`edit-${comment.id}`]?.trim()}
-                                  className="px-3 py-1 bg-[#b32a2a] text-white rounded-lg hover:bg-[#8a1f1f] transition duration-200 disabled:opacity-50"
-                                >
-                                  {commentLoading[post.id] ? 'Saving...' : 'Save'}
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setEditingComment(null);
-                                    setCommentStates(prev => ({
-                                      ...prev,
-                                      [`edit-${comment.id}`]: ''
-                                    }));
-                                  }}
-                                  className="px-3 py-1 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-200"
-                                >
-                                  Cancel
-                                </button>
-                              </div>
-                            </form>
-                          ) : (
-                            <p className="text-gray-700 mt-1">{comment.text}</p>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </div>
               ))}
             </div>

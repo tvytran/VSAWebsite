@@ -83,7 +83,7 @@ function MainLayout({ children }) {
               <img
                 src="https://nnlbviehgtdyiucgdims.supabase.co/storage/v1/object/public/vsa-images/public/logo.PNG"
                 alt="Columbia VSA University"
-                className="w-32 mb-8 group-hover:scale-105 transition-transform duration-300 ease-in-out"
+                className="w-40 mb-8 group-hover:scale-105 transition-transform duration-300 ease-in-out"
               />
             </Link>
             {/* Guest Profile Placeholder */}
@@ -93,9 +93,8 @@ function MainLayout({ children }) {
               </div>
             </div>
             <div className="flex flex-col space-y-2 w-full px-4">
-              <Link to="/"><button className="w-full py-2 border border-gray-300 text-gray-700 font-semibold rounded-md hover:bg-gray-100 hover:text-[#b32a2a] hover:scale-105 transition-all duration-300 ease-in-out text-base transform">Home</button></Link>
-              <Link to="/families"><button className="w-full py-2 border border-gray-300 text-gray-700 font-semibold rounded-md hover:bg-gray-100 hover:text-[#b32a2a] hover:scale-105 transition-all duration-300 ease-in-out text-base transform">Leaderboard</button></Link>
               <Link to="/about"><button className="w-full py-2 border border-gray-300 text-gray-700 font-semibold rounded-md hover:bg-gray-100 hover:text-[#b32a2a] hover:scale-105 transition-all duration-300 ease-in-out text-base transform">About</button></Link>
+              <Link to="/families"><button className="w-full py-2 border border-gray-300 text-gray-700 font-semibold rounded-md hover:bg-gray-100 hover:text-[#b32a2a] hover:scale-105 transition-all duration-300 ease-in-out text-base transform">Leaderboard</button></Link>
               <Link to="/events"><button className="w-full py-2 border border-gray-300 text-gray-700 font-semibold rounded-md hover:bg-gray-100 hover:text-[#b32a2a] hover:scale-105 transition-all duration-300 ease-in-out text-base transform">Events</button></Link>
               <Link to="/newsletter"><button className="w-full py-2 border border-gray-300 text-gray-700 font-semibold rounded-md hover:bg-gray-100 hover:text-[#b32a2a] hover:scale-105 transition-all duration-300 ease-in-out text-base transform">Newsletter</button></Link>
               {/* Exit Guest Mode Button */}
@@ -180,7 +179,7 @@ function MainLayout({ children }) {
           )}
         </button>
         <div className="flex-1 flex justify-center">
-          <img src="/logo192.png" alt="Logo" className="h-8" />
+          <img src="https://nnlbviehgtdyiucgdims.supabase.co/storage/v1/object/public/vsa-images/public/logo.PNG" alt="Logo" className="h-12" />
         </div>
         <div className="w-7" /> {/* Spacer for symmetry */}
       </div>
@@ -192,7 +191,7 @@ function MainLayout({ children }) {
               <img
                 src="https://nnlbviehgtdyiucgdims.supabase.co/storage/v1/object/public/vsa-images/public/logo.PNG"
                 alt="Columbia VSA University"
-                className="w-32 mb-8 group-hover:scale-105 transition-transform duration-300 ease-in-out"
+                className="w-40 mb-8 group-hover:scale-105 transition-transform duration-300 ease-in-out"
               />
             </Link>
             {/* User Profile Picture/Placeholder */}
@@ -221,24 +220,14 @@ function MainLayout({ children }) {
               </Link>
             )}
             <div className="flex flex-col space-y-3 w-full px-4">
-              <Link to="/">
+              <Link to="/about">
                 <button className="w-full py-2.5 bg-white text-gray-700 font-medium rounded-lg hover:bg-[#e0c9a6] hover:text-[#b32a2a] hover:scale-105 transition-all duration-300 ease-in-out text-base shadow-sm flex items-center justify-center transform">
-                  Home
-                </button>
-              </Link>
-              <Link to="/profile">
-                <button className="w-full py-2.5 bg-white text-gray-700 font-medium rounded-lg hover:bg-[#e0c9a6] hover:text-[#b32a2a] hover:scale-105 transition-all duration-300 ease-in-out text-base shadow-sm flex items-center justify-center transform">
-                  Profile
+                  About
                 </button>
               </Link>
               <Link to="/families">
                 <button className="w-full py-2.5 bg-white text-gray-700 font-medium rounded-lg hover:bg-[#e0c9a6] hover:text-[#b32a2a] hover:scale-105 transition-all duration-300 ease-in-out text-base shadow-sm flex items-center justify-center transform">
                   Leaderboard
-                </button>
-              </Link>
-              <Link to="/about">
-                <button className="w-full py-2.5 bg-white text-gray-700 font-medium rounded-lg hover:bg-[#e0c9a6] hover:text-[#b32a2a] hover:scale-105 transition-all duration-300 ease-in-out text-base shadow-sm flex items-center justify-center transform">
-                  About
                 </button>
               </Link>
               <Link to="/events">
@@ -293,7 +282,7 @@ function MainLayout({ children }) {
             <img
               src="https://nnlbviehgtdyiucgdims.supabase.co/storage/v1/object/public/vsa-images/public/logo.PNG"
               alt="Columbia VSA University"
-              className="w-32 mb-8 group-hover:scale-105 transition-transform duration-300 ease-in-out"
+              className="w-40 mb-8 group-hover:scale-105 transition-transform duration-300 ease-in-out"
             />
           </Link>
           {/* User Profile Picture/Placeholder */}
@@ -322,24 +311,14 @@ function MainLayout({ children }) {
             </Link>
           )}
           <div className="flex flex-col space-y-3 w-full px-4">
-            <Link to="/">
+            <Link to="/about">
               <button className="w-full py-2.5 bg-white text-gray-700 font-medium rounded-lg hover:bg-[#e0c9a6] hover:text-[#b32a2a] hover:scale-105 transition-all duration-300 ease-in-out text-base shadow-sm flex items-center justify-center transform">
-                Home
-              </button>
-            </Link>
-            <Link to="/profile">
-              <button className="w-full py-2.5 bg-white text-gray-700 font-medium rounded-lg hover:bg-[#e0c9a6] hover:text-[#b32a2a] hover:scale-105 transition-all duration-300 ease-in-out text-base shadow-sm flex items-center justify-center transform">
-                Profile
+                About
               </button>
             </Link>
             <Link to="/families">
               <button className="w-full py-2.5 bg-white text-gray-700 font-medium rounded-lg hover:bg-[#e0c9a6] hover:text-[#b32a2a] hover:scale-105 transition-all duration-300 ease-in-out text-base shadow-sm flex items-center justify-center transform">
                 Leaderboard
-              </button>
-            </Link>
-            <Link to="/about">
-              <button className="w-full py-2.5 bg-white text-gray-700 font-medium rounded-lg hover:bg-[#e0c9a6] hover:text-[#b32a2a] hover:scale-105 transition-all duration-300 ease-in-out text-base shadow-sm flex items-center justify-center transform">
-                About
               </button>
             </Link>
             <Link to="/events">

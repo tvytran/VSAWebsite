@@ -1,7 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import api from './api';
 import { useNavigate } from 'react-router-dom';
 import MainLayout from './MainLayout';
+
+// Point groups for dropdown
+const POINT_GROUPS = [
+  { points: 1, activities: ['Anh/chi and em hangout'] },
+  { points: 2, activities: ['Study Session', 'Post hang-out on ig story and tag VSA', 'Dining Hall Meal', 'Hang out on the lawns/low', 'On campus event (includes VSA GBM)', 'Movie night on campus', 'Dorm Room hang out', 'Grocery shopping near campus'] },
+  { points: 5, activities: ['Game night/Hex&Co', 'A meal near campus, +1 if Viet food', 'Workout together', 'Cafe Hang-Out (Non-on campus: Joes, Cafe East, Lizs, etc.)', 'Arts & Crafts Night', 'Movie Theaters / Outdoor Movie Theaters', 'Picnic on campus/riverside', 'Biking in the City', 'Go to park to see Cherry Blossoms (a walk through a park)', 'Go grocery shopping together (past 125th and 100th)'] },
+  { points: 7, activities: ['Go downtown together (lower than 60th) (dinner/drinks/etc)', 'Go to the Heights/Amity together', 'Attend VSA event together', 'Explore museum', 'Picnic in Central Park/Roosevelt/Prosper Park/etc.', 'Go to senior night together', 'Bowling/Arcade', 'Thrifting/Shopping', 'Ice Skating'] },
+  { points: 10, activities: ['Cooking/baking session together + 3 points if Viet themed', 'Win a trivia night at any bar', "Going to Co Chung's Vietnamese Chat Tables", 'Vietnam Consulate Tết Party', 'Karaoke Night', 'Attending WEAI/EALAC/Columbia Vietnam/Vietnamese events', 'Bottomless**', 'Go to Jersey'] },
+  { points: 13, activities: ['Trip to Upstate or Rockaway Beach (requires transit that is not the MTA)', 'Out-Of-State Trip (minus Jersey)', 'Apple Picking Upstate', 'Go to a concert together'] },
+];
 
 function CreatePostPage() {
   const navigate = useNavigate();
@@ -19,6 +29,15 @@ function CreatePostPage() {
   const [postLoading, setPostLoading] = useState(false);
   const [postSuccess, setPostSuccess] = useState(false); // Add success state
   const [selectedFamilyId, setSelectedFamilyId] = useState(''); // State for admin's selected family
+  const [membersPresent, setMembersPresent] = useState('');
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [openGroup, setOpenGroup] = useState(null);
+  const [selectedActivity, setSelectedActivity] = useState('');
+  const [finalPoints, setFinalPoints] = useState(null);
+  const [customActivity, setCustomActivity] = useState('');
+  const [showCustomInput, setShowCustomInput] = useState(false);
+  const [customPoints, setCustomPoints] = useState(1);
+  const dropdownRef = useRef();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -60,6 +79,78 @@ function CreatePostPage() {
     };
     fetchData();
   }, [navigate]);
+
+  useEffect(() => {
+    if (!dropdownOpen) return;
+    const handleClick = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setDropdownOpen(false);
+        setOpenGroup(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [dropdownOpen]);
+
+  // Refetch family/families on focus or family selection change to keep member count up to date
+  useEffect(() => {
+    const handleFocus = async () => {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      try {
+        if (user?.role === 'admin' && selectedFamilyId) {
+          // Refetch families for admin
+          const familiesRes = await api.get('/api/families', {
+            headers: { 'x-auth-token': token }
+          });
+          setFamilies(familiesRes.data.families);
+        } else if (user?.family_id) {
+          // Refetch family for regular user
+          const familyRes = await api.get(`/api/families/${user.family_id}`, {
+            headers: { 'x-auth-token': token }
+          });
+          setFamily(familyRes.data.family);
+        }
+      } catch (err) {
+        // Optionally handle error
+      }
+    };
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [user, selectedFamilyId]);
+
+  // Refetch families when selectedFamilyId changes (for admin)
+  useEffect(() => {
+    const fetchSelectedFamily = async () => {
+      const token = localStorage.getItem('token');
+      if (!token || user?.role !== 'admin' || !selectedFamilyId) return;
+      try {
+        const familiesRes = await api.get('/api/families', {
+          headers: { 'x-auth-token': token }
+        });
+        setFamilies(familiesRes.data.families);
+      } catch (err) {
+        // Optionally handle error
+      }
+    };
+    fetchSelectedFamily();
+  }, [selectedFamilyId, user]);
+
+  // Debug: log family and families when relevant state changes
+  useEffect(() => {
+    console.log('FAMILY:', family);
+    console.log('FAMILIES:', families);
+  }, [family, families, membersPresent, selectedFamilyId]);
+
+  // If membersPresent changes, clear activity selection and points
+  useEffect(() => {
+    setSelectedActivity('');
+    setFinalPoints(null);
+    setPointValue('');
+    setShowCustomInput(false);
+    setCustomActivity('');
+    setCustomPoints(1);
+  }, [membersPresent]);
 
   const handleCreatePost = async (e) => {
     e.preventDefault();
@@ -109,6 +200,33 @@ function CreatePostPage() {
       setPostError(err.response?.data?.message || 'Failed to create post.');
       setPostLoading(false);
     }
+  };
+
+  // Calculate points logic
+  const calculatePoints = (basePoints) => {
+    const present = parseInt(membersPresent, 10);
+    const famSize = user?.role === 'admin' ? (families.find(f => f.id === selectedFamilyId)?.members?.length || 0) : (family?.members?.length || 0);
+    if (present === 2) {
+      if (basePoints >= 1 && basePoints <= 5) return 1;
+      if (basePoints === 7) return 2;
+      if (basePoints === 10) return 3;
+      if (basePoints === 13) return 4;
+      // For custom activities, if not matching above, just return 1
+      return 1;
+    }
+    if (famSize && present < Math.ceil(famSize / 2)) return basePoints / 2;
+    return basePoints;
+  };
+
+  // Handle selection
+  const handleDropdownSelect = (group, activity) => {
+    const basePoints = group.points;
+    const points = calculatePoints(basePoints);
+    setSelectedActivity(`${group.points} - ${activity}`);
+    setFinalPoints(points);
+    setDropdownOpen(false);
+    setOpenGroup(null);
+    setPointValue(points); // For backend submission
   };
 
   if (loading) {
@@ -233,22 +351,130 @@ function CreatePostPage() {
               ></textarea>
             </div>
 
-            {/* Point Value (only for Hangout) */}
+            {/* Member count and point dropdown for Hangout */}
             {newType === 'hangout' && (
-              <div className="mb-4">
-                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="pointValue">
-                  Point Value:
-                </label>
-                <input
-                  id="pointValue"
-                  type="number"
-                  placeholder="e.g., 10"
-                  className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-                  value={pointValue}
-                  onChange={e => setPointValue(e.target.value)}
-                  min="0"
-                />
-              </div>
+              <>
+                <div className="mb-4">
+                  <label className="block text-gray-700 text-sm font-bold mb-2">How many family members were present?</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={9}
+                    value={membersPresent}
+                    onChange={e => setMembersPresent(e.target.value.replace(/[^0-9]/g, '').slice(0, 1))}
+                    className="border rounded px-3 py-2 w-24"
+                    placeholder="e.g. 4"
+                  />
+                </div>
+                {membersPresent && parseInt(membersPresent, 10) > 0 && (
+                  <>
+                    <div className="mb-4 relative" ref={dropdownRef}>
+                      <label className="block text-gray-700 text-sm font-bold mb-2">Select activity and points:</label>
+                      <button
+                        type="button"
+                        className="w-full border rounded px-4 py-3 bg-white text-left text-base"
+                        onClick={() => setDropdownOpen(o => !o)}
+                      >
+                        {selectedActivity || 'Select activity and points'}
+                      </button>
+                      {dropdownOpen && (
+                        <div className="absolute z-10 mt-1 w-full bg-white border rounded shadow-lg max-h-60 overflow-y-auto">
+                          {POINT_GROUPS.map(group => (
+                            <div key={group.points} className="relative">
+                              <button
+                                type="button"
+                                className="w-full text-left px-4 py-3 hover:bg-[#faecd8] font-semibold cursor-pointer text-base"
+                                onClick={() => setOpenGroup(openGroup === group.points ? null : group.points)}
+                              >
+                                {group.points} point{group.points > 1 ? 's' : ''}
+                              </button>
+                              {openGroup === group.points && (
+                                <div className="absolute left-0 top-full w-full bg-white border rounded shadow-lg z-20 max-h-60 overflow-y-auto">
+                                  {group.activities.map(activity => (
+                                    <div
+                                      key={activity}
+                                      className="px-4 py-3 hover:bg-[#b32a2a] hover:text-white cursor-pointer text-base"
+                                      onClick={() => {
+                                        setShowCustomInput(false);
+                                        setCustomActivity('');
+                                        handleDropdownSelect(group, activity);
+                                      }}
+                                    >
+                                      {activity}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                          {/* Custom activity option at the bottom */}
+                          <div
+                            className="px-4 py-3 hover:bg-[#b32a2a] hover:text-white cursor-pointer text-base font-semibold border-t border-gray-200"
+                            onClick={() => {
+                              setShowCustomInput(true);
+                              setDropdownOpen(false);
+                              setOpenGroup(null);
+                              setSelectedActivity('');
+                              setFinalPoints(null);
+                            }}
+                          >
+                            Other (Custom activity)
+                          </div>
+                          {/* Close button for mobile */}
+                          <button
+                            type="button"
+                            className="block w-full text-center py-2 text-[#b32a2a] font-bold sm:hidden"
+                            onClick={() => { setDropdownOpen(false); setOpenGroup(null); }}
+                          >
+                            Close
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    {/* Custom activity input and points selection (always render if showCustomInput) */}
+                    {showCustomInput && (
+                      <div className="p-4 bg-gray-50 border rounded flex flex-col gap-2 mt-2">
+                        <label className="font-semibold">Describe your activity:</label>
+                        <input
+                          type="text"
+                          className="border rounded px-3 py-2 text-base"
+                          placeholder="Describe your activity"
+                          value={customActivity}
+                          onChange={e => setCustomActivity(e.target.value)}
+                        />
+                        <label className="font-semibold mt-2">Select points (1–13):</label>
+                        <select
+                          className="border rounded px-3 py-2 text-base"
+                          value={customPoints}
+                          onChange={e => setCustomPoints(Number(e.target.value))}
+                        >
+                          {[...Array(13)].map((_, i) => (
+                            <option key={i + 1} value={i + 1}>{i + 1}</option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          className="bg-[#b32a2a] text-white rounded px-4 py-2 font-bold hover:bg-[#8a1f1f] mt-2"
+                          disabled={!customActivity.trim()}
+                          onClick={() => {
+                            setSelectedActivity(customActivity.trim());
+                            setFinalPoints(customPoints);
+                            setShowCustomInput(false);
+                            setPointValue(customPoints); // For backend submission
+                          }}
+                        >
+                          Select
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
+                {finalPoints !== null && (
+                  <div className="mb-4 font-bold text-[#b32a2a]">
+                    Points awarded for this hangout: {finalPoints}
+                  </div>
+                )}
+              </>
             )}
 
             {/* Image Upload */}
