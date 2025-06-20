@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import MainLayout from './MainLayout';
 import api from './api';
+import ImageCropperModal from './components/ImageCropperModal';
 
 function Events() {
   const [events, setEvents] = useState([]);
@@ -15,10 +16,13 @@ function Events() {
     date: '',
     description: '',
     drive_link: '',
-    image_url: ''
   });
+  const [imageFile, setImageFile] = useState(null);
+  const [existingImageUrl, setExistingImageUrl] = useState('');
   const [formError, setFormError] = useState('');
   const [formLoading, setFormLoading] = useState(false);
+  const [showCropper, setShowCropper] = useState(false);
+  const [imageToCrop, setImageToCrop] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -58,17 +62,27 @@ function Events() {
     setFormError('');
     setFormLoading(true);
 
+    if (!imageFile) {
+      setFormError('Please upload an event image.');
+      setFormLoading(false);
+      return;
+    }
+
     try {
       const token = localStorage.getItem('token');
       if (!token) {
         navigate('/login');
         return;
       }
-
-      const res = await api.post('/api/events', formData, {
-        headers: { 'x-auth-token': token }
+      const data = new FormData();
+      data.append('name', formData.name);
+      data.append('date', formData.date);
+      data.append('description', formData.description);
+      data.append('drive_link', formData.drive_link);
+      data.append('image', imageFile);
+      const res = await api.post('/api/events', data, {
+        headers: { 'x-auth-token': token },
       });
-
       if (res.data.success) {
         setEvents([res.data.event, ...events]);
         setShowCreateForm(false);
@@ -77,8 +91,8 @@ function Events() {
           date: '',
           description: '',
           drive_link: '',
-          image_url: ''
         });
+        setImageFile(null);
       }
     } catch (err) {
       setFormError(err.response?.data?.message || 'Failed to create event');
@@ -92,17 +106,29 @@ function Events() {
     setFormError('');
     setFormLoading(true);
 
+    if (!imageFile && !existingImageUrl) {
+      setFormError('Please upload an event image.');
+      setFormLoading(false);
+      return;
+    }
+
     try {
       const token = localStorage.getItem('token');
       if (!token) {
         navigate('/login');
         return;
       }
-
-      const res = await api.put(`/api/events/${editingEventId}`, formData, {
-        headers: { 'x-auth-token': token }
+      const data = new FormData();
+      data.append('name', formData.name);
+      data.append('date', formData.date);
+      data.append('description', formData.description);
+      data.append('drive_link', formData.drive_link);
+      if (imageFile) {
+        data.append('image', imageFile);
+      }
+      const res = await api.put(`/api/events/${editingEventId}`, data, {
+        headers: { 'x-auth-token': token },
       });
-
       if (res.data.success) {
         setEvents(events.map(event => 
           event.id === editingEventId ? res.data.event : event
@@ -113,8 +139,8 @@ function Events() {
           date: '',
           description: '',
           drive_link: '',
-          image_url: ''
         });
+        setImageFile(null);
       }
     } catch (err) {
       setFormError(err.response?.data?.message || 'Failed to update event');
@@ -154,8 +180,9 @@ function Events() {
       date: event.date,
       description: event.description || '',
       drive_link: event.drive_link || '',
-      image_url: event.image_url || ''
     });
+    setImageFile(null);
+    setExistingImageUrl(event.image_url || '');
     setShowCreateForm(false);
   };
 
@@ -166,8 +193,9 @@ function Events() {
       date: '',
       description: '',
       drive_link: '',
-      image_url: ''
     });
+    setImageFile(null);
+    setExistingImageUrl('');
   };
 
   const handleInputChange = (e) => {
@@ -175,6 +203,28 @@ function Events() {
       ...formData,
       [e.target.name]: e.target.value
     });
+  };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setImageToCrop(reader.result);
+      setShowCropper(true);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleCropComplete = (croppedBlob) => {
+    setImageFile(new File([croppedBlob], 'event-image.jpeg', { type: 'image/jpeg' }));
+    setShowCropper(false);
+    setImageToCrop(null);
+  };
+
+  const handleCropperCancel = () => {
+    setShowCropper(false);
+    setImageToCrop(null);
   };
 
   if (loading) return <MainLayout><div className="p-8 text-center">Loading events...</div></MainLayout>;
@@ -187,6 +237,15 @@ function Events() {
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
           {formError}
         </div>
+      )}
+      {showCropper && imageToCrop && (
+        <ImageCropperModal
+          imageUrl={imageToCrop}
+          onCropComplete={handleCropComplete}
+          onCancel={handleCropperCancel}
+          aspect={16 / 9}
+          circularCrop={false}
+        />
       )}
       <form onSubmit={isEditing ? handleEditEvent : handleCreateEvent}>
         <div className="space-y-4">
@@ -204,7 +263,7 @@ function Events() {
           <div>
             <label className="block text-sm font-medium text-gray-700">Date</label>
             <input
-              type="datetime-local"
+              type="date"
               name="date"
               value={formData.date}
               onChange={handleInputChange}
@@ -234,14 +293,27 @@ function Events() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">Image URL (optional)</label>
+            <label className="block text-sm font-medium text-gray-700">Event Image <span className="text-red-500">*</span></label>
             <input
-              type="url"
-              name="image_url"
-              value={formData.image_url}
-              onChange={handleInputChange}
+              type="file"
+              accept="image/*,.heic,.heif"
+              onChange={handleImageChange}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#b32a2a] focus:ring-[#b32a2a]"
+              disabled={formLoading}
+              required={!isEditing || (!imageFile && !existingImageUrl)}
             />
+            {imageFile && (
+              <div className="mt-2 text-sm text-gray-600">
+                Selected file: {imageFile.name}
+                <img src={URL.createObjectURL(imageFile)} alt="Preview" className="mt-2 rounded w-full max-w-md aspect-video object-cover" />
+              </div>
+            )}
+            {!imageFile && existingImageUrl && (
+              <div className="mt-2">
+                <img src={existingImageUrl} alt="Current Event" className="h-24 rounded aspect-video object-cover" />
+                <div className="text-xs text-gray-500">Current event image</div>
+              </div>
+            )}
           </div>
           <div className="flex space-x-4">
             <button
@@ -311,7 +383,9 @@ function Events() {
               )}
               <Link to={`/events/${event.id}`} className="block">
                 {event.image_url && (
-                  <img src={event.image_url} alt={event.name} className="w-full h-48 object-cover rounded-t-lg" />
+                  <div className="w-full aspect-video rounded-t-lg overflow-hidden bg-gray-100">
+                    <img src={event.image_url} alt={event.name} className="w-full h-full object-cover" />
+                  </div>
                 )}
                 <div className="p-4">
                   <h2 className="text-xl font-semibold">{event.name}</h2>

@@ -622,7 +622,7 @@ function AdminDashboard() {
                   </div>
                   <Link
                     to="/create-family"
-                    className="inline-flex items-center justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:w-auto"
+                    className="inline-flex items-center justify-center rounded-md border border-transparent bg-[#b32a2a] px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-[#8a1f1f] focus:outline-none focus:ring-2 focus:ring-[#b32a2a] focus:ring-offset-2 sm:w-auto"
                   >
                     Create Family
                   </Link>

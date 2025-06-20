@@ -2,40 +2,46 @@ import React, { useState, useRef, useCallback } from 'react';
 import ReactCrop, { centerCrop, makeAspectCrop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 
-// Helper function to get cropped image as a Blob
+// Helper function to get cropped image as a Blob (high quality)
 const getCroppedImg = (image, crop, fileName) => {
-  const canvas = document.createElement('canvas');
   const scaleX = image.naturalWidth / image.width;
   const scaleY = image.naturalHeight / image.height;
-  canvas.width = crop.width;
-  canvas.height = crop.height;
+  const pixelCropWidth = Math.round(crop.width * scaleX);
+  const pixelCropHeight = Math.round(crop.height * scaleY);
+
+  const canvas = document.createElement('canvas');
+  canvas.width = pixelCropWidth;
+  canvas.height = pixelCropHeight;
   const ctx = canvas.getContext('2d');
 
   ctx.drawImage(
     image,
     crop.x * scaleX,
     crop.y * scaleY,
-    crop.width * scaleX,
-    crop.height * scaleY,
+    pixelCropWidth,
+    pixelCropHeight,
     0,
     0,
-    crop.width,
-    crop.height
+    pixelCropWidth,
+    pixelCropHeight
   );
 
-  // As a blob
   return new Promise((resolve, reject) => {
-    canvas.toBlob((blob) => {
-      if (!blob) {
-        console.error('Canvas is empty');
-        return;
-      }
-      resolve(blob);
-    }, 'image/jpeg', 1); // Specify image format and quality
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) {
+          reject(new Error('Canvas is empty'));
+          return;
+        }
+        resolve(blob);
+      },
+      'image/jpeg',
+      1 // best quality
+    );
   });
 };
 
-function ImageCropperModal({ imageUrl, onCropComplete, onCancel }) {
+function ImageCropperModal({ imageUrl, onCropComplete, onCancel, aspect = 1 / 1, circularCrop = true }) {
   const [crop, setCrop] = useState(); // Initialize crop state without values
   const imgRef = useRef(null);
   const [completedCrop, setCompletedCrop] = useState(null);
@@ -43,23 +49,21 @@ function ImageCropperModal({ imageUrl, onCropComplete, onCancel }) {
   // Function to set initial crop when image loads
   const onImageLoad = useCallback((e) => {
     const { naturalWidth: width, naturalHeight: height } = e.currentTarget;
-
     const newCrop = centerCrop(
       makeAspectCrop(
         {
           unit: '%',
-          width: 50, // Initial crop width percentage
+          width: 80, // Initial crop width percentage for event images
         },
-        1 / 1, // Aspect ratio (square)
+        aspect,
         width,
         height
       ),
       width,
       height
     );
-
     setCrop(newCrop);
-  }, []);
+  }, [aspect]);
 
   // Handle save button click
   const handleSave = useCallback(async () => {
@@ -97,8 +101,8 @@ function ImageCropperModal({ imageUrl, onCropComplete, onCancel }) {
                 setCompletedCrop(c);
                 console.log('onComplete called with:', c); // Log when onComplete is called
               }}
-              aspect={1 / 1}
-              circularCrop // Make the crop area circular
+              aspect={aspect}
+              circularCrop={circularCrop}
             >
               <img
                 ref={imgRef}
