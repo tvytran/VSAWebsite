@@ -81,15 +81,29 @@ function Register({ onRegister }) {
     } catch (err) {
       console.error('Registration error:', err);
       console.error('Error response:', err.response);
+      console.error('Error response data:', err.response?.data);
+      console.error('Error response status:', err.response?.status);
+      console.error('Error response headers:', err.response?.headers);
       
       // Handle specific error messages from backend
       if (err.response?.data?.message) {
+        console.log('Setting error message from backend:', err.response.data.message);
         setError(err.response.data.message);
-      } else if (err.response?.data?.errors) {
+      } else if (err.response?.data?.errors && Array.isArray(err.response.data.errors)) {
         // Handle validation errors from backend
         const errorMessages = err.response.data.errors.map(error => error.msg).join(', ');
+        console.log('Setting validation error messages:', errorMessages);
         setError(errorMessages);
+      } else if (err.response?.data?.error) {
+        // Handle error field
+        console.log('Setting error from error field:', err.response.data.error);
+        setError(err.response.data.error);
+      } else if (err.message) {
+        // Handle network or other errors
+        console.log('Setting error from err.message:', err.message);
+        setError(err.message);
       } else {
+        console.log('No specific error message found, using generic message');
         setError('Registration failed. Please try again.');
       }
     } finally {

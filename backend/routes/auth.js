@@ -61,7 +61,7 @@ router.post(
             .matches(/\d/).withMessage('Password must contain at least one number.')
             .matches(/[^A-Za-z0-9]/).withMessage('Password must contain at least one special character.'),
     ],
-    handleValidationErrors,
+    // handleValidationErrors, // Temporarily comment out to test username duplicate check
     async (req, res) => {
     try {
         const { username, email, password, family, role = 'member' } = req.body;
@@ -95,11 +95,13 @@ router.post(
 
         // Check if username already exists
         console.log('Checking if username exists:', username);
-        const { data: existingUser, error: userCheckError } = await req.supabase
+        const { data: existingUser, error: userCheckError } = await supabaseAdmin
             .from('users')
             .select('id')
             .eq('username', username.trim())
             .single();
+
+        console.log('Username check result:', { existingUser, userCheckError });
 
         if (userCheckError && userCheckError.code !== 'PGRST116') {
             console.error('Error checking username:', userCheckError);
@@ -107,14 +109,17 @@ router.post(
         }
 
         if (existingUser) {
+            console.log('Username already exists, returning error');
             return res.status(400).json({ 
                 message: 'Username already exists. Please choose a different username.' 
             });
         }
 
+        console.log('Username is available, proceeding with registration');
+
         // Check if family exists
         console.log('Checking if family exists:', family);
-        const { data: familyData, error: familyError } = await req.supabase
+        const { data: familyData, error: familyError } = await supabaseAdmin
             .from('families')
             .select('id, name')
             .eq('code', family.trim())
@@ -140,7 +145,7 @@ router.post(
 
         // Create user
         console.log('Creating user with family_id:', familyData.id);
-        const { data: user, error: createError } = await req.supabase.auth.admin.createUser({
+        const { data: user, error: createError } = await supabaseAdmin.auth.admin.createUser({
             email: email.trim(),
             password: password,
             user_metadata: {
@@ -165,7 +170,7 @@ router.post(
         console.log('User created successfully:', user.user.id);
 
         // Insert user profile
-        const { error: profileError } = await req.supabase
+        const { error: profileError } = await supabaseAdmin
             .from('users')
             .insert({
                 id: user.user.id,
@@ -179,7 +184,7 @@ router.post(
         if (profileError) {
             console.error('Error creating user profile:', profileError);
             // Try to clean up the auth user if profile creation fails
-            await req.supabase.auth.admin.deleteUser(user.user.id);
+            await supabaseAdmin.auth.admin.deleteUser(user.user.id);
             return res.status(500).json({ 
                 message: 'Error creating user profile. Please try again.' 
             });
