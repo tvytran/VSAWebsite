@@ -611,9 +611,9 @@ function DashboardHome() {
                       <div>
                         <div className="flex items-center mb-2">
                           <div className="w-8 h-8 rounded-full overflow-hidden mr-2">
-                            {post.author_profile_picture ? (
+                            {post.author?.profile_picture ? (
                               <img 
-                                src={post.author_profile_picture}
+                                src={post.author.profile_picture}
                                 alt={getAuthorName(post.author)} 
                                 className="w-full h-full object-cover"
                               />
@@ -682,9 +682,9 @@ function DashboardHome() {
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-3">
                         <div className="w-12 h-12 rounded-full overflow-hidden bg-[#b32a2a] flex items-center justify-center">
-                          {post.author_profile_picture ? (
+                          {post.author?.profile_picture ? (
                             <img 
-                              src={post.author_profile_picture} 
+                              src={post.author.profile_picture} 
                               alt={getAuthorName(post.author)} 
                               className="w-full h-full object-cover" 
                             />

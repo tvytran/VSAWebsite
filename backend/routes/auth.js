@@ -64,80 +64,144 @@ router.post(
     handleValidationErrors,
     async (req, res) => {
     try {
-        const { username, email, password, family, role } = req.body;
-        console.log('Registration attempt:', { username, email, role, family });
+        const { username, email, password, family, role = 'member' } = req.body;
+        console.log('Registration request received:', { 
+            username: req.body.username, 
+            email: req.body.email, 
+            family: req.body.family,
+            hasPassword: !!req.body.password 
+        });
 
-        // Check if user already exists
-        const { data: existingUser, error: userError } = await supabaseAdmin
-            .from('users')
-            .select('id')
-            .eq('email', email)
-            .single();
-        if (userError && userError.code !== 'PGRST116') throw userError;
-        if (existingUser) {
+        // Validate required fields
+        if (!username || !email || !password || !family) {
             return res.status(400).json({ 
-                success: false, 
-                message: 'User already exists' 
+                message: 'All fields are required' 
             });
         }
 
-        // Look up the family by code (if not admin)
-        let familyId = null;
-        if (family && role !== 'admin') {
-            const { data: familyDoc, error: famError } = await supabase
-                .from('families')
-                .select('id')
-                .eq('code', family)
-                .single();
-            if (famError) throw famError;
-            if (!familyDoc) {
-                return res.status(400).json({ success: false, message: 'Invalid family code' });
-            }
-            familyId = familyDoc.id;
+        // Validate password requirements
+        const passwordErrors = [];
+        if (password.length < 6) passwordErrors.push('Password must be at least 6 characters long');
+        if (!/[a-z]/.test(password)) passwordErrors.push('Password must contain at least one lowercase letter');
+        if (!/[A-Z]/.test(password)) passwordErrors.push('Password must contain at least one uppercase letter');
+        if (!/\d/.test(password)) passwordErrors.push('Password must contain at least one number');
+        if (!/[^A-Za-z0-9]/.test(password)) passwordErrors.push('Password must contain at least one special character');
+        
+        if (passwordErrors.length > 0) {
+            return res.status(400).json({ 
+                message: `Password requirements not met: ${passwordErrors.join(', ')}` 
+            });
         }
 
-        // Hash password
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(password, salt);
-
-        // Create new user
-        const { data: newUser, error: insertError } = await supabase
+        // Check if username already exists
+        console.log('Checking if username exists:', username);
+        const { data: existingUser, error: userCheckError } = await req.supabase
             .from('users')
-            .insert([{ username, email, password: hashedPassword, family_id: familyId, role: role || 'member', created_at: new Date().toISOString() }])
-            .select()
+            .select('id')
+            .eq('username', username.trim())
             .single();
-        if (insertError) throw insertError;
 
-        // Create a Supabase-compatible JWT token
-        const payload = {
-            sub: newUser.id,
-            role: newUser.role,
-        };
+        if (userCheckError && userCheckError.code !== 'PGRST116') {
+            console.error('Error checking username:', userCheckError);
+            return res.status(500).json({ message: 'Error checking username availability' });
+        }
 
-        jwt.sign(
-            payload,
-            process.env.JWT_SECRET,
-            { expiresIn: '24h' },
-            (err, token) => {
-                if (err) throw err;
-                res.json({
-                    success: true,
-                    token,
-                    user: {
-                        id: newUser.id,
-                        username: newUser.username,
-                        email: newUser.email,
-                        role: newUser.role,
-                        family_id: newUser.family_id
-                    }
+        if (existingUser) {
+            return res.status(400).json({ 
+                message: 'Username already exists. Please choose a different username.' 
+            });
+        }
+
+        // Check if family exists
+        console.log('Checking if family exists:', family);
+        const { data: familyData, error: familyError } = await req.supabase
+            .from('families')
+            .select('id, name')
+            .eq('code', family.trim())
+            .single();
+
+        if (familyError) {
+            console.error('Error checking family:', familyError);
+            if (familyError.code === 'PGRST116') {
+                return res.status(400).json({ 
+                    message: 'Family code is incorrect. Please check your family code and try again.' 
                 });
             }
-        );
-    } catch (err) {
-        console.error('Registration error:', err);
+            return res.status(500).json({ message: 'Error checking family code' });
+        }
+
+        if (!familyData) {
+            return res.status(400).json({ 
+                message: 'Family code is incorrect. Please check your family code and try again.' 
+            });
+        }
+
+        console.log('Family found:', familyData);
+
+        // Create user
+        console.log('Creating user with family_id:', familyData.id);
+        const { data: user, error: createError } = await req.supabase.auth.admin.createUser({
+            email: email.trim(),
+            password: password,
+            user_metadata: {
+                username: username.trim(),
+                family_id: familyData.id,
+                role: role
+            }
+        });
+
+        if (createError) {
+            console.error('Error creating user:', createError);
+            if (createError.message.includes('email')) {
+                return res.status(400).json({ 
+                    message: 'Email address is already registered. Please use a different email or try logging in.' 
+                });
+            }
+            return res.status(500).json({ 
+                message: 'Error creating user account. Please try again.' 
+            });
+        }
+
+        console.log('User created successfully:', user.user.id);
+
+        // Insert user profile
+        const { error: profileError } = await req.supabase
+            .from('users')
+            .insert({
+                id: user.user.id,
+                username: username.trim(),
+                email: email.trim(),
+                family_id: familyData.id,
+                role: role,
+                points: 0
+            });
+
+        if (profileError) {
+            console.error('Error creating user profile:', profileError);
+            // Try to clean up the auth user if profile creation fails
+            await req.supabase.auth.admin.deleteUser(user.user.id);
+            return res.status(500).json({ 
+                message: 'Error creating user profile. Please try again.' 
+            });
+        }
+
+        console.log('User profile created successfully');
+
+        res.status(201).json({
+            message: 'User registered successfully',
+            user: {
+                id: user.user.id,
+                username: username.trim(),
+                email: email.trim(),
+                family_id: familyData.id,
+                role: role
+            }
+        });
+
+    } catch (error) {
+        console.error('Registration error:', error);
         res.status(500).json({ 
-            success: false, 
-            message: err.message || 'Server error' 
+            message: 'Registration failed. Please try again.' 
         });
     }
 });

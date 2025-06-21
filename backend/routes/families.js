@@ -40,30 +40,58 @@ async function convertHeicToJpeg(buffer) {
 // @access  Private (requires authentication)
 router.post('/', auth, async (req, res) => {
     try {
+        // Ensure the user is an admin
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({ 
+                success: false, 
+                message: 'You are not authorized to create a family.' 
+            });
+        }
+
         const { name, description } = req.body;
-        // Check if family name already exists
-        const { data: existing, error: findError } = await supabase
+
+        // Check if family name already exists using the admin client
+        const { data: existing, error: findError } = await supabaseAdmin
             .from('families')
             .select('id')
             .eq('name', name)
             .single();
-        if (findError && findError.code !== 'PGRST116') throw findError;
-        if (existing) {
-            return res.status(400).json({ success: false, message: 'Family with this name already exists' });
+
+        if (findError && findError.code !== 'PGRST116') {
+            console.error('Error finding family:', findError);
+            throw findError;
         }
-        // Generate a unique code (simple random for now)
-        let code = Math.random().toString(36).substring(2, 8).toUpperCase();
-        // Create new family
-        const { data: family, error } = await supabase
+
+        if (existing) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'A family with this name already exists.' 
+            });
+        }
+
+        // Generate a unique code
+        const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+
+        // Create new family using the admin client
+        const { data: family, error: createError } = await supabaseAdmin
             .from('families')
-            .insert([{ name, description, code, total_points: 0, semester_points: 0, created_at: new Date().toISOString() }])
+            .insert([{ name, description, code, total_points: 0, semester_points: 0 }])
             .select()
             .single();
-        if (error) throw error;
+
+        if (createError) {
+            console.error('Error creating family:', createError);
+            throw createError;
+        }
+
         res.status(201).json({ success: true, family });
+
     } catch (err) {
-        console.error(err.message);
-        res.status(500).json({ success: false, message: 'Server error' });
+        console.error('Family creation failed:', err.message);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Server error during family creation.' 
+        });
     }
 });
 
@@ -74,9 +102,18 @@ router.get('/', async (req, res) => {
     try {
         const { data: families, error } = await supabaseAdmin
             .from('families')
-            .select('*');
+            .select(`
+              *,
+              members:users(id)
+            `);
         if (error) throw error;
-        res.json({ success: true, families });
+        
+        const formattedFamilies = families.map(f => ({
+          ...f,
+          members: f.members || []
+        }));
+
+        res.json({ success: true, families: formattedFamilies });
     } catch (err) {
         console.error(err.message);
         res.status(500).json({ success: false, message: 'Server error' });
@@ -262,20 +299,54 @@ router.put('/:id', auth, upload.single('familyPicture'), async (req, res) => {
 // @access  Private (only admin)
 router.delete('/:id', auth, async (req, res) => {
     try {
+        // Check if the user is an administrator
         if (req.user.role !== 'admin') {
-            return res.status(403).json({ success: false, message: 'Only administrators can delete families' });
+            return res.status(403).json({ 
+                success: false, 
+                message: 'Only administrators can delete families' 
+            });
         }
-        const { data, error } = await req.supabase
+
+        // First, check if the family exists
+        const { data: family, error: findError } = await supabaseAdmin
+            .from('families')
+            .select('id')
+            .eq('id', req.params.id)
+            .single();
+
+        if (findError) {
+            // If the error indicates "not found", send a 404
+            if (findError.code === 'PGRST116') {
+                return res.status(404).json({ success: false, message: 'Family not found' });
+            }
+            // For other errors, log and send a 500
+            console.error('Error finding family for deletion:', findError);
+            throw findError;
+        }
+
+        if (!family) {
+             return res.status(404).json({ success: false, message: 'Family not found' });
+        }
+
+        // Use the admin client to bypass RLS and delete the family
+        const { error: deleteError } = await supabaseAdmin
             .from('families')
             .delete()
             .eq('id', req.params.id);
-        if (error) throw error;
-        if (!data || data.length === 0) {
-            return res.status(404).json({ success: false, message: 'Family not found' });
+
+        if (deleteError) {
+            console.error('Error deleting family:', deleteError);
+            throw deleteError;
         }
-        res.json({ success: true, message: 'Family deleted' });
+
+        res.json({ success: true, message: 'Family deleted successfully' });
+        
     } catch (err) {
-        res.status(500).json({ success: false, message: 'Server error' });
+        console.error('Family deletion process failed:', err);
+        res.status(500).json({ 
+            success: false, 
+            message: err.message || 'Server error during family deletion' 
+        });
     }
 });
 

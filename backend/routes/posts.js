@@ -250,20 +250,28 @@ router.get('/family/:familyId', auth, async (req, res) => {
                     id,
                     username,
                     profile_picture
-                ),
-                family:family_id (
-                    id,
-                    name,
-                    total_points,
-                    semester_points
                 )
             `)
             .eq('family_id', req.params.familyId)
             .order('created_at', { ascending: false });
-        if (error) throw error;
-        res.json({ success: true, posts });
+
+        if (error) {
+            console.error('Error fetching family posts:', error);
+            throw error;
+        }
+        
+        // Rename 'author' to 'author_id' to match frontend expectations
+        const formattedPosts = posts.map(p => {
+            if (p.author) {
+                p.author_id = p.author;
+                delete p.author;
+            }
+            return p;
+        });
+
+        res.json({ success: true, posts: formattedPosts });
     } catch (err) {
-        res.status(500).json({ success: false, message: 'Server Error' });
+        res.status(500).json({ success: false, message: 'Server error' });
     }
 });
 

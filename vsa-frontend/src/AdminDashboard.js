@@ -15,6 +15,7 @@ function AdminDashboard() {
   const navigate = useNavigate();
   const [token] = useState(() => localStorage.getItem('token'));
   const scrollRestored = useRef(false);
+  const [currentUser, setCurrentUser] = useState(null);
 
   // State for editing posts/announcements
   const [editingPostId, setEditingPostId] = useState(null);
@@ -70,6 +71,21 @@ function AdminDashboard() {
           navigate('/login');
           return;
         }
+
+        // Fetch current user data first
+        const meRes = await api.get('/api/auth/me', {
+          headers: { 'x-auth-token': token }
+        });
+        setCurrentUser(meRes.data.user);
+
+        // Ensure user is an admin before fetching sensitive data
+        if (meRes.data.user.role !== 'admin') {
+          setError('You are not authorized to view this page.');
+          setLoading(false);
+          navigate('/dashboard'); // Or to a generic non-admin page
+          return;
+        }
+
         // Fetch users
         const usersRes = await api.get('/api/users', {
           headers: { 'x-auth-token': token }
@@ -116,6 +132,12 @@ function AdminDashboard() {
   };
 
   const handleDeleteFamily = async (familyId) => {
+    console.log('handleDeleteFamily called with ID:', familyId);
+    if (!familyId) {
+      console.error('Delete cancelled: No Family ID provided.');
+      alert('Error: Family ID is missing.');
+      return;
+    }
     if (!window.confirm('Are you sure you want to delete this family? This will also remove all associated posts and files.')) return;
     try {
       const token = localStorage.getItem('token');
@@ -123,7 +145,9 @@ function AdminDashboard() {
         headers: { 'x-auth-token': token }
       });
       setFamilies(families.filter(family => family.id !== familyId));
+      console.log(`Family ${familyId} deleted successfully from state.`);
     } catch (err) {
+      console.error('Failed to delete family:', err);
       alert('Failed to delete family: ' + (err.response?.data?.message || err.message));
     }
   };
@@ -675,211 +699,184 @@ function AdminDashboard() {
           </div>
         )}
 
-        {/* Families Tab Content */}
+        {/* Families Tab */}
         {activeTab === 'families' && (
-          <div className="mt-8 flow-root">
-            <div className="-my-2 overflow-x-auto">
-              <div className="inline-block py-2 align-middle md:px-6 lg:px-8">
-                <div className="flex justify-between items-center mb-4">
-                  <div>
-                    <h2 className="text-xl font-semibold text-gray-900">Families</h2>
-                    <p className="mt-2 text-sm text-gray-700">
-                      Manage family information and view family points
-                    </p>
-                  </div>
-                  <Link
-                    to="/create-family"
-                    className="inline-flex items-center justify-center rounded-md border border-transparent bg-[#b32a2a] px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-[#8a1f1f] focus:outline-none focus:ring-2 focus:ring-[#b32a2a] focus:ring-offset-2 sm:w-auto"
-                  >
-                    Create Family
-                  </Link>
-                </div>
-                <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
-                  <table className="divide-y divide-gray-300 table-fixed w-full">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6 w-[30%]">
-                          Name
-                        </th>
-                        <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 w-[15%]">
-                          Code
-                        </th>
-                        <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 w-[15%]">
-                          Members
-                        </th>
-                        <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 w-[20%]">
-                          Points
-                        </th>
-                        <th scope="col" className="relative py-3.5 pl-3 pr-4 text-right text-sm font-semibold text-gray-900 sm:pr-6 w-[20%]">
-                          <span className="sr-only">Actions</span>
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200 bg-white">
-                      {families.map((family, familyIdx) => (
-                        <tr key={family.id} className={familyIdx % 2 === 0 ? undefined : 'bg-gray-50'}>
-                          {editingFamilyId === family.id ? (
-                            <>
-                              <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm sm:pl-6 w-[30%]">
-                                <div className="space-y-2">
-                                  <input
-                                    type="text"
-                                    value={editFamilyName}
-                                    onChange={(e) => setEditFamilyName(e.target.value)}
-                                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-1"
-                                    disabled={editFamilyLoading}
-                                    placeholder="Family name"
-                                  />
-                                  <textarea
-                                    value={editFamilyDescription}
-                                    onChange={(e) => setEditFamilyDescription(e.target.value)}
-                                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-1"
-                                    disabled={editFamilyLoading}
-                                    placeholder="Family description (optional)"
-                                    rows="2"
-                                  />
-                                  <div className="space-y-1">
-                                    <label className="block text-xs font-medium text-gray-700">
-                                      Family Photo:
-                                    </label>
-                                    <input
-                                      type="file"
-                                      accept="image/*,.heic,.heif"
-                                      onChange={handleFamilyFileChange}
-                                      className="block w-full text-xs text-gray-500 file:mr-4 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-[#b32a2a] file:text-white hover:file:bg-[#8a1f1f]"
-                                      disabled={editFamilyLoading}
-                                    />
-                                    {selectedFamilyFile && (
-                                      <div className="text-xs text-gray-600">
-                                        Selected: {selectedFamilyFile.name}
-                                      </div>
-                                    )}
-                                    {(family.family_picture || selectedFamilyFile) && (
-                                      <div className="mt-2">
-                                        <img
-                                          src={selectedFamilyFile ? URL.createObjectURL(selectedFamilyFile) : family.family_picture}
-                                          alt="Family preview"
-                                          className="w-12 h-12 object-cover rounded border"
+          <div className="mt-8">
+            <div className="sm:flex sm:items-center">
+              <div className="sm:flex-auto">
+                <h2 className="text-xl font-semibold text-gray-900">Families</h2>
+                <p className="mt-2 text-sm text-gray-700">
+                  Manage family information and view family points
+                </p>
+              </div>
+              <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
+                <Link
+                  to="/create-family"
+                  className="inline-flex items-center justify-center rounded-md border border-transparent bg-[#b32a2a] px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-[#8a1f1f] focus:outline-none focus:ring-2 focus:ring-[#b32a2a] focus:ring-offset-2 sm:w-auto"
+                >
+                  Create Family
+                </Link>
+              </div>
+            </div>
+            <div className="mt-8 flow-root">
+              <div className="-my-2 overflow-x-auto">
+                <div className="inline-block py-2 align-middle md:px-6 lg:px-8">
+                  <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
+                    <table className="divide-y divide-gray-300 table-fixed w-full">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6 w-1/3">
+                            Name
+                          </th>
+                          <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 w-1/6">
+                            Code
+                          </th>
+                          <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 w-1/6">
+                            Members
+                          </th>
+                          <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 w-1/6">
+                            Points
+                          </th>
+                          <th scope="col" className="relative py-3.5 pl-3 pr-4 text-right text-sm font-semibold text-gray-900 sm:pr-6 w-[100px]">
+                            <span className="sr-only">Actions</span>
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200 bg-white">
+                        {families.map((family, familyIdx) => (
+                          <React.Fragment key={family.id}>
+                            {editingFamilyId === family.id ? (
+                              <tr className={familyIdx % 2 === 0 ? undefined : 'bg-gray-50'}>
+                                <td colSpan="5" className="p-4 bg-gray-50">
+                                  <form onSubmit={handleEditFamily}>
+                                    <h4 className="font-semibold mb-2">Editing: {family.name}</h4>
+                                    <div className="grid grid-cols-2 gap-4">
+                                      <div>
+                                        <label className="block text-sm font-medium">Name</label>
+                                        <input 
+                                          type="text" 
+                                          value={editFamilyName} 
+                                          onChange={(e) => setEditFamilyName(e.target.value)} 
+                                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm" 
+                                          required 
                                         />
                                       </div>
-                                    )}
-                                    {family.family_picture && !selectedFamilyFile && (
-                                      <div className="mt-2 flex items-center space-x-2">
-                                        <label className="flex items-center space-x-1 text-xs text-red-600">
-                                          <input
-                                            type="checkbox"
-                                            checked={deleteFamilyPhoto}
-                                            onChange={(e) => setDeleteFamilyPhoto(e.target.checked)}
-                                            className="rounded border-gray-300 text-red-600 focus:ring-red-500"
-                                            disabled={editFamilyLoading}
-                                          />
-                                          <span>Delete current photo</span>
-                                        </label>
+                                      <div>
+                                        <label className="block text-sm font-medium">Description</label>
+                                        <input 
+                                          type="text" 
+                                          value={editFamilyDescription} 
+                                          onChange={(e) => setEditFamilyDescription(e.target.value)} 
+                                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm" 
+                                        />
                                       </div>
-                                    )}
-                                  </div>
-                                </div>
-                              </td>
-                              <td className="whitespace-nowrap px-3 py-4 text-sm w-[15%]">
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                  {family.code || 'No code'}
-                                </span>
-                              </td>
-                              <td className="whitespace-nowrap px-3 py-4 text-sm w-[15%]">
-                                {users.filter(user => user.families_id === family.id).length} members
-                              </td>
-                              <td className="whitespace-nowrap px-3 py-4 text-sm w-[20%]">
-                                {renderFamilyPoints(family)}
-                              </td>
-                              <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6 w-[20%]">
-                                <div className="flex flex-col items-end space-y-2">
-                                  {editFamilyError && (
-                                    <div className="text-red-600 text-xs text-right max-w-xs">
-                                      {editFamilyError}
+                                      <div className="col-span-2">
+                                        <label className="block text-sm font-medium">Picture</label>
+                                        <input 
+                                          type="file" 
+                                          onChange={(e) => setSelectedFamilyFile(e.target.files[0])} 
+                                          className="mt-1 block w-full text-sm" 
+                                        />
+                                        {family.family_picture && (
+                                          <label className="text-xs">
+                                            <input 
+                                              type="checkbox" 
+                                              checked={deleteFamilyPhoto} 
+                                              onChange={e => setDeleteFamilyPhoto(e.target.checked)} 
+                                            /> Delete current photo
+                                          </label>
+                                        )}
+                                      </div>
                                     </div>
-                                  )}
+                                    {editFamilyError && <p className="text-red-500 text-sm mt-2">{editFamilyError}</p>}
+                                    <div className="flex justify-end gap-2 mt-4">
+                                      <button 
+                                        type="button" 
+                                        onClick={cancelEditFamily} 
+                                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                                      >
+                                        Cancel
+                                      </button>
+                                      <button 
+                                        type="submit" 
+                                        disabled={editFamilyLoading} 
+                                        className="px-4 py-2 text-sm font-medium text-white bg-[#b32a2a] rounded-md disabled:opacity-50"
+                                      >
+                                        {editFamilyLoading ? 'Saving...' : 'Save'}
+                                      </button>
+                                    </div>
+                                  </form>
+                                </td>
+                              </tr>
+                            ) : (
+                              <tr className={familyIdx % 2 === 0 ? undefined : 'bg-gray-50'}>
+                                <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm sm:pl-6 w-1/3">
+                                  <div className="flex items-center">
+                                    <div className="h-10 w-10 flex-shrink-0">
+                                      {family.family_picture ? (
+                                        <img 
+                                          className="h-10 w-10 rounded-full object-cover" 
+                                          src={family.family_picture} 
+                                          alt={family.name} 
+                                        />
+                                      ) : (
+                                        <div className="h-10 w-10 rounded-full bg-[#b32a2a] flex items-center justify-center text-white font-bold">
+                                          {family.name.charAt(0)}
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div className="ml-4">
+                                      <div className="font-medium text-gray-900">{family.name}</div>
+                                      <div className="text-gray-500 text-xs">
+                                        Created {new Date(family.created_at).toLocaleDateString()}
+                                      </div>
+                                      {family.description && (
+                                        <div className="text-gray-500 text-xs mt-1">{family.description}</div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 w-1/6">
+                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                    {family.code}
+                                  </span>
+                                </td>
+                                <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 w-1/6">
+                                  {family.members.length} members
+                                </td>
+                                <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 w-1/6">
+                                  {renderFamilyPoints(family)}
+                                </td>
+                                <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6 w-[100px]">
                                   <div className="flex justify-end space-x-4">
-                                    <button
-                                      onClick={handleEditFamily}
-                                      className="text-indigo-600 hover:text-indigo-900 disabled:opacity-50 disabled:cursor-not-allowed"
-                                      disabled={editFamilyLoading}
+                                    <button 
+                                      onClick={() => startEditFamily(family)} 
+                                      className="text-[#b32a2a] hover:text-[#8a1f1f]"
                                     >
-                                      {editFamilyLoading ? 'Saving...' : 'Save'}
+                                      Edit
                                     </button>
-                                    <button
-                                      onClick={cancelEditFamily}
-                                      className="text-gray-600 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
-                                      disabled={editFamilyLoading}
-                                    >
-                                      Cancel
-                                    </button>
-                                  </div>
-                                </div>
-                              </td>
-                            </>
-                          ) : (
-                            <>
-                              <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm sm:pl-6 w-[30%]">
-                                <div className="flex items-center space-x-3">
-                                  {family.family_picture ? (
-                                    <img
-                                      src={family.family_picture}
-                                      alt={family.name}
-                                      className="w-10 h-10 object-cover rounded-full border-2 border-[#b32a2a]"
-                                    />
-                                  ) : (
-                                    <div className="w-10 h-10 rounded-full bg-[#b32a2a] flex items-center justify-center text-white text-sm font-bold border-2 border-[#b32a2a]">
-                                      {family.name?.charAt(0).toUpperCase()}
-                                    </div>
-                                  )}
-                                  <div>
-                                    <div className="font-medium text-gray-900">{family.name || 'Unnamed Family'}</div>
-                                    <div className="text-gray-500 text-xs">Created {new Date(family.created_at).toLocaleDateString()}</div>
-                                    {family.description && (
-                                      <div className="text-gray-500 text-xs mt-1">{family.description}</div>
+                                    {currentUser?.role === 'admin' && (
+                                      <button 
+                                        onClick={() => handleDeleteFamily(family.id)} 
+                                        className="text-red-600 hover:text-red-800"
+                                      >
+                                        Delete
+                                      </button>
                                     )}
                                   </div>
-                                </div>
-                              </td>
-                              <td className="whitespace-nowrap px-3 py-4 text-sm w-[15%]">
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                  {family.code || 'No code'}
-                                </span>
-                              </td>
-                              <td className="whitespace-nowrap px-3 py-4 text-sm w-[15%]">
-                                {users.filter(user => user.family_id === family.id).length} members
-                              </td>
-                              <td className="whitespace-nowrap px-3 py-4 text-sm w-[20%]">
-                                {renderFamilyPoints(family)}
-                              </td>
-                              <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6 w-[20%]">
-                                <div className="flex justify-end space-x-4">
-                                  <button
-                                    onClick={() => startEditFamily(family)}
-                                    className="text-indigo-600 hover:text-indigo-900"
-                                  >
-                                    Edit
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeleteFamily(family.id)}
-                                    className="text-red-600 hover:text-red-900"
-                                  >
-                                    Delete
-                                  </button>
-                                </div>
-                              </td>
-                            </>
-                          )}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                                </td>
+                              </tr>
+                            )}
+                          </React.Fragment>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         )}
-
         {/* All Posts Tab Content */}
         {activeTab === 'allPosts' && (
           <div className="mt-8 flow-root">

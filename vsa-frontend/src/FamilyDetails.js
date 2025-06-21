@@ -46,27 +46,35 @@ function FamilyDetails() {
   const [allFamiliesLoading, setAllFamiliesLoading] = useState(true);
   const [allFamiliesError, setAllFamiliesError] = useState('');
 
-  // State for current user ID
+  // State for current user data
+  const [currentUser, setCurrentUser] = useState(null);
   const [currentUserId, setCurrentUserId] = useState(null);
 
   const navigate = useNavigate();
 
-  // Effect to get the current user ID from token
+  // Effect to get the current user data from API
   useEffect(() => {
-    try {
-      const token = localStorage.getItem('token');
-      if (token) {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        setCurrentUserId(payload.user.id);
-        console.log('Current User ID set:', payload.user.id); // Log when user ID is set
-      } else {
-         console.log('No token found in localStorage.'); // Log if no token is found
+    const fetchCurrentUser = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (token) {
+          const res = await api.get('/api/auth/me', {
+            headers: { 'x-auth-token': token }
+          });
+          setCurrentUser(res.data.user);
+          setCurrentUserId(res.data.user.id);
+          console.log('Current User data set:', res.data.user);
+        } else {
+          console.log('No token found in localStorage.');
+        }
+      } catch (err) {
+        console.error('Error fetching current user:', err);
+        setCurrentUser(null);
+        setCurrentUserId(null);
       }
-    } catch (e) {
-      console.error('Error decoding token:', e);
-      setCurrentUserId(null); // Ensure userId is null if token is invalid
-    }
-  }, []); // Empty dependency array means this effect runs once after initial render
+    };
+    fetchCurrentUser();
+  }, []);
 
   // Effect to fetch all families for navigation
   useEffect(() => {
@@ -503,21 +511,9 @@ function FamilyDetails() {
           <div className="mb-4">
             <button
               onClick={() => setIsEditingFamily(true)}
-              className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline transition duration-200 ease-in-out"
+              className="bg-[#b32a2a] hover:bg-[#8a1f1f] text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline transition duration-200 ease-in-out"
             >
               Edit Profile
-            </button>
-          </div>
-        )}
-
-        {/* Admin Actions (Delete) - Visible to members */}
-        {isMember && !isEditingFamily && (
-          <div className="mb-6">
-            <button
-              onClick={handleDeleteFamily}
-              className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline transition duration-200 ease-in-out"
-            >
-              Delete Family
             </button>
           </div>
         )}
