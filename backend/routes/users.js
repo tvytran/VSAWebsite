@@ -11,7 +11,7 @@ const auth = require('../middleware/auth');
 router.get('/', auth, async (req, res) => {
     try {
         // Get all users, exclude passwords, join family name
-        const { data: users, error } = await supabase
+        const { data: users, error } = await req.supabase
             .from('users')
             .select('id, username, email, role, profile_picture, created_at, family_id, points_total, points_semester, families(name)');
         if (error) throw error;
@@ -25,7 +25,7 @@ router.get('/', auth, async (req, res) => {
 // Get user profile
 router.get('/profile', auth, async (req, res) => {
     try {
-        const { data: user, error } = await supabase
+        const { data: user, error } = await req.supabase
             .from('users')
             .select('id, username, email, role, profile_picture, created_at, family_id, points_total, points_semester')
             .eq('id', req.user.id)
@@ -42,7 +42,7 @@ router.put('/profile', auth, async (req, res) => {
     try {
         // Update user fields (add validation as needed)
         const { username, email, profile_picture } = req.body;
-        const { data, error } = await supabase
+        const { data, error } = await req.supabase
             .from('users')
             .update({ username, email, profile_picture })
             .eq('id', req.user.id);
@@ -57,7 +57,7 @@ router.put('/profile', auth, async (req, res) => {
 router.get('/:userId/posts', auth, async (req, res) => {
     try {
         // Get posts by userId
-        const { data: posts, error } = await supabase
+        const { data: posts, error } = await req.supabase
             .from('posts')
             .select('*')
             .eq('author_id', req.params.userId);
@@ -72,14 +72,14 @@ router.get('/:userId/posts', auth, async (req, res) => {
 router.get('/:userId/groups', auth, async (req, res) => {
     try {
         // Get the user's family
-        const { data: user, error } = await supabase
+        const { data: user, error } = await req.supabase
             .from('users')
             .select('family_id')
             .eq('id', req.params.userId)
             .single();
         if (error) throw error;
         if (!user || !user.family_id) return res.json({ success: true, groups: [] });
-        const { data: family, error: famError } = await supabase
+        const { data: family, error: famError } = await req.supabase
             .from('families')
             .select('*')
             .eq('id', user.family_id)
@@ -101,7 +101,7 @@ router.delete('/:userId', auth, async (req, res) => {
             return res.status(403).json({ success: false, message: 'Access denied. Admin only.' });
         }
         // Delete user by ID
-        const { data, error } = await supabase
+        const { data, error } = await req.supabase
             .from('users')
             .delete()
             .eq('id', req.params.userId);
@@ -138,7 +138,7 @@ router.put('/:userId/role', auth, async (req, res) => {
         }
 
         // Update the user's role
-        const { data: updatedUser, error: updateError } = await supabase
+        const { data: updatedUser, error: updateError } = await req.supabase
             .from('users')
             .update({ role })
             .eq('id', req.params.userId)

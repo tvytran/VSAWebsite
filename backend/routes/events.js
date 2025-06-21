@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const supabase = require('../supabaseClient');
+const { supabase, supabaseAdmin } = require('../supabaseClient');
 const auth = require('../middleware/auth');
 const multer = require('multer');
 const path = require('path');
@@ -36,7 +36,7 @@ async function convertHeicToJpeg(buffer) {
 
 // GET /api/events - List all events
 router.get('/', async (req, res) => {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('events')
     .select('*')
     .order('date', { ascending: false });
@@ -46,7 +46,7 @@ router.get('/', async (req, res) => {
 
 // GET /api/events/:id - Get single event
 router.get('/:id', async (req, res) => {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('events')
     .select('*')
     .eq('id', req.params.id)
@@ -74,19 +74,19 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
         fileExt = req.file.originalname.split('.').pop().toLowerCase();
       }
       const fileName = `events/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-      const { data: uploadData, error: uploadError } = await supabase.storage
+      const { data: uploadData, error: uploadError } = await req.supabase.storage
         .from(process.env.SUPABASE_BUCKET)
         .upload(fileName, imageBuffer, {
           contentType: mimeType,
           upsert: true,
         });
       if (uploadError) throw uploadError;
-      const { publicUrl } = supabase.storage
+      const { publicUrl } = req.supabase.storage
         .from(process.env.SUPABASE_BUCKET)
         .getPublicUrl(fileName).data;
       image_url = publicUrl;
     }
-    const { data, error } = await supabase
+    const { data, error } = await req.supabase
       .from('events')
       .insert([{ name, date, description, drive_link, image_url }])
       .select()
@@ -117,19 +117,19 @@ router.put('/:id', auth, upload.single('image'), async (req, res) => {
         fileExt = req.file.originalname.split('.').pop().toLowerCase();
       }
       const fileName = `events/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-      const { data: uploadData, error: uploadError } = await supabase.storage
+      const { data: uploadData, error: uploadError } = await req.supabase.storage
         .from(process.env.SUPABASE_BUCKET)
         .upload(fileName, imageBuffer, {
           contentType: mimeType,
           upsert: true,
         });
       if (uploadError) throw uploadError;
-      const { publicUrl } = supabase.storage
+      const { publicUrl } = req.supabase.storage
         .from(process.env.SUPABASE_BUCKET)
         .getPublicUrl(fileName).data;
       image_url = publicUrl;
     }
-    const { data, error } = await supabase
+    const { data, error } = await req.supabase
       .from('events')
       .update({ name, date, description, drive_link, image_url })
       .eq('id', req.params.id)
@@ -147,7 +147,7 @@ router.delete('/:id', auth, async (req, res) => {
   if (req.user.role !== 'admin') {
     return res.status(403).json({ success: false, message: 'Admins only' });
   }
-  const { error } = await supabase
+  const { error } = await req.supabase
     .from('events')
     .delete()
     .eq('id', req.params.id);

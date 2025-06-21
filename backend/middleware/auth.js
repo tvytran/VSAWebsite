@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const { createClient } = require('@supabase/supabase-js');
 
 module.exports = function(req, res, next) {
     console.log('Auth middleware called for path:', req.path);
@@ -29,11 +30,34 @@ module.exports = function(req, res, next) {
     try {
         console.log('JWT_SECRET exists:', !!process.env.JWT_SECRET);
         // Verify token
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret_key');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
         console.log('Token decoded successfully:', decoded);
         
-        // Add user from payload
-        req.user = decoded.user;
+        // Add user from payload, adapting to the new structure
+        req.user = {
+            id: decoded.sub,
+            role: decoded.role
+        };
+
+        // Create a Supabase client using the service role key for admin operations
+        // This bypasses RLS and allows us to perform operations as the service
+        const serviceKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY;
+        
+        if (!process.env.SUPABASE_SERVICE_KEY) {
+            console.warn('WARNING: SUPABASE_SERVICE_KEY not found. Using regular key which may cause permission issues.');
+        }
+        
+        req.supabase = createClient(
+            process.env.SUPABASE_URL,
+            serviceKey,
+            {
+                auth: {
+                    autoRefreshToken: false,
+                    persistSession: false
+                }
+            }
+        );
+
         next();
     } catch (err) {
         console.error('Token verification error:', err.message);

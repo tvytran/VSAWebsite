@@ -2,7 +2,8 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const supabase = require('../supabaseClient');
+const { body, validationResult } = require('express-validator');
+const { supabase, supabaseAdmin } = require('../supabaseClient');
 const auth = require('../middleware/auth');
 const multer = require('multer');
 const path = require('path');
@@ -36,16 +37,38 @@ async function convertHeicToJpeg(buffer) {
   }
 }
 
+// Middleware to handle validation errors
+const handleValidationErrors = (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ success: false, errors: errors.array() });
+    }
+    next();
+};
+
 // @route   POST /api/auth/register
 // @desc    Register a new user
 // @access  Public
-router.post('/register', async (req, res) => {
+router.post(
+    '/register',
+    [
+        body('username', 'Username is required').not().isEmpty().trim().escape(),
+        body('email', 'Please include a valid email').isEmail().normalizeEmail(),
+        body('password', 'Password does not meet requirements.')
+            .isLength({ min: 6 }).withMessage('Password must be at least 6 characters long.')
+            .matches(/[a-z]/).withMessage('Password must contain at least one lowercase letter.')
+            .matches(/[A-Z]/).withMessage('Password must contain at least one uppercase letter.')
+            .matches(/\d/).withMessage('Password must contain at least one number.')
+            .matches(/[^A-Za-z0-9]/).withMessage('Password must contain at least one special character.'),
+    ],
+    handleValidationErrors,
+    async (req, res) => {
     try {
         const { username, email, password, family, role } = req.body;
         console.log('Registration attempt:', { username, email, role, family });
 
         // Check if user already exists
-        const { data: existingUser, error: userError } = await supabase
+        const { data: existingUser, error: userError } = await supabaseAdmin
             .from('users')
             .select('id')
             .eq('email', email)
@@ -85,17 +108,15 @@ router.post('/register', async (req, res) => {
             .single();
         if (insertError) throw insertError;
 
-        // Create JWT token
+        // Create a Supabase-compatible JWT token
         const payload = {
-            user: {
-                id: newUser.id,
-                role: newUser.role
-            }
+            sub: newUser.id,
+            role: newUser.role,
         };
 
         jwt.sign(
             payload,
-            process.env.JWT_SECRET || 'fallback_secret_key',
+            process.env.JWT_SECRET,
             { expiresIn: '24h' },
             (err, token) => {
                 if (err) throw err;
@@ -124,11 +145,18 @@ router.post('/register', async (req, res) => {
 // @route  /api/auth/login
 // @desc    Login user
 // @access  Public
-router.post('/login', async (req, res) => {
+router.post(
+    '/login',
+    [
+        body('email', 'Please include a valid email').isEmail().normalizeEmail(),
+        body('password', 'Password is required').exists(),
+    ],
+    handleValidationErrors,
+    async (req, res) => {
     try {
         const { email, password } = req.body;
-        // Check if user exists
-        const { data: user, error: userError } = await supabase
+        // Check if user exists using the admin client to bypass RLS
+        const { data: user, error: userError } = await supabaseAdmin
             .from('users')
             .select('*')
             .eq('email', email)
@@ -148,16 +176,14 @@ router.post('/login', async (req, res) => {
                 message: 'Invalid credentials' 
             });
         }
-        // Create JWT token
+        // Create a Supabase-compatible JWT token
         const payload = {
-            user: {
-                id: user.id,
-                role: user.role
-            }
+            sub: user.id,
+            role: user.role,
         };
         jwt.sign(
             payload,
-            process.env.JWT_SECRET || 'fallback_secret_key',
+            process.env.JWT_SECRET,
             { expiresIn: '24h' },
             (err, token) => {
                 if (err) throw err;
@@ -186,7 +212,7 @@ router.post('/login', async (req, res) => {
 router.get('/me', auth, async (req, res) => {
     try {
         console.log('Fetching user with id:', req.user.id);
-        const { data: user, error } = await supabase
+        const { data: user, error } = await req.supabase
             .from('users')
             .select('*')
             .eq('id', req.user.id)
@@ -211,8 +237,8 @@ router.put('/profile', auth, upload.single('profilePicture'), async (req, res) =
   try {
     console.log('Token decoded successfully:', req.user);
 
-    // Fetch user from Supabase
-    const { data: user, error: userError } = await supabase
+    // Fetch user from Supabase using the request-scoped client
+    const { data: user, error: userError } = await req.supabase
       .from('users')
       .select('*')
       .eq('id', req.user.id)
@@ -226,7 +252,7 @@ router.put('/profile', auth, upload.single('profilePicture'), async (req, res) =
     if (!req.file) {
       // If no file is uploaded but username is being updated
       if (req.body.username) {
-        const { data: updatedUser, error: updateError } = await supabase
+        const { data: updatedUser, error: updateError } = await req.supabase
           .from('users')
           .update({ username: req.body.username })
           .eq('id', req.user.id)
@@ -256,7 +282,7 @@ router.put('/profile', auth, upload.single('profilePicture'), async (req, res) =
     const fileName = `profiles/${user.id}_${Date.now()}.jpg`;
     console.log('Uploading to Supabase:', fileName);
 
-    const { data, error } = await supabase.storage
+    const { data, error } = await req.supabase.storage
       .from(process.env.SUPABASE_BUCKET)
       .upload(fileName, fileBuffer, {
         contentType: fileMimeType,
@@ -268,7 +294,7 @@ router.put('/profile', auth, upload.single('profilePicture'), async (req, res) =
       return res.status(500).json({ message: error.message });
     }
 
-    const { publicUrl } = supabase.storage
+    const { publicUrl } = req.supabase.storage
       .from(process.env.SUPABASE_BUCKET)
       .getPublicUrl(fileName).data;
     console.log('Supabase public URL:', publicUrl);
@@ -279,7 +305,7 @@ router.put('/profile', auth, upload.single('profilePicture'), async (req, res) =
       updateData.username = req.body.username;
     }
 
-    const { data: updatedUser, error: updateError } = await supabase
+    const { data: updatedUser, error: updateError } = await req.supabase
       .from('users')
       .update(updateData)
       .eq('id', req.user.id)

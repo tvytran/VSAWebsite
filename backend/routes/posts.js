@@ -1,9 +1,9 @@
 const express = require('express');
 const router = express.Router();
 console.log('POSTS ROUTER FILE EXECUTED');
-const { check, validationResult } = require('express-validator');
+const { body, validationResult } = require('express-validator');
 const auth = require('../middleware/auth');
-const supabase = require('../supabaseClient');
+const { supabase, supabaseAdmin } = require('../supabaseClient');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -37,10 +37,30 @@ async function convertHeicToJpeg(buffer) {
   }
 }
 
+// Middleware to handle validation errors, consistent with auth.js
+const handleValidationErrors = (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ success: false, errors: errors.array() });
+    }
+    next();
+};
+
 // @route   POST /api/posts
 // @desc    Create a new post
 // @access  Private
-router.post('/', auth, upload.single('image'), async (req, res) => {
+router.post(
+    '/', 
+    auth, 
+    upload.single('image'), 
+    [
+        body('title', 'Title is required').not().isEmpty().trim().escape(),
+        body('content', 'Content is required').not().isEmpty().trim().escape(),
+        body('type').isIn(['announcement', 'hangout']).withMessage('Invalid post type'),
+        body('pointValue').optional().isInt({ min: 0, max: 13 }).withMessage('Point value must be between 0 and 13'),
+    ],
+    handleValidationErrors,
+    async (req, res) => {
     try {
         console.log('Received post creation request:', {
             body: req.body,
@@ -52,7 +72,7 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
         const { title, type, content, family_id, pointValue } = req.body;
 
         // Check if user exists
-        const { data: user, error: userError } = await supabase
+        const { data: user, error: userError } = await req.supabase
             .from('users')
             .select('id, role, family_id')
             .eq('id', req.user.id)
@@ -80,7 +100,7 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
         console.log('SUPABASE_KEY:', process.env.SUPABASE_KEY ? 'SET' : 'NOT SET');
         console.log('SUPABASE_BUCKET:', process.env.SUPABASE_BUCKET);
         // Check user and family exist
-        const { data: family, error: famError } = await supabase
+        const { data: family, error: famError } = await req.supabase
             .from('families')
             .select('id')
             .eq('id', family_id)
@@ -126,7 +146,7 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
 
             const fileName = `posts/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
 
-            const { data: uploadData, error: uploadError } = await supabase.storage
+            const { data: uploadData, error: uploadError } = await req.supabase.storage
                 .from(process.env.SUPABASE_BUCKET)
                 .upload(fileName, imageBuffer, {
                     contentType: mimeType,
@@ -137,7 +157,7 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
                 throw uploadError;
             }
 
-            const { publicUrl } = supabase.storage
+            const { publicUrl } = req.supabase.storage
                 .from(process.env.SUPABASE_BUCKET)
                 .getPublicUrl(fileName).data;
 
@@ -146,7 +166,7 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
             postData.image_path = publicUrl;
         }
 
-        const { data: newPost, error: postError } = await supabase
+        const { data: newPost, error: postError } = await req.supabase
             .from('posts')
             .insert(postData)
             .select()
@@ -157,7 +177,7 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
         if (type === 'hangout' && postData.point_value > 0) {
             try {
                 // First get the current family points
-                const { data: family, error: familyError } = await supabase
+                const { data: family, error: familyError } = await req.supabase
                     .from('families')
                     .select('total_points, semester_points')
                     .eq('id', family_id)
@@ -166,7 +186,7 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
                 if (familyError) throw familyError;
 
                 // Then update with the new points
-                await supabase
+                await req.supabase
                     .from('families')
                     .update({
                         total_points: (family.total_points || 0) + postData.point_value,
@@ -192,7 +212,7 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
 // @access   Private
 router.get('/feed', auth, async (req, res) => {
     try {
-        const { data: posts, error } = await supabase
+        const { data: posts, error } = await req.supabase
             .from('posts')
             .select(`
                 *,
@@ -222,7 +242,7 @@ router.get('/feed', auth, async (req, res) => {
 // @access   Private
 router.get('/family/:familyId', auth, async (req, res) => {
     try {
-        const { data: posts, error } = await supabase
+        const { data: posts, error } = await req.supabase
             .from('posts')
             .select(`
                 *,
@@ -248,13 +268,12 @@ router.get('/family/:familyId', auth, async (req, res) => {
 });
 
 // @route    GET api/posts/announcements
-// @desc     Get all announcement posts (public)
+// @desc     Get the 3 most recent announcements
 // @access   Public
 router.get('/announcements', async (req, res) => {
-    console.log('--- Received request for /api/posts/announcements ---');
     try {
         console.log('Attempting to fetch announcements from Supabase...');
-        const { data: posts, error } = await supabase
+        const { data: posts, error } = await supabaseAdmin
             .from('posts')
             .select(`
                 *,
@@ -271,7 +290,8 @@ router.get('/announcements', async (req, res) => {
                 )
             `)
             .eq('type', 'announcement')
-            .order('created_at', { ascending: false });
+            .order('created_at', { ascending: false })
+            .limit(3);
 
         if (error) {
             console.error('Supabase error fetching announcements:', error);
@@ -294,7 +314,7 @@ router.get('/announcements', async (req, res) => {
 // @access   Public
 router.get('/public', async (req, res) => {
     try {
-        const { data: posts, error } = await supabase
+        const { data: posts, error } = await supabaseAdmin
             .from('posts')
             .select(`
                 *,
@@ -324,7 +344,7 @@ router.get('/public', async (req, res) => {
 // @access   Public
 router.get('/public/:id', async (req, res) => {
     try {
-        const { data: post, error } = await supabase
+        const { data: post, error } = await supabaseAdmin
             .from('posts')
             .select(`
                 *,
@@ -357,7 +377,7 @@ router.get('/public/:id', async (req, res) => {
 router.get('/all', auth, async (req, res) => {
     try {
         // Check if user is admin
-        const { data: user, error: userError } = await supabase
+        const { data: user, error: userError } = await req.supabase
             .from('users')
             .select('role')
             .eq('id', req.user.id)
@@ -366,7 +386,7 @@ router.get('/all', auth, async (req, res) => {
         if (!user || user.role !== 'admin') {
             return res.status(403).json({ success: false, message: 'Authorization denied. Admin access required.' });
         }
-        const { data: posts, error } = await supabase
+        const { data: posts, error } = await req.supabase
             .from('posts')
             .select(`
                 *,
@@ -395,7 +415,7 @@ router.get('/all', auth, async (req, res) => {
 // @access   Private
 router.get('/:id', auth, async (req, res) => {
     try {
-        const { data: post, error } = await supabase
+        const { data: post, error } = await req.supabase
             .from('posts')
             .select(`
                 *,
@@ -427,7 +447,7 @@ router.get('/:id', auth, async (req, res) => {
 router.delete('/:id', auth, async (req, res) => {
     try {
         // Fetch the post to get its type, point_value, and family_id
-        const { data: post, error: postError } = await supabase
+        const { data: post, error: postError } = await req.supabase
             .from('posts')
             .select('id, type, point_value, family_id, author_id')
             .eq('id', req.params.id)
@@ -443,7 +463,7 @@ router.delete('/:id', auth, async (req, res) => {
         // If it's a hangout with points, subtract from family
         if (post.type === 'hangout' && post.point_value > 0 && post.family_id) {
             // Get current family points
-            const { data: family, error: familyError } = await supabase
+            const { data: family, error: familyError } = await req.supabase
                 .from('families')
                 .select('total_points, semester_points')
                 .eq('id', post.family_id)
@@ -451,7 +471,7 @@ router.delete('/:id', auth, async (req, res) => {
             if (familyError) throw familyError;
 
             // Subtract points
-            await supabase
+            await req.supabase
                 .from('families')
                 .update({
                     total_points: Math.max(0, (family.total_points || 0) - post.point_value),
@@ -461,7 +481,7 @@ router.delete('/:id', auth, async (req, res) => {
         }
 
         // Delete the post
-        const { error } = await supabase
+        const { error } = await req.supabase
             .from('posts')
             .delete()
             .eq('id', req.params.id);
@@ -479,7 +499,7 @@ router.delete('/:id', auth, async (req, res) => {
 router.put('/like/:id', auth, async (req, res) => {
   try {
     // Fetch the latest likes array
-    const { data: post, error: fetchError } = await supabase
+    const { data: post, error: fetchError } = await req.supabase
       .from('posts')
       .select('likes')
       .eq('id', req.params.id)
@@ -498,7 +518,7 @@ router.put('/like/:id', auth, async (req, res) => {
     const updatedLikes = [...likes, { user: req.user.id }];
 
     // Update the post with the new likes array
-    const { error: updateError } = await supabase
+    const { error: updateError } = await req.supabase
       .from('posts')
       .update({
         likes: updatedLikes,
@@ -509,7 +529,7 @@ router.put('/like/:id', auth, async (req, res) => {
     if (updateError) throw updateError;
 
     // Re-fetch the post to get the latest likes array
-    const { data: latestPost, error: latestError } = await supabase
+    const { data: latestPost, error: latestError } = await req.supabase
       .from('posts')
       .select('likes')
       .eq('id', req.params.id)
@@ -530,7 +550,7 @@ router.put('/like/:id', auth, async (req, res) => {
 router.put('/unlike/:id', auth, async (req, res) => {
   try {
     // Fetch the latest likes array
-    const { data: post, error: fetchError } = await supabase
+    const { data: post, error: fetchError } = await req.supabase
       .from('posts')
       .select('likes')
       .eq('id', req.params.id)
@@ -549,7 +569,7 @@ router.put('/unlike/:id', auth, async (req, res) => {
     );
 
     // Update the post with the new likes array
-    const { error: updateError } = await supabase
+    const { error: updateError } = await req.supabase
       .from('posts')
       .update({
         likes: updatedLikes,
@@ -560,7 +580,7 @@ router.put('/unlike/:id', auth, async (req, res) => {
     if (updateError) throw updateError;
 
     // Re-fetch the post to get the latest likes array
-    const { data: latestPost, error: latestError } = await supabase
+    const { data: latestPost, error: latestError } = await req.supabase
       .from('posts')
       .select('likes')
       .eq('id', req.params.id)
@@ -581,16 +601,14 @@ router.put('/unlike/:id', auth, async (req, res) => {
 router.post(
   '/comment/:id',
   auth,
-  check('text', 'Text is required').not().isEmpty(),
+  [
+    body('text', 'Comment text cannot be empty').not().isEmpty().trim().escape(),
+  ],
+  handleValidationErrors,
   async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
-
     try {
       // Get user information including profile picture
-      const { data: userData, error: userError } = await supabase
+      const { data: userData, error: userError } = await req.supabase
         .from('users')
         .select('id, username, profile_picture')
         .eq('id', req.user.id)
@@ -602,7 +620,7 @@ router.post(
       }
 
       // Get post and its comments
-      const { data: post, error: postError } = await supabase
+      const { data: post, error: postError } = await req.supabase
         .from('posts')
         .select('comments')
         .eq('id', req.params.id)
@@ -623,7 +641,7 @@ router.post(
         created_at: new Date().toISOString()
       };
 
-      const { data: updatedPost, error: updateError } = await supabase
+      const { data: updatedPost, error: updateError } = await req.supabase
         .from('posts')
         .update({
           comments: [...comments, newComment],
@@ -646,7 +664,9 @@ router.post(
 // @route    PUT api/posts/comment/:id/:comment_id
 // @desc     Edit a comment
 // @access   Private
-router.put('/comment/:id/:comment_id', auth, async (req, res) => {
+router.put('/comment/:id/:comment_id', auth, [
+    body('text', 'Comment text cannot be empty').not().isEmpty().trim().escape(),
+], handleValidationErrors, async (req, res) => {
   try {
     const { text } = req.body;
     if (!text || !text.trim()) {
@@ -654,7 +674,7 @@ router.put('/comment/:id/:comment_id', auth, async (req, res) => {
     }
 
     // Get post and its comments
-    const { data: post, error: postError } = await supabase
+    const { data: post, error: postError } = await req.supabase
       .from('posts')
       .select('comments')
       .eq('id', req.params.id)
@@ -685,7 +705,7 @@ router.put('/comment/:id/:comment_id', auth, async (req, res) => {
       updated_at: new Date().toISOString()
     };
 
-    const { data: updatedPost, error: updateError } = await supabase
+    const { data: updatedPost, error: updateError } = await req.supabase
       .from('posts')
       .update({
         comments: comments,
@@ -709,7 +729,7 @@ router.put('/comment/:id/:comment_id', auth, async (req, res) => {
 // @access   Private
 router.delete('/comment/:id/:comment_id', auth, async (req, res) => {
   try {
-    const { data: post, error: postError } = await supabase
+    const { data: post, error: postError } = await req.supabase
       .from('posts')
       .select('comments')
       .eq('id', req.params.id)
@@ -734,7 +754,7 @@ router.delete('/comment/:id/:comment_id', auth, async (req, res) => {
 
     const updatedComments = comments.filter(c => c.id !== req.params.comment_id);
 
-    const { data: updatedPost, error: updateError } = await supabase
+    const { data: updatedPost, error: updateError } = await req.supabase
       .from('posts')
       .update({
         comments: updatedComments,
@@ -779,24 +799,21 @@ router.put(
   '/:id',
   auth,
   [
-    // Optional validation for title and content if they are editable
-    // check('title', 'Title is required').not().isEmpty(),
-    // check('content', 'Content is required').not().isEmpty(),
+    body('title', 'Title is required').optional().not().isEmpty().trim().escape(),
+    body('content', 'Content is required').optional().not().isEmpty().trim().escape(),
+    body('pointValue').optional().isInt({ min: 0, max: 13 }).withMessage('Point value must be between 0 and 13'),
   ],
+  handleValidationErrors,
   async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
-
-    const { title, content, pointValue } = req.body; // Include pointValue
+    const { id } = req.params;
+    const { title, content, pointValue } = req.body;
 
     try {
       // Only select the fields we need
-      const { data: post, error: fetchError } = await supabase
+      const { data: post, error: fetchError } = await req.supabase
         .from('posts')
         .select('id, author_id, type, point_value, family_id')
-        .eq('id', req.params.id)
+        .eq('id', id)
         .single();
 
       if (fetchError) throw fetchError;
@@ -838,7 +855,7 @@ router.put(
               if (pointDifference !== 0 && post.family_id) {
                   try {
                       // First get the current family points
-                      const { data: family, error: familyError } = await supabase
+                      const { data: family, error: familyError } = await req.supabase
                           .from('families')
                           .select('total_points, semester_points')
                           .eq('id', post.family_id)
@@ -847,7 +864,7 @@ router.put(
                       if (familyError) throw familyError;
 
                       // Then update with the new points
-                      await supabase
+                      await req.supabase
                           .from('families')
                           .update({
                               total_points: (family.total_points || 0) + pointDifference,
@@ -866,10 +883,10 @@ router.put(
       }
 
       // Update the post with only the fields we want to change
-      const { data: updatedPost, error: updateError } = await supabase
+      const { data: updatedPost, error: updateError } = await req.supabase
         .from('posts')
         .update(updateData)
-        .eq('id', req.params.id)
+        .eq('id', id)
         .select(`
           id,
           title,
@@ -911,7 +928,7 @@ router.get('/user/:userId', auth, async (req, res) => {
     const { userId } = req.params;
 
     // First, get all regular posts
-    const { data: regularPosts, error: regularError } = await supabase
+    const { data: regularPosts, error: regularError } = await req.supabase
       .from('posts')
       .select(`
         *,
@@ -932,7 +949,7 @@ router.get('/user/:userId', auth, async (req, res) => {
     if (regularError) throw regularError;
 
     // Then, get only the three most recent announcements
-    const { data: announcements, error: announcementError } = await supabase
+    const { data: announcements, error: announcementError } = await req.supabase
       .from('posts')
       .select(`
         *,

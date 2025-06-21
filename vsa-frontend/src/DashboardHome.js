@@ -520,11 +520,22 @@ function DashboardHome() {
         <div className="w-full max-w-2xl text-center mb-6">
           <h2 className="text-2xl font-bold text-[#b32a2a] mb-4">Welcome, Guest!</h2>
           <p className="text-gray-700 mb-4">Explore the VSA community and see what we're all about.</p>
+          <div className="bg-gray-100 border border-gray-200 rounded-lg p-4 mb-4">
+            <p className="text-gray-800 mb-3">Want to join the conversation? Register to like, comment, and create posts!</p>
+            <div className="flex gap-3 justify-center">
+              <Link to="/register" className="px-4 py-2 bg-[#b32a2a] text-white rounded-lg hover:bg-[#8a1f1f] transition duration-200">
+                Register Now
+              </Link>
+              <Link to="/login" className="px-4 py-2 bg-white border-2 border-[#b32a2a] text-[#b32a2a] rounded-lg hover:bg-[#f5e6d6] transition duration-200">
+                Login
+              </Link>
+            </div>
+          </div>
         </div>
       )}
 
       {/* Search Bar */}
-      {(isLoggedIn || isGuest) && (
+      {isLoggedIn && (
       <div className="w-full max-w-2xl flex items-center mb-6 relative">
         <div className="relative flex-1">
           <input
@@ -660,7 +671,7 @@ function DashboardHome() {
             <div className="text-center text-gray-600 text-lg py-8">No posts yet.</div>
           ) : (
             <div className="space-y-6">
-              {posts.map((post) => (
+              {(isGuest ? posts.slice(0, 4) : posts).map((post) => (
                 <div 
                   key={post.id} 
                   className="bg-white rounded-lg shadow-md overflow-hidden cursor-pointer hover:shadow-lg transition-shadow duration-200"
@@ -690,7 +701,7 @@ function DashboardHome() {
                           </p>
                         </div>
                       </div>
-                      {post.family_name && (
+                      {post.family_name && isLoggedIn && (
                         <span className="px-3 py-1 bg-[#b32a2a] text-white text-sm rounded-full">
                           {post.family_name}
                         </span>
@@ -715,9 +726,14 @@ function DashboardHome() {
                       </div>
                     )}
 
-                    <p className="text-gray-700 mb-4 line-clamp-3">{post.content}</p>
+                    <p className="text-gray-700 mb-4 line-clamp-3">
+                      {isGuest && post.content.length > 200 
+                        ? `${post.content.substring(0, 200)}...` 
+                        : post.content
+                      }
+                    </p>
 
-                    {post.point_value > 0 && (
+                    {post.point_value > 0 && isLoggedIn && (
                       <div className="mb-4">
                         <span className="inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-semibold">
                           {post.point_value} pts
@@ -764,6 +780,23 @@ function DashboardHome() {
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Guest Post Limit Message */}
+      {isGuest && posts.length > 4 && (
+        <div className="w-full max-w-2xl mt-6 text-center">
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+            <p className="text-gray-700 mb-3">Register to see all posts and join the conversation!</p>
+            <div className="flex gap-3 justify-center">
+              <Link to="/register" className="px-4 py-2 bg-[#b32a2a] text-white rounded-lg hover:bg-[#8a1f1f] transition duration-200">
+                Register Now
+              </Link>
+              <Link to="/login" className="px-4 py-2 bg-white border-2 border-[#b32a2a] text-[#b32a2a] rounded-lg hover:bg-[#f5e6d6] transition duration-200">
+                Login
+              </Link>
+            </div>
+          </div>
         </div>
       )}
 

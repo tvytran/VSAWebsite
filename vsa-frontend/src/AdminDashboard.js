@@ -36,6 +36,8 @@ function AdminDashboard() {
   const [editFamilyDescription, setEditFamilyDescription] = useState('');
   const [editFamilyError, setEditFamilyError] = useState('');
   const [editFamilyLoading, setEditFamilyLoading] = useState(false);
+  const [selectedFamilyFile, setSelectedFamilyFile] = useState(null);
+  const [deleteFamilyPhoto, setDeleteFamilyPhoto] = useState(false);
 
   const [userSearchTerm, setUserSearchTerm] = useState(() => localStorage.getItem('adminDashboardUserSearch') || '');
   const [postSearchTerm, setPostSearchTerm] = useState(() => localStorage.getItem('adminDashboardPostSearch') || '');
@@ -333,6 +335,8 @@ function AdminDashboard() {
     setEditFamilyName(family.name);
     setEditFamilyDescription(family.description || '');
     setEditFamilyError('');
+    setSelectedFamilyFile(null);
+    setDeleteFamilyPhoto(false);
   };
 
   const cancelEditFamily = () => {
@@ -341,6 +345,13 @@ function AdminDashboard() {
     setEditFamilyDescription('');
     setEditFamilyError('');
     setEditFamilyLoading(false);
+    setSelectedFamilyFile(null);
+    setDeleteFamilyPhoto(false);
+  };
+
+  const handleFamilyFileChange = (event) => {
+    setSelectedFamilyFile(event.target.files[0]);
+    setEditFamilyError('');
   };
 
   const handleEditFamily = async (e) => {
@@ -356,13 +367,28 @@ function AdminDashboard() {
       console.log('Updating family:', {
         id: editingFamilyId,
         name: editFamilyName,
+        hasFile: !!selectedFamilyFile,
         currentFamily: families.find(f => f.id === editingFamilyId)
       });
 
-      const res = await api.put(`/api/families/${editingFamilyId}`, {
-        name: editFamilyName
-      }, {
-        headers: { 'x-auth-token': token }
+      // Create FormData for file upload
+      const formData = new FormData();
+      formData.append('name', editFamilyName);
+      if (editFamilyDescription) {
+        formData.append('description', editFamilyDescription);
+      }
+      if (selectedFamilyFile) {
+        formData.append('familyPicture', selectedFamilyFile);
+      }
+      if (deleteFamilyPhoto) {
+        formData.append('deletePhoto', 'true');
+      }
+
+      const res = await api.put(`/api/families/${editingFamilyId}`, formData, {
+        headers: { 
+          'x-auth-token': token,
+          'Content-Type': 'multipart/form-data'
+        }
       });
 
       if (!res.data.success) {
@@ -374,7 +400,9 @@ function AdminDashboard() {
         if (family.id === editingFamilyId) {
           return {
             ...family,
-            name: editFamilyName
+            name: editFamilyName,
+            description: editFamilyDescription,
+            family_picture: deleteFamilyPhoto ? null : (res.data.family.family_picture || family.family_picture)
           };
         }
         return family;
@@ -383,6 +411,9 @@ function AdminDashboard() {
       // Reset edit state
       setEditingFamilyId(null);
       setEditFamilyName('');
+      setEditFamilyDescription('');
+      setSelectedFamilyFile(null);
+      setDeleteFamilyPhoto(false);
       setEditFamilyError('');
     } catch (err) {
       console.error('Error updating family:', err);
@@ -690,13 +721,64 @@ function AdminDashboard() {
                           {editingFamilyId === family.id ? (
                             <>
                               <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm sm:pl-6 w-[30%]">
-                                <input
-                                  type="text"
-                                  value={editFamilyName}
-                                  onChange={(e) => setEditFamilyName(e.target.value)}
-                                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-1"
-                                  disabled={editFamilyLoading}
-                                />
+                                <div className="space-y-2">
+                                  <input
+                                    type="text"
+                                    value={editFamilyName}
+                                    onChange={(e) => setEditFamilyName(e.target.value)}
+                                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-1"
+                                    disabled={editFamilyLoading}
+                                    placeholder="Family name"
+                                  />
+                                  <textarea
+                                    value={editFamilyDescription}
+                                    onChange={(e) => setEditFamilyDescription(e.target.value)}
+                                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-1"
+                                    disabled={editFamilyLoading}
+                                    placeholder="Family description (optional)"
+                                    rows="2"
+                                  />
+                                  <div className="space-y-1">
+                                    <label className="block text-xs font-medium text-gray-700">
+                                      Family Photo:
+                                    </label>
+                                    <input
+                                      type="file"
+                                      accept="image/*,.heic,.heif"
+                                      onChange={handleFamilyFileChange}
+                                      className="block w-full text-xs text-gray-500 file:mr-4 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-[#b32a2a] file:text-white hover:file:bg-[#8a1f1f]"
+                                      disabled={editFamilyLoading}
+                                    />
+                                    {selectedFamilyFile && (
+                                      <div className="text-xs text-gray-600">
+                                        Selected: {selectedFamilyFile.name}
+                                      </div>
+                                    )}
+                                    {(family.family_picture || selectedFamilyFile) && (
+                                      <div className="mt-2">
+                                        <img
+                                          src={selectedFamilyFile ? URL.createObjectURL(selectedFamilyFile) : family.family_picture}
+                                          alt="Family preview"
+                                          className="w-12 h-12 object-cover rounded border"
+                                        />
+                                      </div>
+                                    )}
+                                    {family.family_picture && !selectedFamilyFile && (
+                                      <div className="mt-2 flex items-center space-x-2">
+                                        <label className="flex items-center space-x-1 text-xs text-red-600">
+                                          <input
+                                            type="checkbox"
+                                            checked={deleteFamilyPhoto}
+                                            onChange={(e) => setDeleteFamilyPhoto(e.target.checked)}
+                                            className="rounded border-gray-300 text-red-600 focus:ring-red-500"
+                                            disabled={editFamilyLoading}
+                                          />
+                                          <span>Delete current photo</span>
+                                        </label>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
                               </td>
                               <td className="whitespace-nowrap px-3 py-4 text-sm w-[15%]">
                                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
@@ -710,29 +792,54 @@ function AdminDashboard() {
                                 {renderFamilyPoints(family)}
                               </td>
                               <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6 w-[20%]">
-                                <div className="flex justify-end space-x-4">
-                                  <button
-                                    onClick={handleEditFamily}
-                                    className="text-indigo-600 hover:text-indigo-900 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    disabled={editFamilyLoading}
-                                  >
-                                    {editFamilyLoading ? 'Saving...' : 'Save'}
-                                  </button>
-                                  <button
-                                    onClick={cancelEditFamily}
-                                    className="text-gray-600 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    disabled={editFamilyLoading}
-                                  >
-                                    Cancel
-                                  </button>
+                                <div className="flex flex-col items-end space-y-2">
+                                  {editFamilyError && (
+                                    <div className="text-red-600 text-xs text-right max-w-xs">
+                                      {editFamilyError}
+                                    </div>
+                                  )}
+                                  <div className="flex justify-end space-x-4">
+                                    <button
+                                      onClick={handleEditFamily}
+                                      className="text-indigo-600 hover:text-indigo-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                                      disabled={editFamilyLoading}
+                                    >
+                                      {editFamilyLoading ? 'Saving...' : 'Save'}
+                                    </button>
+                                    <button
+                                      onClick={cancelEditFamily}
+                                      className="text-gray-600 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                                      disabled={editFamilyLoading}
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
                                 </div>
                               </td>
                             </>
                           ) : (
                             <>
                               <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm sm:pl-6 w-[30%]">
-                                <div className="font-medium text-gray-900">{family.name || 'Unnamed Family'}</div>
-                                <div className="text-gray-500 text-xs">Created {new Date(family.created_at).toLocaleDateString()}</div>
+                                <div className="flex items-center space-x-3">
+                                  {family.family_picture ? (
+                                    <img
+                                      src={family.family_picture}
+                                      alt={family.name}
+                                      className="w-10 h-10 object-cover rounded-full border-2 border-[#b32a2a]"
+                                    />
+                                  ) : (
+                                    <div className="w-10 h-10 rounded-full bg-[#b32a2a] flex items-center justify-center text-white text-sm font-bold border-2 border-[#b32a2a]">
+                                      {family.name?.charAt(0).toUpperCase()}
+                                    </div>
+                                  )}
+                                  <div>
+                                    <div className="font-medium text-gray-900">{family.name || 'Unnamed Family'}</div>
+                                    <div className="text-gray-500 text-xs">Created {new Date(family.created_at).toLocaleDateString()}</div>
+                                    {family.description && (
+                                      <div className="text-gray-500 text-xs mt-1">{family.description}</div>
+                                    )}
+                                  </div>
+                                </div>
                               </td>
                               <td className="whitespace-nowrap px-3 py-4 text-sm w-[15%]">
                                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">

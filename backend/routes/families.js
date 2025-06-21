@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const supabase = require('../supabaseClient');
+const { supabase, supabaseAdmin } = require('../supabaseClient');
 const auth = require('../middleware/auth');
 const multer = require('multer');
 const path = require('path');
@@ -72,7 +72,7 @@ router.post('/', auth, async (req, res) => {
 // @access  Public
 router.get('/', async (req, res) => {
     try {
-        const { data: families, error } = await supabase
+        const { data: families, error } = await supabaseAdmin
             .from('families')
             .select('*');
         if (error) throw error;
@@ -89,7 +89,7 @@ router.get('/', async (req, res) => {
 router.get('/leaderboard', async (req, res) => {
     try {
         // First get all families with their points
-        const { data: families, error } = await supabase
+        const { data: families, error } = await supabaseAdmin
             .from('families')
             .select(`
                 *,
@@ -123,7 +123,7 @@ router.get('/leaderboard', async (req, res) => {
 // @access  Public
 router.get('/:id', async (req, res) => {
     try {
-        const { data: family, error } = await supabase
+        const { data: family, error } = await supabaseAdmin
             .from('families')
             .select('*')
             .eq('id', req.params.id)
@@ -133,7 +133,7 @@ router.get('/:id', async (req, res) => {
             return res.status(404).json({ success: false, message: 'Family not found' });
         }
         // Get members (users with this family_id)
-        const { data: members, error: membersError } = await supabase
+        const { data: members, error: membersError } = await supabaseAdmin
             .from('users')
             .select('id, username, email')
             .eq('family_id', req.params.id);
@@ -164,7 +164,7 @@ router.put('/:id', auth, upload.single('familyPicture'), async (req, res) => {
     // If user is admin, allow update without membership check
     if (req.user.role !== 'admin') {
       // For non-admin users, check if they are a member
-      const { data: user, error: userError } = await supabase
+      const { data: user, error: userError } = await req.supabase
         .from('users')
         .select('id')
         .eq('id', req.user.id)
@@ -183,11 +183,16 @@ router.put('/:id', auth, upload.single('familyPicture'), async (req, res) => {
     const updateFields = {};
     if (req.body.name) updateFields.name = req.body.name;
     if (req.body.description) updateFields.description = req.body.description;
-    if (req.file) {
+    
+    // Handle photo deletion
+    if (req.body.deletePhoto === 'true') {
+      updateFields.family_picture = null;
+      console.log('Photo deletion requested for family:', req.params.id);
+    } else if (req.file) {
       // Handle file upload if present
       const fileName = `families/${req.params.id}_${Date.now()}.jpg`;
-      const { data: fileData, error: fileError } = await supabase.storage
-        .from('family-pictures')
+      const { data: fileData, error: fileError } = await req.supabase.storage
+        .from(process.env.SUPABASE_BUCKET)
         .upload(fileName, req.file.buffer, {
           contentType: req.file.mimetype,
           upsert: true
@@ -195,15 +200,15 @@ router.put('/:id', auth, upload.single('familyPicture'), async (req, res) => {
       
       if (fileError) throw fileError;
       
-      const { data: { publicUrl } } = supabase.storage
-        .from('family-pictures')
+      const { data: { publicUrl } } = req.supabase.storage
+        .from(process.env.SUPABASE_BUCKET)
         .getPublicUrl(fileName);
       
       updateFields.family_picture = publicUrl;
     }
 
     // Update the family
-    const { data: updatedFamily, error: updateError } = await supabase
+    const { data: updatedFamily, error: updateError } = await req.supabase
       .from('families')
       .update(updateFields)
       .eq('id', req.params.id)
@@ -225,7 +230,7 @@ router.put('/:id', auth, upload.single('familyPicture'), async (req, res) => {
     console.log('Family updated successfully:', updatedFamily);
 
     // Fetch family members separately
-    const { data: members, error: membersError } = await supabase
+    const { data: members, error: membersError } = await req.supabase
       .from('users')
       .select('id, username, email, profile_picture')
       .eq('family_id', req.params.id);
@@ -260,7 +265,7 @@ router.delete('/:id', auth, async (req, res) => {
         if (req.user.role !== 'admin') {
             return res.status(403).json({ success: false, message: 'Only administrators can delete families' });
         }
-        const { data, error } = await supabase
+        const { data, error } = await req.supabase
             .from('families')
             .delete()
             .eq('id', req.params.id);

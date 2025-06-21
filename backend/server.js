@@ -1,9 +1,14 @@
 // Vercel deployment test - Updated for deployment
 const express = require('express'); //importing express
 const cors = require('cors'); //importing cors
+const helmet = require('helmet'); // Import helmet
+const rateLimit = require('express-rate-limit'); // Import rate-limit
 require('dotenv').config(); //importing dotenv
 
 const app = express(); //creating express app
+
+// Use helmet for security headers
+app.use(helmet());
 
 const port = process.env.PORT || 5001; //setting port
 
@@ -19,6 +24,19 @@ app.use(cors({
 app.use(express.json()); //using express.json
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public')); // Serve static files from the 'public' directory
+
+// Rate limiting to prevent brute-force attacks
+const authLimiter = rateLimit({
+	windowMs: 15 * 60 * 1000, // 15 minutes
+	max: 100, // Limit each IP to 100 requests per windowMs
+	standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+	legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+    message: 'Too many requests from this IP, please try again after 15 minutes',
+});
+
+// Apply the rate limiter to authentication routes
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/register', authLimiter);
 
 // Import Supabase client
 const supabase = require('./supabaseClient');
@@ -39,6 +57,7 @@ const auth = require('./middleware/auth');
 // Apply auth middleware to routes that require it
 app.use('/api/users', auth, userRoutes);
 app.use('/api/auth', (req, res, next) => {
+    // The rate limiter has already been applied to /login and /register
     // Skip auth middleware for login and register routes
     if (req.path === '/login' || req.path === '/register') {
         return next();
