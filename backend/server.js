@@ -14,13 +14,24 @@ const port = process.env.PORT || 5001; //setting port
 
 const allowedOrigins = [
   'http://localhost:3000',
-  'https://anhchiem.vercel.app'
+  'https://anhchiem.vercel.app',
+  'https://vsa-website.vercel.app',
+  'https://vsawebsite.vercel.app'
 ];
-app.use(cors({
-  origin: allowedOrigins,
-  credentials: true
-}));
-//
+
+// In production, allow all origins for custom domains
+const corsOptions = process.env.NODE_ENV === 'production' 
+  ? {
+      origin: true, // Allow all origins in production
+      credentials: true
+    }
+  : {
+      origin: allowedOrigins,
+      credentials: true
+    };
+
+app.use(cors(corsOptions));
+
 app.use(express.json()); //using express.json
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public')); // Serve static files from the 'public' directory
