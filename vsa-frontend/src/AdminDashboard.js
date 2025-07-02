@@ -2,6 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import api from './api';
 import MainLayout from './MainLayout';
 import { useNavigate, Link } from 'react-router-dom';
+import { supabase } from './supabaseClient';
+import { useAuth } from './AuthContext';
+
 export const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
 function AdminDashboard() {
@@ -13,7 +16,7 @@ function AdminDashboard() {
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState(() => localStorage.getItem('adminDashboardActiveTab') || 'users');
   const navigate = useNavigate();
-  const [token] = useState(() => localStorage.getItem('token'));
+  const { isLoggedIn, user, loading: authLoading } = useAuth();
   const scrollRestored = useRef(false);
   const [currentUser, setCurrentUser] = useState(null);
 
@@ -47,8 +50,8 @@ function AdminDashboard() {
   const filteredUsers = users.filter(user => {
     const term = userSearchTerm.toLowerCase();
     return (
-      user.username.toLowerCase().includes(term) ||
-      user.email.toLowerCase().includes(term)
+      (user.username && user.username.toLowerCase().includes(term)) ||
+      (user.email && user.email.toLowerCase().includes(term))
     );
   });
 
@@ -66,15 +69,17 @@ function AdminDashboard() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const token = localStorage.getItem('token');
-        if (!token) {
+        if (!isLoggedIn) {
           navigate('/login');
           return;
         }
 
         // Fetch current user data first
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        console.log('AdminDashboard token:', token);
         const meRes = await api.get('/api/auth/me', {
-          headers: { 'x-auth-token': token }
+          headers: { 'Authorization': `Bearer ${token}` }
         });
         setCurrentUser(meRes.data.user);
 
@@ -88,22 +93,22 @@ function AdminDashboard() {
 
         // Fetch users
         const usersRes = await api.get('/api/users', {
-          headers: { 'x-auth-token': token }
+          headers: { 'Authorization': `Bearer ${token}` }
         });
         setUsers(usersRes.data.users || []);
         // Fetch families
         const familiesRes = await api.get('/api/families', {
-          headers: { 'x-auth-token': token }
+          headers: { 'Authorization': `Bearer ${token}` }
         });
         setFamilies(familiesRes.data.families || []);
         // Fetch announcements
         const announcementsRes = await api.get('/api/posts/announcements', {
-           headers: { 'x-auth-token': token }
+           headers: { 'Authorization': `Bearer ${token}` }
         });
         setAnnouncements(announcementsRes.data.posts || []);
         // Fetch all posts for admin view
         const allPostsRes = await api.get('/api/posts/all', {
-           headers: { 'x-auth-token': token }
+           headers: { 'Authorization': `Bearer ${token}` }
         });
         setAllPosts(allPostsRes.data.posts || []);
         setLoading(false);
@@ -116,14 +121,15 @@ function AdminDashboard() {
       }
     };
     fetchData();
-  }, [navigate]);
+  }, [navigate, isLoggedIn]);
 
   const handleDeleteUser = async (userId) => {
     if (!window.confirm('Are you sure you want to delete this user?')) return;
     try {
-      const token = localStorage.getItem('token');
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
       await api.delete(`/api/users/${userId}`, {
-        headers: { 'x-auth-token': token }
+        headers: { 'Authorization': `Bearer ${token}` }
       });
       setUsers(users.filter(user => user.id !== userId));
     } catch (err) {
@@ -140,9 +146,10 @@ function AdminDashboard() {
     }
     if (!window.confirm('Are you sure you want to delete this family? This will also remove all associated posts and files.')) return;
     try {
-      const token = localStorage.getItem('token');
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
       await api.delete(`/api/families/${familyId}`, {
-        headers: { 'x-auth-token': token }
+        headers: { 'Authorization': `Bearer ${token}` }
       });
       setFamilies(families.filter(family => family.id !== familyId));
       console.log(`Family ${familyId} deleted successfully from state.`);
@@ -155,9 +162,10 @@ function AdminDashboard() {
   const handleDeleteAnnouncement = async (announcementId) => {
     if (!window.confirm('Are you sure you want to delete this announcement?')) return;
     try {
-      const token = localStorage.getItem('token');
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
       await api.delete(`/api/posts/${announcementId}`, {
-        headers: { 'x-auth-token': token }
+        headers: { 'Authorization': `Bearer ${token}` }
       });
       setAnnouncements(announcements.filter(announcement => announcement.id !== announcementId));
     } catch (err) {
@@ -168,9 +176,10 @@ function AdminDashboard() {
   const handleDeletePost = async (postId) => {
     if (!window.confirm('Are you sure you want to delete this post?')) return;
     try {
-      const token = localStorage.getItem('token');
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
       await api.delete(`/api/posts/${postId}`, {
-        headers: { 'x-auth-token': token }
+        headers: { 'Authorization': `Bearer ${token}` }
       });
       setAllPosts(allPosts.filter(post => post.id !== postId));
     } catch (err) {
@@ -199,7 +208,8 @@ function AdminDashboard() {
 
   const handleEditPost = async (e) => {
     e.preventDefault();
-    const token = localStorage.getItem('token');
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
     if (!token) {
       setEditError('No authentication token found');
       return;
@@ -219,7 +229,7 @@ function AdminDashboard() {
         updateData.pointValue = points;
       }
       const res = await api.put(`/api/posts/${editingPostId}`, updateData, {
-        headers: { 'x-auth-token': token }
+        headers: { 'Authorization': `Bearer ${token}` }
       });
       if (!res.data.success) {
         throw new Error(res.data.message || 'Failed to update post');
@@ -266,7 +276,8 @@ function AdminDashboard() {
     setEditUserError('');
     setEditLoading(true);
     try {
-      const token = localStorage.getItem('token');
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
       if (!token) {
         throw new Error('No authentication token found');
       }
@@ -279,7 +290,7 @@ function AdminDashboard() {
           const roleRes = await api.put(`/api/users/${editingUserId}/role`, {
             role: editUserRole
           }, {
-            headers: { 'x-auth-token': token }
+            headers: { 'Authorization': `Bearer ${token}` }
           });
           console.log('Role update response:', roleRes.data);
           if (!roleRes.data.success) {
@@ -310,7 +321,7 @@ function AdminDashboard() {
             userId: editingUserId,
             familyCode: familyCode
           }, {
-            headers: { 'x-auth-token': token }
+            headers: { 'Authorization': `Bearer ${token}` }
           });
           console.log('Family update response:', familyRes.data);
 
@@ -383,7 +394,8 @@ function AdminDashboard() {
     setEditFamilyError('');
     setEditFamilyLoading(true);
     try {
-      const token = localStorage.getItem('token');
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
       if (!token) {
         throw new Error('No authentication token found');
       }
@@ -410,7 +422,7 @@ function AdminDashboard() {
 
       const res = await api.put(`/api/families/${editingFamilyId}`, formData, {
         headers: { 
-          'x-auth-token': token,
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'multipart/form-data'
         }
       });

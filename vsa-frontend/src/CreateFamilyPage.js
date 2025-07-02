@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import MainLayout from './MainLayout';
 import api from './api';
 import { useNavigate, Link } from 'react-router-dom';
+import { supabase } from './supabaseClient';
+import { useAuth } from './AuthContext';
 
 function CreateFamilyPage() {
   const [formData, setFormData] = useState({
@@ -14,17 +16,17 @@ function CreateFamilyPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const navigate = useNavigate();
+  const { isLoggedIn, user, loading: authLoading } = useAuth();
 
   useEffect(() => {
     const checkAdminStatus = async () => {
       try {
-        const token = localStorage.getItem('token');
-        if (!token) {
-          navigate('/login');
-          return;
-        }
+        if (!isLoggedIn || !user) return; // Wait for auth
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        console.log('Token used for /api/auth/me:', token);
         const res = await api.get('/api/auth/me', {
-          headers: { 'x-auth-token': token }
+          headers: { 'Authorization': `Bearer ${token}` }
         });
         if (res.data.user.role !== 'admin') {
           navigate('/dashboard');
@@ -42,7 +44,7 @@ function CreateFamilyPage() {
       }
     };
     checkAdminStatus();
-  }, [navigate]);
+  }, [navigate, isLoggedIn, user]);
 
   const { name, description } = formData;
 
@@ -55,7 +57,8 @@ function CreateFamilyPage() {
     setError('');
     setSuccessData(null);
     try {
-      const token = localStorage.getItem('token');
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
       const config = {
         headers: {
           'Content-Type': 'application/json',

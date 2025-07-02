@@ -96,6 +96,7 @@ router.get('/:userId/groups', auth, async (req, res) => {
 // @access  Private (Admin only)
 router.delete('/:userId', auth, async (req, res) => {
     try {
+        console.log('Delete user request by:', req.user); // Debug log
         // Check if the user is an admin
         if (req.user.role !== 'admin') {
             return res.status(403).json({ success: false, message: 'Access denied. Admin only.' });

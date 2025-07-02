@@ -4,10 +4,11 @@ import { Link, useNavigate } from 'react-router-dom';
 import MainLayout from './MainLayout';
 import ImageCropperModal from './components/ImageCropperModal';
 import heic2any from 'heic2any';
+import { useAuth } from './AuthContext';
+import { supabase } from './supabaseClient';
 
 function Profile() {
   const navigate = useNavigate();
-  const [user, setUser] = useState(null);
   const [family, setFamily] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -29,8 +30,14 @@ function Profile() {
   const [usernameEditLoading, setUsernameEditLoading] = useState(false);
   const [usernameEditError, setUsernameEditError] = useState('');
 
+  const { isLoggedIn, user: authUser, updateUser } = useAuth();
+  console.log('Profile page - isLoggedIn:', isLoggedIn, 'user:', authUser);
+
+  // Fetch user/family/posts using Supabase token
   const fetchUserData = async () => {
-    const token = localStorage.getItem('token');
+    setLoading(true);
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
     if (!token) {
       navigate('/login');
       return;
@@ -38,26 +45,28 @@ function Profile() {
     try {
       // Fetch user profile
       const userRes = await api.get('/api/auth/me', {
-        headers: { 'x-auth-token': token }
+        headers: { 'Authorization': `Bearer ${token}` }
       });
-      setUser(userRes.data.user);
+      // Optionally update context user
+      if (updateUser) updateUser(userRes.data.user);
 
       // Fetch family details if user is in a family
       if (userRes.data.user.family_id) {
         const familyId = userRes.data.user.family_id;
-        
         // Fetch family details
         const familyRes = await api.get(`/api/families/${familyId}`, {
-          headers: { 'x-auth-token': token }
+          headers: { 'Authorization': `Bearer ${token}` }
         });
         setFamily(familyRes.data.family);
+      } else {
+        setFamily(null);
       }
 
       // Fetch user's posts
       setPostsLoading(true);
       try {
         const postsRes = await api.get(`/api/posts/user/${userRes.data.user.id}`, {
-          headers: { 'x-auth-token': token }
+          headers: { 'Authorization': `Bearer ${token}` }
         });
         setUserPosts(postsRes.data.posts);
       } catch (err) {
@@ -73,6 +82,7 @@ function Profile() {
 
   useEffect(() => {
     fetchUserData();
+    // eslint-disable-next-line
   }, [navigate]);
 
   // Handle file selection
@@ -113,14 +123,21 @@ function Profile() {
     const formData = new FormData();
     formData.append('profilePicture', croppedBlob, 'profile.jpeg');
 
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) {
+      setUploadError('No authentication token.');
+      setUploadLoading(false);
+      return;
+    }
+
     try {
-      const token = localStorage.getItem('token');
       const res = await api.put('/api/auth/profile', formData, {
         headers: {
-          'x-auth-token': token,
+          'Authorization': `Bearer ${token}`,
         }
       });
-      setUser(res.data.user);
+      if (updateUser) updateUser(res.data.user);
       setSelectedFile(null);
       setImageToCrop(null);
       setUploadLoading(false);
@@ -141,7 +158,7 @@ function Profile() {
 
   const startEditUsername = () => {
     setIsEditingUsername(true);
-    setEditedUsername(user.username);
+    setEditedUsername(authUser.username);
     setUsernameEditError('');
   };
 
@@ -155,14 +172,20 @@ function Profile() {
     e.preventDefault();
     setUsernameEditLoading(true);
     setUsernameEditError('');
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) {
+      setUsernameEditError('No authentication token.');
+      setUsernameEditLoading(false);
+      return;
+    }
     try {
-      const token = localStorage.getItem('token');
       const res = await api.put('/api/auth/profile', {
         username: editedUsername
       }, {
-        headers: { 'x-auth-token': token }
+        headers: { 'Authorization': `Bearer ${token}` }
       });
-      setUser(res.data.user);
+      if (updateUser) updateUser(res.data.user);
       setIsEditingUsername(false);
       setUsernameEditLoading(false);
       await fetchUserData();
@@ -176,7 +199,7 @@ function Profile() {
     return <MainLayout><div>Loading...</div></MainLayout>;
   }
 
-  if (!user) {
+  if (!authUser) {
     return <MainLayout><div>Error loading user data.</div></MainLayout>;
   }
 
@@ -197,186 +220,94 @@ function Profile() {
                   value={editedUsername}
                   onChange={e => setEditedUsername(e.target.value)}
                   className="border border-gray-300 rounded px-2 py-1 mr-2"
-                  required
                   disabled={usernameEditLoading}
                 />
-                <button 
-                  type="submit" 
-                  className="bg-[#b32a2a] hover:bg-[#8a1f1f] text-white text-sm py-1 px-3 rounded"
-                  disabled={usernameEditLoading}
-                >
-                  {usernameEditLoading ? 'Saving...' : 'Save'}
-                </button>
-                <button 
-                  type="button" 
-                  onClick={cancelEditUsername} 
-                  className="bg-gray-300 hover:bg-gray-400 text-gray-800 text-sm py-1 px-3 rounded ml-2"
-                  disabled={usernameEditLoading}
-                >
-                  Cancel
-                </button>
+                <button type="submit" className="px-3 py-1 bg-[#b32a2a] text-white rounded hover:bg-[#8a1f1f] transition duration-200" disabled={usernameEditLoading}>Save</button>
+                <button type="button" className="ml-2 px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition duration-200" onClick={cancelEditUsername} disabled={usernameEditLoading}>Cancel</button>
               </form>
             ) : (
-              <span className="ml-2">
-                {user.username}
-                <button 
-                  onClick={startEditUsername} 
-                  className="ml-2 text-indigo-600 hover:text-indigo-900 text-sm"
-                >
-                  Edit
-                </button>
-              </span>
+              <span className="ml-2">{authUser.username} <button className="ml-2 text-blue-600 underline text-sm" onClick={startEditUsername}>Edit</button></span>
             )}
-          </div>
-          {usernameEditError && <div className="text-red-600 text-sm mb-2">{usernameEditError}</div>}
-          <div className="mb-4">
-            <span className="font-semibold">Email:</span> {user.email}
+            {usernameEditError && <div className="text-red-600 mt-2">{usernameEditError}</div>}
           </div>
           <div className="mb-4">
-            <span className="font-semibold">Role:</span> {user.role}
+            <span className="font-semibold">Email:</span> <span className="ml-2">{authUser.email}</span>
           </div>
-          {user.points && (
-            <div className="mb-4">
-              <span className="font-semibold">Points:</span> {user.points.total || 0}
-            </div>
-          )}
-
-          {/* Profile Picture Section */}
           <div className="mb-4">
-            <span className="font-semibold block mb-2">Profile Picture:</span>
-            <div className="flex items-center">
-              <div className="w-20 h-20 rounded-full overflow-hidden mr-4 border-2 border-[#b32a2a]">
-                {user.profile_picture ? (
-                  <img 
-                    src={user.profile_picture} 
-                    alt={user.username} 
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full bg-[#b32a2a] flex items-center justify-center text-white font-bold text-4xl">
-                    {user.username?.charAt(0).toUpperCase()}
-                  </div>
-                )}
-              </div>
-              <label htmlFor="profilePictureInput" className="px-4 py-2 bg-white border-2 border-[#b32a2a] text-[#b32a2a] font-semibold rounded-md cursor-pointer hover:bg-[#f5e6d6] transition duration-200 ease-in-out">
-                Change Picture
-                <input 
-                  id="profilePictureInput"
-                  type="file" 
-                  accept="image/*,.heic" 
-                  onChange={handleFileChange} 
-                  className="hidden"
-                />
-              </label>
-            </div>
-            {selectedFile && (
-              <div className="mt-4 text-sm text-gray-600">
-                Selected file: {selectedFile.name}
-              </div>
-            )}
+            <span className="font-semibold">Total Points:</span> <span className="ml-2">{authUser.points_total}</span>
+          </div>
+          <div className="mb-4">
+            <span className="font-semibold">Semester Points:</span> <span className="ml-2">{authUser.points_semest}</span>
           </div>
         </div>
-
+        {/* Profile Picture Section */}
+        <div className="mb-8">
+          <span className="font-semibold block mb-2">Profile Picture:</span>
+          {authUser.profile_picture ? (
+            <img
+              src={authUser.profile_picture}
+              alt="Profile"
+              className="w-32 h-32 rounded-full object-cover mb-2 border-4 border-[#e0c9a6]"
+            />
+          ) : (
+            <div className="w-32 h-32 rounded-full bg-gray-200 flex items-center justify-center text-4xl text-gray-500 mb-2 border-4 border-[#e0c9a6]">
+              {authUser.username ? authUser.username.charAt(0).toUpperCase() : '?'}
+            </div>
+          )}
+          <input
+            type="file"
+            accept="image/*,image/heic"
+            onChange={handleFileChange}
+            id="profilePictureInput"
+            className="hidden"
+            disabled={uploadLoading}
+          />
+          <label htmlFor="profilePictureInput" className="px-4 py-2 bg-white border-2 border-[#b32a2a] text-[#b32a2a] font-semibold rounded-md cursor-pointer hover:bg-[#f5e6d6] transition duration-200 ease-in-out">
+            {uploadLoading ? 'Uploading...' : 'Change Profile Picture'}
+          </label>
+          {uploadError && <div className="text-red-600 mt-2">{uploadError}</div>}
+        </div>
         {/* Image Cropper Modal */}
         {imageToCrop && (
           <ImageCropperModal
-            imageUrl={imageToCrop}
+            image={imageToCrop}
             onCropComplete={handleProfilePictureUpload}
             onCancel={handleCropperCancel}
+            loading={uploadLoading}
           />
         )}
-
         {/* Family Info */}
-        {family ? (
-          <div className="mb-6">
-            <h3 className="text-2xl font-bold text-[#b32a2a] mb-4">{family.name}</h3>
-            
-            {/* View Family Button */}
-            <Link to={`/families/${family.id}`}>
-              <button className="mb-4 px-4 py-2 bg-[#b32a2a] text-white font-semibold rounded-md hover:bg-[#8a1f1f]">
-                View Family Page
-              </button>
-            </Link>
-
-            <p className="mb-4 text-gray-700">{family.description}</p>
-            <div className="mb-4">
-              <span className="font-semibold">Total Points:</span> {family.total_points || 0}
-            </div>
-            <div className="mb-4">
-              <span className="font-semibold">Semester Points:</span> {family.total_points || 0}
-            </div>
-            <div className="mb-4">
-              <span className="font-semibold">Members:</span>
-              <ul className="list-disc ml-6 mt-2">
-                {family.members && family.members.length > 0 ? (
-                  family.members.map(member => (
-                    <li key={member.id || member}>
-                      {member.username || member.email || member}
-                    </li>
-                  ))
-                ) : (
-                  <li className="text-gray-500">No members yet.</li>
-                )}
-              </ul>
-            </div>
-          </div>
-        ) : (
-          <div className="text-gray-600">
-            You are not currently part of any family.
-          </div>
-        )}
-
-        {/* User's Posts Section */}
-        <div className="mt-8">
-          <h3 className="text-xl font-bold text-[#b32a2a] mb-4">Your Posts</h3>
-          {postsLoading ? (
-            <div className="text-gray-500">Loading your posts...</div>
-          ) : postsError ? (
-            <div className="text-red-600">{postsError}</div>
-          ) : userPosts.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {userPosts.map(post => (
-                <div 
-                  key={post.id} 
-                  className={`relative rounded-lg overflow-hidden shadow-md ${
-                    post.type === 'announcement' ? 'bg-[#fff3e6] border-2 border-[#b32a2a]' : 'bg-white'
-                  }`}
-                >
-                  {post.image_path && (
-                    <div className="aspect-w-16 aspect-h-9">
-                      <img
-                        src={post.image_path}
-                        alt={post.title}
-                        className="w-full h-48 object-cover"
-                      />
-                    </div>
-                  )}
-                  <div className="p-4">
-                    {post.type === 'announcement' && (
-                      <span className="inline-block bg-[#b32a2a] text-white px-2 py-1 rounded-full text-xs font-semibold mb-2">
-                        Announcement
-                      </span>
-                    )}
-                    <h4 className="font-semibold text-gray-800 mb-2 line-clamp-2">{post.title}</h4>
-                    <p className="text-gray-600 text-sm mb-2 line-clamp-3">{post.content}</p>
-                    {post.point_value > 0 && (
-                      <span className="inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-semibold">
-                        {post.point_value} pts
-                      </span>
-                    )}
-                    <div className="text-xs text-gray-500 mt-2">
-                      {new Date(post.created_at).toLocaleDateString()}
-                    </div>
-                  </div>
-                  <Link 
-                    to={`/families/${post.family_id}`}
-                    className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-10 transition-all duration-200"
-                  />
-                </div>
-              ))}
+        <div className="mb-8">
+          <span className="font-semibold block mb-2">Family:</span>
+          {family ? (
+            <div className="bg-[#e0c9a6] rounded-lg p-4 mb-2">
+              <span className="font-bold text-[#b32a2a]">{family.name}</span>
+              <span className="ml-2 text-gray-700">({family.code})</span>
             </div>
           ) : (
-            <div className="text-gray-500">You haven't made any posts yet.</div>
+            <span className="text-gray-600">Not in a family yet.</span>
+          )}
+        </div>
+        {/* User's Posts */}
+        <div className="mb-8">
+          <span className="font-semibold block mb-2">Your Posts:</span>
+          {postsLoading ? (
+            <div>Loading posts...</div>
+          ) : postsError ? (
+            <div className="text-red-600">{postsError}</div>
+          ) : userPosts.length === 0 ? (
+            <div className="text-gray-600">You haven't posted yet.</div>
+          ) : (
+            <ul className="space-y-2">
+              {userPosts.map(post => (
+                <li key={post.id} className="bg-[#faecd8] rounded-lg p-4">
+                  <Link to={`/post/${post.id}`} className="text-[#b32a2a] font-semibold hover:underline">
+                    {post.title}
+                  </Link>
+                  <span className="ml-2 text-gray-600 text-sm">{new Date(post.created_at).toLocaleString()}</span>
+                </li>
+              ))}
+            </ul>
           )}
         </div>
       </div>

@@ -1,89 +1,38 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from './AuthContext';
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from './supabaseClient';
 
 function Login() {
-  const [formData, setFormData] = useState({
-    email: '',
-    password: ''
-  });
-  const [error, setError] = useState('');
   const navigate = useNavigate();
-  const { login } = useAuth();
 
-  const { email, password } = formData;
+  const handleGoogleSignIn = async () => {
+    await supabase.auth.signInWithOAuth({ provider: 'google' });
+  };
 
-  const onChange = e => setFormData({ ...formData, [e.target.name]: e.target.value });
-
-  const onSubmit = async e => {
-    e.preventDefault();
-    setError('');
-    const result = await login(email, password);
-    if (result.success) {
-      navigate('/dashboard');
-    } else {
-      setError(result.error);
-    }
+  const handleGuestMode = () => {
+    navigate('/dashboard');
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#faecd8] py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-[#b32a2a]">
-            Sign in to your account
-          </h2>
-        </div>
-        <form className="mt-8 space-y-6" onSubmit={onSubmit}>
-          {error && (
-            <div className="rounded-md bg-red-50 p-4">
-              <div className="text-sm text-red-700">{error}</div>
-            </div>
-          )}
-          <div className="rounded-md shadow-sm -space-y-px">
-            <div>
-              <label htmlFor="email" className="sr-only">Email address</label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-[#b32a2a] focus:border-[#b32a2a] focus:z-10 sm:text-sm"
-                placeholder="Email address"
-                value={email}
-                onChange={onChange}
-              />
-            </div>
-            <div>
-              <label htmlFor="password" className="sr-only">Password</label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-[#b32a2a] focus:border-[#b32a2a] focus:z-10 sm:text-sm"
-                placeholder="Password"
-                value={password}
-                onChange={onChange}
-              />
-            </div>
-          </div>
-
-          <div>
-            <button
-              type="submit"
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-[#b32a2a] hover:bg-[#8a1f1f] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#b32a2a]"
-            >
-              Sign in
-            </button>
-          </div>
-
-          <div className="text-sm text-center">
-            <Link to="/register" className="font-medium text-[#b32a2a] hover:text-[#8a1f1f]">
-              Don't have an account? Register here
-            </Link>
-          </div>
-        </form>
+    <div className="min-h-screen flex items-center justify-center bg-[#faecd8]">
+      <div className="w-full max-w-xs bg-white rounded-lg shadow p-8 flex flex-col items-center">
+        <img
+          src="https://nnlbviehgtdyiucgdims.supabase.co/storage/v1/object/public/vsa-images/public/logo.PNG"
+          alt="Columbia VSA University"
+          className="w-64 mb-8 mx-auto"
+        />
+        <button
+          onClick={handleGoogleSignIn}
+          className="w-full py-4 mb-4 bg-[#b32a2a] text-white rounded-lg text-lg font-semibold hover:bg-[#8a1f1f] transition duration-200 ease-in-out"
+        >
+          Sign in with Google
+        </button>
+        <button
+          onClick={handleGuestMode}
+          className="w-full py-4 bg-gray-200 text-[#b32a2a] rounded-lg text-lg font-semibold hover:bg-gray-300 transition duration-200 ease-in-out"
+        >
+          Guest Mode
+        </button>
       </div>
     </div>
   );

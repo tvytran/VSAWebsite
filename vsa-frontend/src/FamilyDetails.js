@@ -2,6 +2,8 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import api from './api';
 import MainLayout from './MainLayout';
+import { supabase } from './supabaseClient';
+import { useAuth } from './AuthContext';
 // Import placeholder image if you have one, or use a service like Lorem Picsum
 // import placeholderImage from './placeholder.jpg'; 
 
@@ -9,7 +11,6 @@ console.log('--- Evaluating FamilyDetails.js file ---'); // Log at file evaluati
 
 function FamilyDetails() {
   console.log('Rendering FamilyDetails component'); // Log component render
-  console.log('Token in localStorage on render:', localStorage.getItem('token')); // Log token on render
   const { id } = useParams();
   const [family, setFamily] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -51,21 +52,21 @@ function FamilyDetails() {
   const [currentUserId, setCurrentUserId] = useState(null);
 
   const navigate = useNavigate();
+  const { isLoggedIn, user, loading: authLoading } = useAuth();
 
   // Effect to get the current user data from API
   useEffect(() => {
     const fetchCurrentUser = async () => {
       try {
-        const token = localStorage.getItem('token');
-        if (token) {
+        if (isLoggedIn) {
+          const { data: { session } } = await supabase.auth.getSession();
+          const token = session?.access_token;
           const res = await api.get('/api/auth/me', {
-            headers: { 'x-auth-token': token }
+            headers: { 'Authorization': `Bearer ${token}` }
           });
           setCurrentUser(res.data.user);
           setCurrentUserId(res.data.user.id);
           console.log('Current User data set:', res.data.user);
-        } else {
-          console.log('No token found in localStorage.');
         }
       } catch (err) {
         console.error('Error fetching current user:', err);
@@ -74,7 +75,7 @@ function FamilyDetails() {
       }
     };
     fetchCurrentUser();
-  }, []);
+  }, [isLoggedIn]);
 
   // Effect to fetch all families for navigation
   useEffect(() => {
@@ -82,10 +83,11 @@ function FamilyDetails() {
       setAllFamiliesLoading(true);
       setAllFamiliesError('');
       try {
-        const token = localStorage.getItem('token');
-        const config = token ? { headers: { 'x-auth-token': token } } : {};
-        const res = await api.get('/api/families', config);
-        // Sort families alphabetically by name
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        const res = await api.get('/api/families', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
         const sortedFamilies = res.data.families.sort((a, b) => a.name.localeCompare(b.name));
         setAllFamilies(sortedFamilies);
         setAllFamiliesLoading(false);
@@ -96,7 +98,6 @@ function FamilyDetails() {
       }
     };
     fetchAllFamilies();
-    // No dependency on 'id' here, as we want to fetch all families once
   }, []);
 
   // Determine the index of the current family in the allFamilies array
@@ -121,11 +122,11 @@ function FamilyDetails() {
   const fetchFamily = async () => {
     console.log(`Attempting to fetch family with ID: ${id}`); // Log the ID being fetched
     try {
-      const token = localStorage.getItem('token');
-      const config = token ? { headers: { 'x-auth-token': token } } : {};
-      console.log('Fetching family - Token available:', !!token); // Log token availability before fetch
-
-      const res = await api.get(`/api/families/${id}`, config);
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const res = await api.get(`/api/families/${id}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       console.log('Family fetch successful:', res.data); // Log successful response
       if (res.data && res.data.success && res.data.family) {
          setFamily(res.data.family);
@@ -151,15 +152,11 @@ function FamilyDetails() {
   const fetchPosts = async () => {
     setPostsLoading(true);
     setPostsError('');
-    const token = localStorage.getItem('token');
-    if (!token) {
-      setPosts([]);
-      setPostsLoading(false);
-      return;
-    }
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
       const res = await api.get(`/api/posts/family/${id}`, {
-        headers: { 'x-auth-token': token }
+        headers: { 'Authorization': `Bearer ${token}` }
       });
       const nonAnnouncementPosts = res.data.posts.filter(post => post.type !== 'announcement');
       setPosts(nonAnnouncementPosts);
@@ -208,14 +205,7 @@ function FamilyDetails() {
     }
 
     try {
-      const token = localStorage.getItem('token');
-      console.log('Updating family - Token available:', !!token); // Log token availability before update
-      const res = await api.put(`/api/families/${family.id}`, formData, {
-        headers: {
-          'x-auth-token': token,
-          'Content-Type': 'multipart/form-data'
-        }
-      });
+      const res = await api.put(`/api/families/${family.id}`, formData);
       console.log('Family update successful. Response data:', res.data);
       setFamily(res.data.family); // Update family state with new data
       setIsEditingFamily(false); // Exit editing mode
@@ -240,7 +230,6 @@ function FamilyDetails() {
       return;
     }
     try {
-      const token = localStorage.getItem('token');
       let payload = {
         title: newTitle,
         type: newType,
@@ -256,19 +245,15 @@ function FamilyDetails() {
         }
         payload.pointValue = numPoints;
       }
-      await api.post('/api/posts', payload, {
-        headers: { 'x-auth-token': token }
-      });
+      const res = await api.post('/api/posts', payload);
       setNewPost('');
       setNewTitle('');
       setNewType('');
       setPointValue('');
       setPostLoading(false);
       // Refresh posts
-      const res = await api.get(`/api/posts/family/${family.id}`, {
-        headers: { 'x-auth-token': token }
-      });
-      setPosts(res.data.posts);
+      const postsRes = await api.get(`/api/posts/family/${family.id}`);
+      setPosts(postsRes.data.posts);
       await fetchFamily();
     } catch (err) {
       setPostError(err.response?.data?.message || 'Failed to create post.');
@@ -280,9 +265,8 @@ function FamilyDetails() {
     setEditingPostId(post.id);
     setEditTitle(post.title);
     setEditContent(post.content);
-    const currentUser = JSON.parse(localStorage.getItem('user'));
-    const isCurrentUserAuthor = post.author_id === currentUser?.id;
-    const isCurrentUserAdmin = currentUser?.role === 'admin';
+    const isCurrentUserAuthor = post.author_id === user?.id;
+    const isCurrentUserAdmin = user?.role === 'admin';
 
     if (post.type === 'hangout' && (isCurrentUserAuthor || isCurrentUserAdmin)) {
       setEditPointValue(post.point_value?.toString() || '');
@@ -319,8 +303,7 @@ function FamilyDetails() {
       content: editContent,
     };
 
-    const currentUser = JSON.parse(localStorage.getItem('user'));
-    const isCurrentUserAdmin = currentUser?.role === 'admin';
+    const isCurrentUserAdmin = user?.role === 'admin';
 
     if (postToEdit.type === 'hangout' && (isAuthor || isCurrentUserAdmin)) {
          const newPointValue = parseInt(editPointValue, 10);
@@ -334,13 +317,7 @@ function FamilyDetails() {
     }
 
     try {
-      const token = localStorage.getItem('token');
-      console.log('Editing post - Token available:', !!token);
-      // console.log('Sending PUT request to:', `/api/posts/${editingPostId}`); // Removed hardcoded localhost for production
-      console.log('Data being sent:', updatedData);
-      await api.put(`/api/posts/${editingPostId}`, updatedData, {
-        headers: { 'x-auth-token': token }
-      });
+      const res = await api.put(`/api/posts/${editingPostId}`, updatedData);
       console.log('Post update successful.');
       setEditLoading(false);
       setEditingPostId(null);
@@ -348,9 +325,7 @@ function FamilyDetails() {
       setEditContent('');
       setEditPointValue('');
       setIsAuthor(false);
-      const postsRes = await api.get(`/api/posts/family/${family.id}`, {
-        headers: { 'x-auth-token': token }
-      });
+      const postsRes = await api.get(`/api/posts/family/${family.id}`);
       setPosts(postsRes.data.posts);
       await fetchFamily();
     } catch (err) {
@@ -363,10 +338,7 @@ function FamilyDetails() {
   const handleDeletePost = async (postId) => {
     if (!window.confirm('Are you sure you want to delete this post?')) return;
     try {
-      const token = localStorage.getItem('token');
-      await api.delete(`/api/posts/${postId}`, {
-        headers: { 'x-auth-token': token }
-      });
+      await api.delete(`/api/posts/${postId}`);
       // After successful deletion, re-fetch family data
       fetchFamily();
       // Optionally, re-fetch posts if you have a separate fetchPosts function
@@ -383,16 +355,7 @@ function FamilyDetails() {
     }
 
     try {
-      const token = localStorage.getItem('token');
-      console.log('Deleting family - Token available:', !!token); // Log token availability before delete
-      if (!token) {
-        alert('You must be logged in to delete a family.');
-        return;
-      }
-
-      await api.delete(`/api/families/${id}`, {
-        headers: { 'x-auth-token': token }
-      });
+      await api.delete(`/api/families/${id}`);
 
       alert('Family deleted successfully.');
       navigate('/families'); // Redirect to the families list page

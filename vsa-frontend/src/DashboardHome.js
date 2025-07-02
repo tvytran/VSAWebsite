@@ -1,24 +1,19 @@
 import React, { useEffect, useState, useRef } from 'react';
 import api from './api';
 import MainLayout from './MainLayout';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import { HeartIcon as HeartOutline, ChatBubbleOvalLeftIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { HeartIcon as HeartSolid } from '@heroicons/react/24/solid';
 // import { PlusCircleIcon } from '@heroicons/react/24/solid'; // Temporarily remove icon import
+import { useAuth } from './AuthContext';
+import { supabase } from './supabaseClient';
 
 function DashboardHome() {
+  // All hooks at the top
+  const { isLoggedIn, user, loading } = useAuth();
   const [posts, setPosts] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loadingPosts, setLoadingPosts] = useState(true);
   const [error, setError] = useState('');
-  const [user, setUser] = useState(null);
-  
-  const isLoggedIn = !!localStorage.getItem('token');
-  const isGuest = localStorage.getItem('isGuest') === 'true';
-  const location = useLocation(); // Get the current location
-
-  console.log('DashboardHome - isLoggedIn:', isLoggedIn, 'isGuest:', isGuest);
-
-  // State for editing
   const [editingPostId, setEditingPostId] = useState(null);
   const [editTitle, setEditTitle] = useState('');
   const [editContent, setEditContent] = useState('');
@@ -26,123 +21,55 @@ function DashboardHome() {
   const [editLoading, setEditLoading] = useState(false);
   const [editPointValue, setEditPointValue] = useState('');
   const [isAuthor, setIsAuthor] = useState(false);
-
-  // State for controlling the visibility of the three dots menu
   const [showMenuId, setShowMenuId] = useState(null);
-
-  // State for search functionality
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredPosts, setFilteredPosts] = useState([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
-
   const [expandedPosts, setExpandedPosts] = useState({});
-
-  // Comment state management
-  const [commentStates, setCommentStates] = useState({}); // Store comment text for each post
-  const [showCommentForms, setShowCommentForms] = useState({}); // Track which posts show comment forms
-  const [editingComment, setEditingComment] = useState(null); // Track which comment is being edited
-  const [commentLoading, setCommentLoading] = useState({}); // Track loading state per post
-  const [commentError, setCommentError] = useState({}); // Track errors per post
-
+  const [commentStates, setCommentStates] = useState({});
+  const [showCommentForms, setShowCommentForms] = useState({});
+  const [editingComment, setEditingComment] = useState(null);
+  const [commentLoading, setCommentLoading] = useState({});
+  const [commentError, setCommentError] = useState({});
   const commentInputRefs = useRef({});
-
   const [families, setFamilies] = useState([]);
   const [familySearchTerm, setFamilySearchTerm] = useState('');
   const [filteredFamilies, setFilteredFamilies] = useState([]);
   const [showFamilySearch, setShowFamilySearch] = useState(false);
-
+  const location = useLocation();
   const navigate = useNavigate();
 
-  const fetchPosts = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const token = localStorage.getItem('token');
-      const userFromStorage = JSON.parse(localStorage.getItem('user') || '{}');
-      
-      let postsUrl = '/api/posts/feed'; // Default for regular users
-
-      // If user is admin, fetch all posts
-      if (userFromStorage && userFromStorage.role === 'admin') {
-          postsUrl = '/api/posts/all';
-      }
-
-      // For guests, fetch public posts without authentication
-      if (isGuest) {
-        postsUrl = '/api/posts/public';
-      }
-
-      console.log('Fetching posts from:', postsUrl); // Debug log
-      const headers = token ? { 'x-auth-token': token } : {};
-      const res = await api.get(postsUrl, { headers });
-      
-      if (!res.data || !res.data.posts) {
-        throw new Error('Invalid response format from server');
-      }
-
-      // Ensure posts are sorted by creation date descending
-      const sortedPosts = res.data.posts.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-      setPosts(sortedPosts || []);
-      setLoading(false);
-    } catch (err) {
-      console.error('Error fetching posts:', err); // Debug log
-      setError(err.response?.data?.message || err.message || 'Failed to load posts. Please try again later.');
-      setLoading(false);
-    }
-  };
-
+  // All useEffect and other hooks must be before any return
   useEffect(() => {
-    if (isLoggedIn || isGuest) {
-      // Fetch user data only if logged in
-      if (isLoggedIn) {
-        const fetchUserData = async () => {
-          try {
-            const token = localStorage.getItem('token');
-            const res = await api.get('/api/auth/me', {
-              headers: { 'x-auth-token': token }
-            });
-            setUser(res.data.user);
-          } catch (err) {
-            console.error('Failed to fetch user data:', err);
-            // Optionally clear token if invalid
-            localStorage.removeItem('token');
-            window.location.reload();
-          }
-        };
-        fetchUserData();
-      }
+    if (isLoggedIn) {
       fetchPosts();
     } else {
-      setLoading(false);
+      setLoadingPosts(false);
       setPosts([]);
     }
-  }, [isLoggedIn, isGuest, location.pathname]); // Add location.pathname as a dependency
+  }, [isLoggedIn, location.pathname]);
 
-  // Fetch families only for logged-in users
   useEffect(() => {
-    if (!isLoggedIn) return; // Only fetch families for logged-in users
-    
+    if (!isLoggedIn) return;
     const fetchFamilies = async () => {
       try {
-        const token = localStorage.getItem('token');
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
         const res = await api.get('/api/families', {
-          headers: { 'x-auth-token': token }
+          headers: { 'Authorization': `Bearer ${token}` }
         });
         if (res.data.success) {
           setFamilies(res.data.families || []);
         }
       } catch (err) {
-        console.error('Error fetching families:', err);
+        // Optionally handle error
       }
     };
     fetchFamilies();
   }, [isLoggedIn]);
 
-  // Effect to filter posts and families whenever searchTerm changes
   useEffect(() => {
     const lowerCaseSearchTerm = searchTerm.toLowerCase();
-    
-    // Filter posts
     const filteredPosts = posts.filter(post => 
       post.title.toLowerCase().includes(lowerCaseSearchTerm) ||
       post.content.toLowerCase().includes(lowerCaseSearchTerm) ||
@@ -150,18 +77,44 @@ function DashboardHome() {
       (post.family?.name && post.family.name.toLowerCase().includes(lowerCaseSearchTerm))
     );
     setFilteredPosts(filteredPosts);
-
-    // Filter families
     const filteredFamilies = families.filter(family => 
       family.name.toLowerCase().includes(lowerCaseSearchTerm)
     );
     setFilteredFamilies(filteredFamilies);
-
-    // Show search results if there's a search term
     setShowSearchResults(lowerCaseSearchTerm.length > 0);
   }, [posts, families, searchTerm]);
 
-   const startEdit = (post) => {
+  // Now do conditional rendering
+  if (loading) return null;
+  if (!isLoggedIn) return <Navigate to="/login" />;
+
+  const fetchPosts = async () => {
+    setLoadingPosts(true);
+    setError('');
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) {
+        setError('No authentication token found. Please log in.');
+        setLoadingPosts(false);
+        return;
+      }
+      const res = await api.get('/api/posts/feed', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.data || !res.data.posts) {
+        throw new Error('Invalid response format from server');
+      }
+      const sortedPosts = res.data.posts.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      setPosts(sortedPosts || []);
+      setLoadingPosts(false);
+    } catch (err) {
+      setError(err.response?.data?.message || err.message || 'Failed to load posts. Please try again later.');
+      setLoadingPosts(false);
+    }
+  };
+
+  const startEdit = (post) => {
     setEditingPostId(post.id);
     setEditTitle(post.title);
     setEditContent(post.content);
@@ -194,7 +147,8 @@ function DashboardHome() {
 
     try {
       // Fetch the latest post data from the backend
-      const token = localStorage.getItem('token');
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
       const res = await api.get(`/api/posts/${postId}`, {
         headers: { 'x-auth-token': token }
       });
@@ -257,15 +211,11 @@ function DashboardHome() {
   };
 
    const handleDeletePost = async (postId) => {
-    if (isGuest) {
-      alert('Please log in to delete posts.');
-      return;
-    }
-    
     if (!window.confirm('Are you sure you want to delete this post?')) return;
     
     try {
-      const token = localStorage.getItem('token');
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
       await api.delete(`/api/posts/${postId}`, {
         headers: { 'x-auth-token': token }
       });
@@ -337,18 +287,9 @@ function DashboardHome() {
   };
 
   const handleLike = async (postId) => {
-    if (isGuest) {
-      alert('Please log in to like posts.');
-      return;
-    }
-    
-    if (!isLoggedIn) {
-      navigate('/login');
-      return;
-    }
-
     try {
-      const token = localStorage.getItem('token');
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
       const post = posts.find(p => p.id === postId);
       const isLiked = post.likes?.some(like => like.user === user?.id);
       const endpoint = isLiked ? 'unlike' : 'like';
@@ -370,16 +311,6 @@ function DashboardHome() {
   const handleComment = async (e, postId) => {
     e.preventDefault();
     
-    if (isGuest) {
-      alert('Please log in to comment on posts.');
-      return;
-    }
-    
-    if (!isLoggedIn) {
-      navigate('/login');
-      return;
-    }
-
     const commentText = commentStates[postId]?.trim();
     if (!commentText) return;
 
@@ -387,7 +318,8 @@ function DashboardHome() {
     setCommentError('');
 
     try {
-      const token = localStorage.getItem('token');
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
       const res = await api.post(`/api/posts/comment/${postId}`, 
         { text: commentText },
         { headers: { 'x-auth-token': token } }
@@ -413,7 +345,8 @@ function DashboardHome() {
     setCommentError(prev => ({ ...prev, [postId]: '' }));
 
     try {
-      const token = localStorage.getItem('token');
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
       const res = await api.put(`/api/posts/comment/${postId}/${commentId}`, 
         { text: newText },
         { headers: { 'x-auth-token': token } }
@@ -448,7 +381,8 @@ function DashboardHome() {
     setCommentError(prev => ({ ...prev, [postId]: '' }));
 
     try {
-      const token = localStorage.getItem('token');
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
       const res = await api.delete(`/api/posts/comment/${postId}/${commentId}`, {
         headers: { 'x-auth-token': token }
       });
@@ -471,10 +405,6 @@ function DashboardHome() {
   };
 
   const handlePostClick = (postId) => {
-    if (isGuest) {
-      alert('Please log in or register to view post details.');
-      return;
-    }
     navigate(`/post/${postId}`);
   };
 
@@ -516,7 +446,7 @@ function DashboardHome() {
       )}
 
       {/* Welcome Message for Guests */}
-      {isGuest && (
+      {!isLoggedIn && (
         <div className="w-full max-w-2xl text-center mb-6">
           <h2 className="text-2xl font-bold text-[#b32a2a] mb-4">Welcome, Guest!</h2>
           <p className="text-gray-700 mb-4">Explore the VSA community and see what we're all about.</p>
@@ -535,7 +465,7 @@ function DashboardHome() {
       )}
 
       {/* Search Bar */}
-      {isLoggedIn && (
+      {isLoggedIn && user && (
       <div className="w-full max-w-2xl flex items-center mb-6 relative">
         <div className="relative flex-1">
           <input
@@ -637,7 +567,7 @@ function DashboardHome() {
                         <p className="text-sm text-gray-600 line-clamp-2">{post.content}</p>
                       </div>
                       {/* Delete button for author or admin */}
-                      {!isGuest && (user && (user.id === post.author.id || user.role === 'admin')) && (
+                      {!isLoggedIn && (user && (user.id === post.author.id || user.role === 'admin')) && (
                         <button
                           onClick={e => { e.stopPropagation(); handleDeletePost(post.id); }}
                           className="ml-4 text-red-600 hover:text-red-900 font-bold px-2 py-1 rounded"
@@ -663,7 +593,7 @@ function DashboardHome() {
       {/* Regular Post Feed (when not searching) */}
       {!showSearchResults && (
         <div className="w-full max-w-2xl mx-auto">
-          {loading ? (
+          {loadingPosts ? (
             <div className="text-center text-[#b32a2a] text-lg py-8">Loading posts...</div>
           ) : error ? (
             <div className="text-center text-red-600 text-lg py-8">{error}</div>
@@ -671,7 +601,7 @@ function DashboardHome() {
             <div className="text-center text-gray-600 text-lg py-8">No posts yet.</div>
           ) : (
             <div className="space-y-6">
-              {(isGuest ? posts.slice(0, 4) : posts).map((post) => (
+              {(posts).map((post) => (
                 <div 
                   key={post.id} 
                   className="bg-white rounded-lg shadow-md overflow-hidden cursor-pointer hover:shadow-lg transition-shadow duration-200"
@@ -727,9 +657,7 @@ function DashboardHome() {
                     )}
 
                     <p className="text-gray-700 mb-4 line-clamp-3">
-                      {isGuest && post.content.length > 200 
-                        ? `${post.content.substring(0, 200)}...` 
-                        : post.content
+                      {post.content
                       }
                     </p>
 
@@ -749,11 +677,11 @@ function DashboardHome() {
                           handleLike(post.id);
                         }}
                         className={`flex items-center gap-2 transition duration-200 ${
-                          isGuest 
+                          !isLoggedIn 
                             ? 'text-gray-400 cursor-not-allowed' 
                             : 'text-gray-600 hover:text-[#b32a2a]'
                         }`}
-                        disabled={isGuest}
+                        disabled={!isLoggedIn}
                       >
                         {post.likes?.some(like => like.user === user?.id) ? (
                           <HeartSolid className="w-6 h-6 text-[#b32a2a]" />
@@ -765,11 +693,11 @@ function DashboardHome() {
                       <button
                         onClick={(e) => { e.stopPropagation(); handlePostClick(post.id); }}
                         className={`flex items-center gap-2 transition duration-200 ${
-                          isGuest 
+                          !isLoggedIn 
                             ? 'text-gray-400 cursor-not-allowed' 
                             : 'text-gray-600 hover:text-[#b32a2a]'
                         }`}
-                        disabled={isGuest}
+                        disabled={!isLoggedIn}
                       >
                         <ChatBubbleOvalLeftIcon className="w-6 h-6" />
                         <span>{post.comments?.length || 0} comments</span>
@@ -783,25 +711,8 @@ function DashboardHome() {
         </div>
       )}
 
-      {/* Guest Post Limit Message */}
-      {isGuest && posts.length > 4 && (
-        <div className="w-full max-w-2xl mt-6 text-center">
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-            <p className="text-gray-700 mb-3">Register to see all posts and join the conversation!</p>
-            <div className="flex gap-3 justify-center">
-              <Link to="/register" className="px-4 py-2 bg-[#b32a2a] text-white rounded-lg hover:bg-[#8a1f1f] transition duration-200">
-                Register Now
-              </Link>
-              <Link to="/login" className="px-4 py-2 bg-white border-2 border-[#b32a2a] text-[#b32a2a] rounded-lg hover:bg-[#f5e6d6] transition duration-200">
-                Login
-              </Link>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Floating Create Post Button */}
-      {isLoggedIn && !isGuest && (
+      {isLoggedIn && (
         <div className="fixed bottom-8 right-1/2 translate-x-[calc(50%+max(0px,calc((100vw-32rem)/2))-6rem)]">
           <Link 
             to="/create-post"

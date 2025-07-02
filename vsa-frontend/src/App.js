@@ -17,31 +17,35 @@ import AdminDashboard from './AdminDashboard';
 import EventsPage from './Events';
 import EventDetailPage from './EventDetailPage';
 import PostPage from './PostPage';
+import JoinFamilyPage from './JoinFamilyPage';
 
 // Protected Route component
-const ProtectedRoute = ({ children, requireAdmin = false }) => {
-  const { isLoggedIn, user } = useAuth();
+const ProtectedRoute = ({ children, requireAdmin = false, skipFamilyCheck = false }) => {
+  const { isLoggedIn, user, loading } = useAuth();
+  const path = window.location.pathname;
+  console.log('ProtectedRoute:', { isLoggedIn, user, loading, path });
 
+  if (loading) return <div>Loading...</div>;
   if (!isLoggedIn) {
-    // If not logged in, redirect to login page
+    console.log('Redirecting to /login');
     return <Navigate to="/login" />;
   }
-
   if (requireAdmin && user?.role !== 'admin') {
-    // If admin is required and user is not admin, redirect to dashboard
+    console.log('Redirecting to /dashboard');
     return <Navigate to="/dashboard" />;
   }
-
-  // If logged in and has correct role, render the children components
+  if (!skipFamilyCheck && user && !user.family_id) {
+    console.log('Redirecting to /join-family');
+    return <Navigate to="/join-family" />;
+  }
   return children;
 };
 
 // Guest Route component - only allows guests and logged-in users
 const GuestRoute = ({ children }) => {
   const { isLoggedIn } = useAuth();
-  const isGuest = localStorage.getItem('isGuest') === 'true';
 
-  if (isLoggedIn || isGuest) {
+  if (isLoggedIn) {
     return children;
   }
 
@@ -49,14 +53,9 @@ const GuestRoute = ({ children }) => {
 };
 
 function AppRoutes() {
-  const { isLoggedIn } = useAuth();
-  const isGuest = localStorage.getItem('isGuest') === 'true';
-
   return (
     <Routes>
-      <Route path="/" element={
-        (isLoggedIn || isGuest) ? <DashboardHome /> : <Home />
-      } />
+      <Route path="/" element={<DashboardHome />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/families" element={<FamiliesLeaderboard />} />
@@ -86,7 +85,7 @@ function AppRoutes() {
         </ProtectedRoute>
       } />
       <Route path="/create-post" element={
-        <ProtectedRoute>
+        <ProtectedRoute skipFamilyCheck={true}>
           <CreatePostPage />
         </ProtectedRoute>
       } />
@@ -95,19 +94,20 @@ function AppRoutes() {
           <CreateFamilyPage />
         </ProtectedRoute>
       } />
+      <Route path="/join-family" element={<JoinFamilyPage />} />
     </Routes>
   );
 }
 
 function App() {
   return (
-    <AuthProvider>
-      <Router>
+    <Router>
+      <AuthProvider>
         <div className="min-h-screen bg-[#faecd8]">
           <AppRoutes />
         </div>
-      </Router>
-    </AuthProvider>
+      </AuthProvider>
+    </Router>
   );
 }
 

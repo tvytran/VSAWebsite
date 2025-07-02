@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import api from './api';
+import { supabase } from './supabaseClient';
+import { useNavigate } from 'react-router-dom';
 
 const AuthContext = createContext();
 
@@ -9,98 +10,82 @@ export function useAuth() {
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('token'));
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+
+  // Helper to fetch user profile with a valid token
+  const fetchUserProfile = async (access_token) => {
+    if (!access_token) {
+      console.log('No access token, setting user to null');
+      setUser(null);
+      setIsLoggedIn(false);
+      setLoading(false);
+      return;
+    }
+    console.log('Fetching user profile with token:', access_token);
+    const res = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5001'}/api/auth/me`, {
+      headers: { 'Authorization': `Bearer ${access_token}` }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      console.log('Fetched user profile:', data.user);
+      setUser(data.user);
+      setIsLoggedIn(true);
+      if (!data.user.family_id) {
+        navigate('/join-family');
+      }
+    } else {
+      console.log('Failed to fetch user profile, status:', res.status);
+      setUser(null);
+      setIsLoggedIn(false);
+    }
+    setLoading(false);
+  };
 
   useEffect(() => {
-    const fetchUserData = async () => {
-      const token = localStorage.getItem('token');
-      if (token) {
-        try {
-          const res = await api.get('/api/auth/me', {
-            headers: { 'x-auth-token': token }
-          });
-          setUser(res.data.user);
-          setIsLoggedIn(true);
-        } catch (err) {
-          console.error('Failed to fetch user data:', err);
-          // Clear invalid token
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
-          setUser(null);
-          setIsLoggedIn(false);
-        }
-      }
-      setLoading(false);
+    // Listen for auth state changes (Supabase v2)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('onAuthStateChange event:', event, 'session:', session);
+      const access_token = session?.access_token;
+      await fetchUserProfile(access_token);
+    });
+
+    // Initial session check (Supabase v2)
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      console.log('Initial Supabase session:', session);
+      const access_token = session?.access_token;
+      await fetchUserProfile(access_token);
+    })();
+
+    // Cleanup for Supabase v2
+    return () => {
+      subscription?.unsubscribe();
     };
+  }, [navigate]);
 
-    fetchUserData();
-
-    // Listen for storage changes (e.g., when token is set/removed in another tab)
-    const handleStorageChange = (e) => {
-      if (e.key === 'token') {
-        setIsLoggedIn(!!e.newValue);
-        if (!e.newValue) {
-          setUser(null);
-        } else {
-          fetchUserData();
-        }
-      }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, []);
-
-  const login = async (email, password) => {
-    try {
-      const res = await api.post('/api/auth/login', { email, password });
-      localStorage.setItem('token', res.data.token);
-      localStorage.setItem('user', JSON.stringify(res.data.user));
-      setUser(res.data.user);
-      setIsLoggedIn(true);
-      return { success: true };
-    } catch (err) {
-      return { 
-        success: false, 
-        error: err.response?.data?.message || 'Login failed' 
-      };
-    }
-  };
-
-  const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+  const logout = async () => {
+    await supabase.auth.signOut();
     setUser(null);
     setIsLoggedIn(false);
+    navigate('/');
   };
 
-  const register = async (userData) => {
-    try {
-      const res = await api.post('/api/auth/register', userData);
-      return { success: true, user: res.data.user };
-    } catch (err) {
-      return { 
-        success: false, 
-        error: err.response?.data?.message || 'Registration failed' 
-      };
-    }
-  };
-
+  // Update user after joining family
   const updateUser = (updatedUser) => {
     setUser(updatedUser);
-    localStorage.setItem('user', JSON.stringify(updatedUser));
   };
 
   const value = {
     user,
     isLoggedIn,
     loading,
-    login,
     logout,
-    register,
     updateUser
   };
+
+  console.log('AuthContext render: isLoggedIn:', isLoggedIn, 'user:', user);
 
   return (
     <AuthContext.Provider value={value}>

@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import MainLayout from './MainLayout';
 import api from './api';
 import ImageCropperModal from './components/ImageCropperModal';
+import { supabase } from './supabaseClient';
 
 function Events() {
   const [events, setEvents] = useState([]);
@@ -28,10 +29,15 @@ function Events() {
   useEffect(() => {
     const checkAdminStatus = async () => {
       try {
-        const token = localStorage.getItem('token');
-        if (!token) return;
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        if (!token) {
+          setError('No authentication token found. Please log in.');
+          setLoading(false);
+          return;
+        }
         const res = await api.get('/api/auth/me', {
-          headers: { 'x-auth-token': token }
+          headers: { 'Authorization': `Bearer ${token}` }
         });
         setIsAdmin(res.data.user.role === 'admin');
       } catch (err) {
@@ -43,17 +49,28 @@ function Events() {
   }, []);
 
   useEffect(() => {
-    async function fetchEvents() {
+    const fetchEvents = async () => {
+      setLoading(true);
+      setError('');
       try {
-        const res = await api.get('/api/events');
-        if (!res.data.success) throw new Error(res.data.message || 'Failed to fetch events');
-        setEvents(res.data.events);
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        if (!token) {
+          setError('No authentication token found. Please log in.');
+          setLoading(false);
+          return;
+        }
+        const res = await api.get('/api/events', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        setEvents(res.data.events || []);
       } catch (err) {
-        setError(err.response?.data?.message || err.message || 'Failed to fetch events');
+        setError(err.response?.data?.message || 'Failed to load events.');
       } finally {
         setLoading(false);
       }
-    }
+    };
+
     fetchEvents();
   }, []);
 
@@ -69,7 +86,8 @@ function Events() {
     }
 
     try {
-      const token = localStorage.getItem('token');
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
       if (!token) {
         navigate('/login');
         return;
@@ -81,7 +99,7 @@ function Events() {
       data.append('drive_link', formData.drive_link);
       data.append('image', imageFile);
       const res = await api.post('/api/events', data, {
-        headers: { 'x-auth-token': token },
+        headers: { 'Authorization': `Bearer ${token}` },
       });
       if (res.data.success) {
         setEvents([res.data.event, ...events]);
@@ -113,7 +131,8 @@ function Events() {
     }
 
     try {
-      const token = localStorage.getItem('token');
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
       if (!token) {
         navigate('/login');
         return;
@@ -127,7 +146,7 @@ function Events() {
         data.append('image', imageFile);
       }
       const res = await api.put(`/api/events/${editingEventId}`, data, {
-        headers: { 'x-auth-token': token },
+        headers: { 'Authorization': `Bearer ${token}` },
       });
       if (res.data.success) {
         setEvents(events.map(event => 
@@ -155,14 +174,15 @@ function Events() {
     }
 
     try {
-      const token = localStorage.getItem('token');
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
       if (!token) {
         navigate('/login');
         return;
       }
 
       const res = await api.delete(`/api/events/${eventId}`, {
-        headers: { 'x-auth-token': token }
+        headers: { 'Authorization': `Bearer ${token}` }
       });
 
       if (res.data.success) {

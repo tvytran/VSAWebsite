@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import api from './api';
 import MainLayout from './MainLayout';
 import { Link } from 'react-router-dom';
+import { supabase } from './supabaseClient';
 
 function FamiliesLeaderboard() {
   const [families, setFamilies] = useState([]);
@@ -18,24 +19,20 @@ function FamiliesLeaderboard() {
       setLoading(true);
       setError('');
       try {
-        const token = localStorage.getItem('token');
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
         if (!token) {
           setError('No authentication token found. Please log in.');
           setLoading(false);
           return;
         }
         const res = await api.get('/api/families/leaderboard', {
-          headers: { 'x-auth-token': token }
+          headers: { 'Authorization': `Bearer ${token}` }
         });
-        if (res.data.success && Array.isArray(res.data.families)) {
-          setFamilies(res.data.families);
-        } else {
-          setError('Invalid response format from server');
-        }
-        setLoading(false);
+        setFamilies(res.data.families || []);
       } catch (err) {
-        console.error('Error fetching families:', err);
-        setError(err.response?.data?.message || 'Failed to load families.');
+        setError(err.response?.data?.message || 'Failed to load leaderboard.');
+      } finally {
         setLoading(false);
       }
     };

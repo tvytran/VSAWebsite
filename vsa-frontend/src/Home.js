@@ -1,49 +1,25 @@
 import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { supabase } from './supabaseClient';
 //import './Home.css'; // We'll add styles here
 
 function Home() {
-  const navigate = useNavigate();
-
-  const handleGuestClick = () => {
-    console.log('Guest button clicked');
-    // Clear any existing auth state
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    // Set guest mode
-    localStorage.setItem('isGuest', 'true');
-    console.log('Guest mode set, navigating to dashboard...');
-    // Navigate to dashboard instead of reloading
-    navigate('/dashboard');
+  const handleGoogleSignIn = async () => {
+    await supabase.auth.signInWithOAuth({ provider: 'google' });
   };
 
   return (
     <div className="min-h-screen w-full bg-[#faecd8] flex items-center justify-center">
-      <div className="text-center p-8 rounded-lg bg-white shadow">
+      <div className="w-full max-w-xs bg-white rounded-lg shadow p-8 flex flex-col items-center">
         <img
           src="https://nnlbviehgtdyiucgdims.supabase.co/storage/v1/object/public/vsa-images/public/logo.PNG"
           alt="Columbia VSA University"
-          className="w-[350px] max-w-full mb-8 mx-auto"
+          className="w-64 mb-8 mx-auto"
         />
-        <Link to="/login">
-          <button
-            className="block w-72 mx-auto my-4 py-4 bg-[#b32a2a] text-white rounded-lg text-lg hover:bg-[#8a1f1f] transition duration-200 ease-in-out"
-          >
-            Login
-          </button>
-        </Link>
-        <Link to="/register">
-          <button
-            className="block w-72 mx-auto my-4 py-4 bg-[#b32a2a] text-white rounded-lg text-lg hover:bg-[#8a1f1f] transition duration-200 ease-in-out"
-          >
-            Register
-          </button>
-        </Link>
         <button
-          onClick={handleGuestClick}
-          className="block w-72 mx-auto my-4 py-4 bg-[#b32a2a] text-white rounded-lg text-lg hover:bg-[#8a1f1f] transition duration-200 ease-in-out"
+          onClick={handleGoogleSignIn}
+          className="w-full py-4 bg-[#b32a2a] text-white rounded-lg text-lg font-semibold hover:bg-[#8a1f1f] transition duration-200 ease-in-out mb-2"
         >
-          Guest
+          Sign in with Google
         </button>
       </div>
     </div>

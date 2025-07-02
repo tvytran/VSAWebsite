@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import api from './api';
 import { Link } from 'react-router-dom';
 import MainLayout from './MainLayout';
+import { supabase } from './supabaseClient';
+import { useAuth } from './AuthContext';
 
 function Families() {
   const [families, setFamilies] = useState([]);
@@ -9,18 +11,26 @@ function Families() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(true);
-
-  // Get token from localStorage
-  const token = localStorage.getItem('token');
+  const { isLoggedIn, user, loading: authLoading } = useAuth();
 
   // Fetch all families with populated members
   const fetchFamilies = async () => {
     try {
-      const response = await api.get('/api/families');
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const response = await api.get('/api/families', {
+        headers: {
+          'x-auth-token': token
+        }
+      });
       // Fetch detailed info for each family
       const familiesWithDetails = await Promise.all(
         response.data.families.map(async (family) => {
-          const detailedResponse = await api.get(`/api/families/${family.id}`);
+          const detailedResponse = await api.get(`/api/families/${family.id}`, {
+            headers: {
+              'x-auth-token': token
+            }
+          });
           return detailedResponse.data.family;
         })
       );
@@ -39,6 +49,8 @@ function Families() {
     setSuccess('');
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
       const response = await api.post(
         '/api/families',
         newFamily,

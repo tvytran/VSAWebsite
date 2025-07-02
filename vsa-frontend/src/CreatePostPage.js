@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import api from './api';
 import { useNavigate } from 'react-router-dom';
 import MainLayout from './MainLayout';
+import { supabase } from './supabaseClient';
+import { useAuth } from './AuthContext';
 
 // Point groups for dropdown
 const POINT_GROUPS = [
@@ -15,6 +17,7 @@ const POINT_GROUPS = [
 
 function CreatePostPage() {
   const navigate = useNavigate();
+  const { user: authUser, isLoggedIn } = useAuth();
   const [user, setUser] = useState(null);
   const [family, setFamily] = useState(null); // For regular users' default family
   const [families, setFamilies] = useState([]); // For admin to select a family
@@ -41,7 +44,9 @@ function CreatePostPage() {
 
   useEffect(() => {
     const fetchData = async () => {
-      const token = localStorage.getItem('token');
+      setLoading(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
       if (!token) {
         navigate('/login');
         return;
@@ -49,14 +54,14 @@ function CreatePostPage() {
       try {
         // Fetch user profile
         const userRes = await api.get('/api/auth/me', {
-          headers: { 'x-auth-token': token }
+          headers: { 'Authorization': `Bearer ${token}` }
         });
         setUser(userRes.data.user);
 
         // If user is admin, fetch all families for selection
         if (userRes.data.user.role === 'admin') {
           const familiesRes = await api.get('/api/families', {
-             headers: { 'x-auth-token': token }
+             headers: { 'Authorization': `Bearer ${token}` }
           });
           setFamilies(familiesRes.data.families);
           if (familiesRes.data.families.length > 0) {
@@ -64,7 +69,7 @@ function CreatePostPage() {
           }
         } else if (userRes.data.user.family_id) {
           const familyRes = await api.get(`/api/families/${userRes.data.user.family_id}`, {
-            headers: { 'x-auth-token': token }
+            headers: { 'Authorization': `Bearer ${token}` }
           });
           setFamily(familyRes.data.family);
         } else {
@@ -95,19 +100,20 @@ function CreatePostPage() {
   // Refetch family/families on focus or family selection change to keep member count up to date
   useEffect(() => {
     const handleFocus = async () => {
-      const token = localStorage.getItem('token');
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
       if (!token) return;
       try {
         if (user?.role === 'admin' && selectedFamilyId) {
           // Refetch families for admin
           const familiesRes = await api.get('/api/families', {
-            headers: { 'x-auth-token': token }
+            headers: { 'Authorization': `Bearer ${token}` }
           });
           setFamilies(familiesRes.data.families);
         } else if (user?.family_id) {
           // Refetch family for regular user
           const familyRes = await api.get(`/api/families/${user.family_id}`, {
-            headers: { 'x-auth-token': token }
+            headers: { 'Authorization': `Bearer ${token}` }
           });
           setFamily(familyRes.data.family);
         }
@@ -122,11 +128,12 @@ function CreatePostPage() {
   // Refetch families when selectedFamilyId changes (for admin)
   useEffect(() => {
     const fetchSelectedFamily = async () => {
-      const token = localStorage.getItem('token');
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
       if (!token || user?.role !== 'admin' || !selectedFamilyId) return;
       try {
         const familiesRes = await api.get('/api/families', {
-          headers: { 'x-auth-token': token }
+          headers: { 'Authorization': `Bearer ${token}` }
         });
         setFamilies(familiesRes.data.families);
       } catch (err) {
@@ -182,9 +189,16 @@ function CreatePostPage() {
         formData.append('image', image);
     }
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) {
+        setPostError('No authentication token.');
+        setPostLoading(false);
+        return;
+      }
       await api.post('/api/posts', formData, {
         headers: {
-          'x-auth-token': localStorage.getItem('token'),
+          'Authorization': `Bearer ${token}`,
         }
       });
       setNewTitle('');

@@ -281,13 +281,37 @@ router.post(
 router.get('/me', auth, async (req, res) => {
     try {
         console.log('Fetching user with id:', req.user.id);
-        const { data: user, error } = await req.supabase
+        let { data: user, error } = await req.supabase
             .from('users')
             .select('*')
             .eq('id', req.user.id)
             .single();
         console.log('Supabase user:', user, 'Error:', error);
-        if (error) throw error;
+        // If user profile does not exist, create it (for Google sign-in onboarding)
+        if (error && error.code === 'PGRST116') {
+            // Try to get email from Supabase auth user if not present in req.user
+            // For now, use req.user.id and set email to null if not available
+            const email = req.user.email || null;
+            const newUser = {
+                id: req.user.id,
+                email: email,
+                family_id: null,
+                role: 'member',
+                points: 0
+            };
+            const { data: insertedUser, error: insertError } = await req.supabase
+                .from('users')
+                .insert(newUser)
+                .select()
+                .single();
+            if (insertError) {
+                console.error('Error creating user profile for Google user:', insertError);
+                return res.status(500).json({ success: false, message: 'Failed to create user profile.' });
+            }
+            user = insertedUser;
+        } else if (error) {
+            throw error;
+        }
         if (!user) {
             console.log('User not found for ID:', req.user.id);
             return res.status(404).json({ success: false, message: 'User not found' });
@@ -514,6 +538,44 @@ router.put('/user/family', auth, async (req, res) => {
             success: false,
             message: err.message || 'Server error'
         });
+    }
+});
+
+// @route   PUT /api/auth/join-family
+// @desc    Join a family by code (for authenticated users)
+// @access  Private
+router.put('/join-family', auth, async (req, res) => {
+    try {
+        const { family_code } = req.body;
+        if (!family_code) {
+            return res.status(400).json({ success: false, message: 'Family code is required' });
+        }
+        // Find the family by code
+        const { data: family, error: familyError } = await req.supabase
+            .from('families')
+            .select('id')
+            .eq('code', family_code)
+            .single();
+        if (familyError) {
+            return res.status(500).json({ success: false, message: 'Error checking family code' });
+        }
+        if (!family) {
+            return res.status(400).json({ success: false, message: 'Family code is incorrect. Please check your family code and try again.' });
+        }
+        // Update the user's family_id
+        const { data: updatedUser, error: updateError } = await req.supabase
+            .from('users')
+            .update({ family_id: family.id })
+            .eq('id', req.user.id)
+            .select()
+            .single();
+        if (updateError) {
+            return res.status(500).json({ success: false, message: 'Failed to update user family.' });
+        }
+        res.json({ success: true, user: updatedUser });
+    } catch (err) {
+        console.error('Error in join-family endpoint:', err);
+        res.status(500).json({ success: false, message: err.message || 'Server error' });
     }
 });
 
