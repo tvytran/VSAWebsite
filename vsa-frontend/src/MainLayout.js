@@ -16,6 +16,8 @@ function MainLayout({ children }) {
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  const isGuest = localStorage.getItem('isGuest') === 'true';
+
   useEffect(() => {
     const fetchTopFamilies = async () => {
       setLoadingFamilies(true);

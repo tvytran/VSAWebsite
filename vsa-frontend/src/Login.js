@@ -10,6 +10,7 @@ function Login() {
   };
 
   const handleGuestMode = () => {
+    localStorage.setItem('isGuest', 'true');
     navigate('/dashboard');
   };
 

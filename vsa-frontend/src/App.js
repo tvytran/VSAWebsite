@@ -19,6 +19,8 @@ import EventDetailPage from './EventDetailPage';
 import PostPage from './PostPage';
 import JoinFamilyPage from './JoinFamilyPage';
 
+const isGuest = localStorage.getItem('isGuest') === 'true';
+
 // Protected Route component
 const ProtectedRoute = ({ children, requireAdmin = false, skipFamilyCheck = false }) => {
   const { isLoggedIn, user, loading } = useAuth();
@@ -44,57 +46,38 @@ const ProtectedRoute = ({ children, requireAdmin = false, skipFamilyCheck = fals
 // Guest Route component - only allows guests and logged-in users
 const GuestRoute = ({ children }) => {
   const { isLoggedIn } = useAuth();
-
-  if (isLoggedIn) {
+  const isGuest = localStorage.getItem('isGuest') === 'true';
+  if (isLoggedIn || isGuest) {
     return children;
   }
-
   return <Navigate to="/" />;
 };
 
 function AppRoutes() {
+  const isGuest = localStorage.getItem('isGuest') === 'true';
   return (
     <Routes>
-      <Route path="/" element={<DashboardHome />} />
+      <Route path="/" element={isGuest ? <DashboardHome /> : <Home />} />
       <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
-      <Route path="/families" element={<FamiliesLeaderboard />} />
-      <Route path="/families/:id" element={<FamilyDetails />} />
-      <Route path="/events" element={<EventsPage />} />
-      <Route path="/events/:id" element={<EventDetailPage />} />
-      <Route path="/newsletter" element={<Newsletter />} />
       <Route path="/about" element={<AboutVSA />} />
       <Route path="/dashboard" element={
         <GuestRoute>
           <DashboardHome />
         </GuestRoute>
       } />
-      <Route path="/post/:id" element={
-        <ProtectedRoute>
-          <PostPage />
-        </ProtectedRoute>
-      } />
-      <Route path="/admin" element={
-        <ProtectedRoute requireAdmin={true}>
-          <AdminDashboard />
-        </ProtectedRoute>
-      } />
-      <Route path="/profile" element={
-        <ProtectedRoute>
-          <Profile />
-        </ProtectedRoute>
-      } />
-      <Route path="/create-post" element={
-        <ProtectedRoute skipFamilyCheck={true}>
-          <CreatePostPage />
-        </ProtectedRoute>
-      } />
-      <Route path="/create-family" element={
-        <ProtectedRoute requireAdmin={true}>
-          <CreateFamilyPage />
-        </ProtectedRoute>
-      } />
-      <Route path="/join-family" element={<JoinFamilyPage />} />
+      {/* Guests cannot access these routes */}
+      <Route path="/register" element={isGuest ? <Navigate to="/dashboard" /> : <Register />} />
+      <Route path="/families" element={isGuest ? <Navigate to="/dashboard" /> : <FamiliesLeaderboard />} />
+      <Route path="/families/:id" element={isGuest ? <Navigate to="/dashboard" /> : <FamilyDetails />} />
+      <Route path="/events" element={isGuest ? <Navigate to="/dashboard" /> : <EventsPage />} />
+      <Route path="/events/:id" element={isGuest ? <Navigate to="/dashboard" /> : <EventDetailPage />} />
+      <Route path="/newsletter" element={isGuest ? <Navigate to="/dashboard" /> : <Newsletter />} />
+      <Route path="/post/:id" element={isGuest ? <Navigate to="/dashboard" /> : <PostPage />} />
+      <Route path="/admin" element={isGuest ? <Navigate to="/dashboard" /> : <ProtectedRoute requireAdmin={true}><AdminDashboard /></ProtectedRoute>} />
+      <Route path="/profile" element={isGuest ? <Navigate to="/dashboard" /> : <ProtectedRoute><Profile /></ProtectedRoute>} />
+      <Route path="/create-post" element={isGuest ? <Navigate to="/dashboard" /> : <ProtectedRoute skipFamilyCheck={true}><CreatePostPage /></ProtectedRoute>} />
+      <Route path="/create-family" element={isGuest ? <Navigate to="/dashboard" /> : <ProtectedRoute requireAdmin={true}><CreateFamilyPage /></ProtectedRoute>} />
+      <Route path="/join-family" element={isGuest ? <Navigate to="/dashboard" /> : <JoinFamilyPage />} />
     </Routes>
   );
 }
