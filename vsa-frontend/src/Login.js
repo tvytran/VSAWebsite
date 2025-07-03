@@ -12,10 +12,8 @@ function Login() {
 
   const handleGoogleSignIn = async () => {
     localStorage.removeItem('isGuest');
-    const redirectTo =
-      process.env.NODE_ENV === 'production'
-        ? 'https://your-vercel-domain.vercel.app/dashboard' // <-- replace with your actual domain
-        : window.location.origin + '/dashboard';
+    const baseUrl = process.env.REACT_APP_BASE_URL || window.location.origin;
+    const redirectTo = baseUrl + '/dashboard';
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo }
