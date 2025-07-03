@@ -45,109 +45,27 @@ function FamilyDetails() {
   const { isLoggedIn, user, loading: authLoading } = useAuth();
   const isGuest = localStorage.getItem('isGuest') === 'true';
 
-  if (isGuest) return <Navigate to="/dashboard" />;
-
-  console.log('Rendering FamilyDetails component'); // Log component render
-
-  // Effect to get the current user data from API
-  useEffect(() => {
-    if (isGuest) return;
-    const fetchCurrentUser = async () => {
-      try {
-        if (isLoggedIn) {
-          const { data: { session } } = await supabase.auth.getSession();
-          const token = session?.access_token;
-          const res = await api.get('/api/auth/me', {
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
-          setCurrentUser(res.data.user);
-          setCurrentUserId(res.data.user.id);
-          console.log('Current User data set:', res.data.user);
-        }
-      } catch (err) {
-        console.error('Error fetching current user:', err);
-        setCurrentUser(null);
-        setCurrentUserId(null);
-      }
-    };
-    fetchCurrentUser();
-  }, [isLoggedIn, isGuest]);
-
-  // Effect to fetch all families for navigation
-  useEffect(() => {
-    if (isGuest) return;
-    const fetchAllFamilies = async () => {
-      setAllFamiliesLoading(true);
-      setAllFamiliesError('');
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        const token = session?.access_token;
-        const res = await api.get('/api/families', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const sortedFamilies = res.data.families.sort((a, b) => a.name.localeCompare(b.name));
-        setAllFamilies(sortedFamilies);
-        setAllFamiliesLoading(false);
-      } catch (err) {
-        console.error('Error fetching all families:', err);
-        setAllFamiliesError('Failed to load all families.');
-        setAllFamiliesLoading(false);
-      }
-    };
-    fetchAllFamilies();
-  }, [isGuest]);
-
-  // Determine the index of the current family in the allFamilies array
-  const currentFamilyIndex = allFamilies.findIndex(fam => fam.id === id);
-  const hasPreviousFamily = currentFamilyIndex > 0;
-  const hasNextFamily = currentFamilyIndex !== -1 && currentFamilyIndex < allFamilies.length - 1;
-
-  const navigateToPreviousFamily = () => {
-    if (hasPreviousFamily) {
-      const previousFamilyId = allFamilies[currentFamilyIndex - 1].id;
-      navigate(`/families/${previousFamilyId}`);
-    }
-  };
-
-  const navigateToNextFamily = () => {
-    if (hasNextFamily) {
-      const nextFamilyId = allFamilies[currentFamilyIndex + 1].id;
-      navigate(`/families/${nextFamilyId}`);
-    }
-  };
-
+  // Top-level async functions
   const fetchFamily = async () => {
     if (isGuest) return;
-    console.log(`Attempting to fetch family with ID: ${id}`); // Log the ID being fetched
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
       const res = await api.get(`/api/families/${id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      console.log('Family fetch successful:', res.data); // Log successful response
       if (res.data && res.data.success && res.data.family) {
          setFamily(res.data.family);
       } else {
-         // Handle unexpected successful response format
-         console.error('Family fetch received unexpected data format:', res.data);
          setError('Received unexpected family data.');
       }
       setLoading(false);
     } catch (err) {
-      console.error('Error fetching family:', err); // Log the error object
       setError(err.response?.data?.message || 'Failed to load family info.');
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    if (isGuest) return;
-    fetchFamily();
-    // eslint-disable-next-line
-  }, [id, isGuest]);
-
-  /* Moved fetchPosts outside of useEffect so that it is defined in the outer scope */
   const fetchPosts = async () => {
     if (isGuest) return;
     setPostsLoading(true);
@@ -169,17 +87,87 @@ function FamilyDetails() {
 
   useEffect(() => {
     if (isGuest) return;
-    fetchPosts();
-    // eslint-disable-next-line
+    const fetchCurrentUser = async () => {
+      try {
+        if (isLoggedIn) {
+          const { data: { session } } = await supabase.auth.getSession();
+          const token = session?.access_token;
+          const res = await api.get('/api/auth/me', {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          setCurrentUser(res.data.user);
+          setCurrentUserId(res.data.user.id);
+        }
+      } catch (err) {
+        setCurrentUser(null);
+        setCurrentUserId(null);
+      }
+    };
+    fetchCurrentUser();
+  }, [isLoggedIn, isGuest]);
+
+  useEffect(() => {
+    if (isGuest) return;
+    const fetchAllFamilies = async () => {
+      setAllFamiliesLoading(true);
+      setAllFamiliesError('');
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        const res = await api.get('/api/families', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const sortedFamilies = res.data.families.sort((a, b) => a.name.localeCompare(b.name));
+        setAllFamilies(sortedFamilies);
+        setAllFamiliesLoading(false);
+      } catch (err) {
+        setAllFamiliesError('Failed to load all families.');
+        setAllFamiliesLoading(false);
+      }
+    };
+    fetchAllFamilies();
+  }, [isGuest]);
+
+  useEffect(() => {
+    if (isGuest) return;
+    fetchFamily();
   }, [id, isGuest]);
 
-  // Effect to set initial edited name when family data is loaded
+  useEffect(() => {
+    if (isGuest) return;
+    fetchPosts();
+  }, [id, isGuest]);
+
   useEffect(() => {
     if (isGuest) return;
     if (family) {
       setEditedFamilyName(family.name);
     }
   }, [family, isGuest]);
+
+  // Now, after all hooks, you can safely return for guest mode
+  if (isGuest) return <Navigate to="/dashboard" />;
+
+  console.log('Rendering FamilyDetails component'); // Log component render
+
+  // Determine the index of the current family in the allFamilies array
+  const currentFamilyIndex = allFamilies.findIndex(fam => fam.id === id);
+  const hasPreviousFamily = currentFamilyIndex > 0;
+  const hasNextFamily = currentFamilyIndex !== -1 && currentFamilyIndex < allFamilies.length - 1;
+
+  const navigateToPreviousFamily = () => {
+    if (hasPreviousFamily) {
+      const previousFamilyId = allFamilies[currentFamilyIndex - 1].id;
+      navigate(`/families/${previousFamilyId}`);
+    }
+  };
+
+  const navigateToNextFamily = () => {
+    if (hasNextFamily) {
+      const nextFamilyId = allFamilies[currentFamilyIndex + 1].id;
+      navigate(`/families/${nextFamilyId}`);
+    }
+  };
 
   // Helper: check if current user is a member - now depends on currentUserId state
   // The calculation will happen on each render, but currentUserId is set in useEffect

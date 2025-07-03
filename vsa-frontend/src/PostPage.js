@@ -29,16 +29,13 @@ const PostPage = () => {
   const [editError, setEditError] = useState('');
   const isGuest = localStorage.getItem('isGuest') === 'true';
 
-  // All hooks above, then early return for guest mode
-  if (isGuest) return <Navigate to="/dashboard" />;
-
   useEffect(() => {
+    if (isGuest) return;
     const fetchPost = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         const token = session?.access_token;
         let endpoint = `/api/posts/${id}`;
-        
         const headers = token ? { 'x-auth-token': token } : {};
         const res = await api.get(endpoint, { headers });
         if (res.data.success) {
@@ -48,19 +45,21 @@ const PostPage = () => {
         }
       } catch (err) {
         setError('Failed to load post');
-        console.error('Error fetching post:', err);
       }
     };
-
     fetchPost();
-  }, [id]);
+  }, [id, isGuest]);
 
   useEffect(() => {
+    if (isGuest) return;
     if (post && user) {
       setIsAuthor(post.author_id === user.id);
       setIsAdmin(user.role === 'admin');
     }
-  }, [post, user]);
+  }, [post, user, isGuest]);
+
+  // Now, after all hooks, you can safely return for guest mode
+  if (isGuest) return <Navigate to="/dashboard" />;
 
   const handleLike = async () => {
     if (!isLoggedIn) {
