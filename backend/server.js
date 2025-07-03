@@ -14,21 +14,22 @@ const port = process.env.PORT || 5001; //setting port
 
 const allowedOrigins = [
   'http://localhost:3000',
-  'https://anhchiem.vercel.app',
-  'https://vsa-website.vercel.app',
-  'https://vsawebsite.vercel.app'
+  'https://www.vsacolumbia.com',
+  'https://vsa-website.vercel.app'
 ];
 
-// In production, allow all origins for custom domains
-const corsOptions = process.env.NODE_ENV === 'production' 
-  ? {
-      origin: true, // Allow all origins in production
-      credentials: true
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps, curl, etc.)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    } else {
+      return callback(new Error('Not allowed by CORS'));
     }
-  : {
-      origin: allowedOrigins,
-      credentials: true
-    };
+  },
+  credentials: true
+};
 
 app.use(cors(corsOptions));
 
