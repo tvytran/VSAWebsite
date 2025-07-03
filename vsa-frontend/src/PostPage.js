@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, Navigate } from 'react-router-dom';
 import { PencilIcon, TrashIcon, HeartIcon, ChatBubbleLeftIcon } from '@heroicons/react/24/outline';
 import { HeartIcon as HeartIconSolid } from '@heroicons/react/24/solid';
 import api from './api';
@@ -26,6 +26,9 @@ const PostPage = () => {
   const [editPointValue, setEditPointValue] = useState('');
   const [editLoading, setEditLoading] = useState(false);
   const [editError, setEditError] = useState('');
+  const isGuest = localStorage.getItem('isGuest') === 'true';
+
+  if (isGuest) return <Navigate to="/dashboard" />;
 
   useEffect(() => {
     const fetchPost = async () => {

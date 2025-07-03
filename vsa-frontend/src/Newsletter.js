@@ -1,7 +1,11 @@
 import React from 'react';
 import MainLayout from './MainLayout';
+import { Navigate } from 'react-router-dom';
 
 function Newsletter() {
+  const isGuest = localStorage.getItem('isGuest') === 'true';
+  if (isGuest) return <Navigate to="/dashboard" />;
+
   return (
     <MainLayout>
       <div className="w-full max-w-4xl bg-white rounded-lg shadow-md p-8">

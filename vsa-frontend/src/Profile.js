@@ -281,8 +281,9 @@ function Profile() {
           <span className="font-semibold block mb-2">Family:</span>
           {family ? (
             <div className="bg-[#e0c9a6] rounded-lg p-4 mb-2">
-              <span className="font-bold text-[#b32a2a]">{family.name}</span>
-              <span className="ml-2 text-gray-700">({family.code})</span>
+              <Link to={`/families/${family.id}`} className="font-bold text-[#b32a2a] hover:underline">
+                {family.name}
+              </Link>
             </div>
           ) : (
             <span className="text-gray-600">Not in a family yet.</span>

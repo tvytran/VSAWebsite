@@ -43,9 +43,19 @@ export function AuthProvider({ children }) {
     setLoading(false);
   };
 
+  // Guest mode support
   useEffect(() => {
+    if (localStorage.getItem('isGuest') === 'true') {
+      setUser(null);
+      setIsLoggedIn(false);
+      setLoading(false);
+      return;
+    }
     // Listen for auth state changes (Supabase v2)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session) {
+        localStorage.removeItem('isGuest');
+      }
       console.log('onAuthStateChange event:', event, 'session:', session);
       const access_token = session?.access_token;
       await fetchUserProfile(access_token);

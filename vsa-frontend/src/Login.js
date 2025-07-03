@@ -5,8 +5,17 @@ import { supabase } from './supabaseClient';
 function Login() {
   const navigate = useNavigate();
 
+  // Always clear guest mode when rendering the login page
+  React.useEffect(() => {
+    localStorage.removeItem('isGuest');
+  }, []);
+
   const handleGoogleSignIn = async () => {
-    await supabase.auth.signInWithOAuth({ provider: 'google' });
+    localStorage.removeItem('isGuest');
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin + '/dashboard' }
+    });
   };
 
   const handleGuestMode = () => {

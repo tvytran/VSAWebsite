@@ -626,7 +626,7 @@ function AdminDashboard() {
                                   className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-1"
                                   disabled={editLoading}
                                 >
-                                  <option value="user">User</option>
+                                  <option value="user">Member</option>
                                   <option value="admin">Admin</option>
                                 </select>
                               </td>
@@ -677,7 +677,7 @@ function AdminDashboard() {
                                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                                   user.role === 'admin' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
                                 }`}>
-                                  {user.role}
+                                  {user.role === 'admin' ? 'Admin' : 'Member'}
                                 </span>
                               </td>
                               <td className="whitespace-nowrap px-3 py-4 text-sm w-1/6">

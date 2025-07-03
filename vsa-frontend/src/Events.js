@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, Navigate } from 'react-router-dom';
 import MainLayout from './MainLayout';
 import api from './api';
 import ImageCropperModal from './components/ImageCropperModal';
@@ -25,6 +25,9 @@ function Events() {
   const [showCropper, setShowCropper] = useState(false);
   const [imageToCrop, setImageToCrop] = useState(null);
   const navigate = useNavigate();
+  const isGuest = localStorage.getItem('isGuest') === 'true';
+
+  if (isGuest) return <Navigate to="/dashboard" />;
 
   useEffect(() => {
     const checkAdminStatus = async () => {

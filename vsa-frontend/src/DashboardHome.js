@@ -38,16 +38,42 @@ function DashboardHome() {
   const [showFamilySearch, setShowFamilySearch] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+  const isGuest = localStorage.getItem('isGuest') === 'true';
+
+  // Guest mode: login button handler
+  const handleGuestLogin = () => {
+    localStorage.removeItem('isGuest');
+    navigate('/login');
+  };
+
+  const fetchPublicPosts = async () => {
+    setLoadingPosts(true);
+    setError('');
+    try {
+      const res = await api.get('/api/posts/public');
+      if (!res.data || !res.data.posts) {
+        throw new Error('Invalid response format from server');
+      }
+      const sortedPosts = res.data.posts.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      setPosts(sortedPosts.slice(0, 5)); // Only top 5
+      setLoadingPosts(false);
+    } catch (err) {
+      setError(err.response?.data?.message || err.message || 'Failed to load posts. Please try again later.');
+      setLoadingPosts(false);
+    }
+  };
 
   // All useEffect and other hooks must be before any return
   useEffect(() => {
-    if (isLoggedIn) {
+    if (isGuest) {
+      fetchPublicPosts();
+    } else if (isLoggedIn) {
       fetchPosts();
     } else {
       setLoadingPosts(false);
       setPosts([]);
     }
-  }, [isLoggedIn, location.pathname]);
+  }, [isLoggedIn, isGuest, location.pathname]);
 
   useEffect(() => {
     if (!isLoggedIn) return;
@@ -86,7 +112,7 @@ function DashboardHome() {
 
   // Now do conditional rendering
   if (loading) return null;
-  if (!isLoggedIn) return <Navigate to="/login" />;
+  if (!isLoggedIn && !isGuest) return <Navigate to="/login" />;
 
   const fetchPosts = async () => {
     setLoadingPosts(true);
@@ -453,12 +479,18 @@ function DashboardHome() {
           <div className="bg-gray-100 border border-gray-200 rounded-lg p-4 mb-4">
             <p className="text-gray-800 mb-3">Want to join the conversation? Register to like, comment, and create posts!</p>
             <div className="flex gap-3 justify-center">
-              <Link to="/register" className="px-4 py-2 bg-[#b32a2a] text-white rounded-lg hover:bg-[#8a1f1f] transition duration-200">
+              <button
+                onClick={handleGuestLogin}
+                className="px-4 py-2 bg-[#b32a2a] text-white rounded-lg hover:bg-[#8a1f1f] transition duration-200"
+              >
                 Register Now
-              </Link>
-              <Link to="/login" className="px-4 py-2 bg-white border-2 border-[#b32a2a] text-[#b32a2a] rounded-lg hover:bg-[#f5e6d6] transition duration-200">
+              </button>
+              <button
+                onClick={handleGuestLogin}
+                className="px-4 py-2 bg-white border-2 border-[#b32a2a] text-[#b32a2a] rounded-lg hover:bg-[#f5e6d6] transition duration-200"
+              >
                 Login
-              </Link>
+              </button>
             </div>
           </div>
         </div>

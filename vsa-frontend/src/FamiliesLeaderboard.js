@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import api from './api';
 import MainLayout from './MainLayout';
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { supabase } from './supabaseClient';
 
 function FamiliesLeaderboard() {
@@ -13,6 +13,7 @@ function FamiliesLeaderboard() {
   const [form, setForm] = useState({ name: '', description: '' });
   const [formError, setFormError] = useState('');
   const [formLoading, setFormLoading] = useState(false);
+  const isGuest = localStorage.getItem('isGuest') === 'true';
 
   useEffect(() => {
     const fetchFamilies = async () => {
@@ -38,6 +39,8 @@ function FamiliesLeaderboard() {
     };
     fetchFamilies();
   }, []);
+
+  if (isGuest) return <Navigate to="/dashboard" />;
 
   const filteredFamilies = families.filter(fam =>
     fam.name.toLowerCase().includes(search.toLowerCase())

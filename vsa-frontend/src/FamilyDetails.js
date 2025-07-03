@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, Navigate } from 'react-router-dom';
 import api from './api';
 import MainLayout from './MainLayout';
 import { supabase } from './supabaseClient';
@@ -10,7 +10,6 @@ import { useAuth } from './AuthContext';
 console.log('--- Evaluating FamilyDetails.js file ---'); // Log at file evaluation level
 
 function FamilyDetails() {
-  console.log('Rendering FamilyDetails component'); // Log component render
   const { id } = useParams();
   const [family, setFamily] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -31,28 +30,24 @@ function FamilyDetails() {
   const [editLoading, setEditLoading] = useState(false);
   const [editPointValue, setEditPointValue] = useState('');
   const [isAuthor, setIsAuthor] = useState(false);
-
-  // State for controlling the visibility of the three dots menu
   const [showMenuId, setShowMenuId] = useState(null);
-
-  // State for editing family details
   const [isEditingFamily, setIsEditingFamily] = useState(false);
   const [editedFamilyName, setEditedFamilyName] = useState('');
   const [selectedFamilyFile, setSelectedFamilyFile] = useState(null);
   const [familyUploadLoading, setFamilyUploadLoading] = useState(false);
   const [familyUploadError, setFamilyUploadError] = useState('');
-
-  // State for list of all families for navigation
   const [allFamilies, setAllFamilies] = useState([]);
   const [allFamiliesLoading, setAllFamiliesLoading] = useState(true);
   const [allFamiliesError, setAllFamiliesError] = useState('');
-
-  // State for current user data
   const [currentUser, setCurrentUser] = useState(null);
   const [currentUserId, setCurrentUserId] = useState(null);
-
   const navigate = useNavigate();
   const { isLoggedIn, user, loading: authLoading } = useAuth();
+  const isGuest = localStorage.getItem('isGuest') === 'true';
+
+  if (isGuest) return <Navigate to="/dashboard" />;
+
+  console.log('Rendering FamilyDetails component'); // Log component render
 
   // Effect to get the current user data from API
   useEffect(() => {
