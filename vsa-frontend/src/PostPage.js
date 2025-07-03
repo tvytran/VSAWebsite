@@ -8,6 +8,7 @@ import MainLayout from './MainLayout';
 import { supabase } from './supabaseClient';
 
 const PostPage = () => {
+  // All hooks at the top
   const { id } = useParams();
   const navigate = useNavigate();
   const { isLoggedIn, user, loading } = useAuth();
@@ -28,6 +29,7 @@ const PostPage = () => {
   const [editError, setEditError] = useState('');
   const isGuest = localStorage.getItem('isGuest') === 'true';
 
+  // All hooks above, then early return for guest mode
   if (isGuest) return <Navigate to="/dashboard" />;
 
   useEffect(() => {

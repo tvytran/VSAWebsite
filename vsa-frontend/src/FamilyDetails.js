@@ -51,6 +51,7 @@ function FamilyDetails() {
 
   // Effect to get the current user data from API
   useEffect(() => {
+    if (isGuest) return;
     const fetchCurrentUser = async () => {
       try {
         if (isLoggedIn) {
@@ -70,10 +71,11 @@ function FamilyDetails() {
       }
     };
     fetchCurrentUser();
-  }, [isLoggedIn]);
+  }, [isLoggedIn, isGuest]);
 
   // Effect to fetch all families for navigation
   useEffect(() => {
+    if (isGuest) return;
     const fetchAllFamilies = async () => {
       setAllFamiliesLoading(true);
       setAllFamiliesError('');
@@ -93,7 +95,7 @@ function FamilyDetails() {
       }
     };
     fetchAllFamilies();
-  }, []);
+  }, [isGuest]);
 
   // Determine the index of the current family in the allFamilies array
   const currentFamilyIndex = allFamilies.findIndex(fam => fam.id === id);
@@ -115,6 +117,7 @@ function FamilyDetails() {
   };
 
   const fetchFamily = async () => {
+    if (isGuest) return;
     console.log(`Attempting to fetch family with ID: ${id}`); // Log the ID being fetched
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -139,12 +142,14 @@ function FamilyDetails() {
   };
 
   useEffect(() => {
+    if (isGuest) return;
     fetchFamily();
     // eslint-disable-next-line
-  }, [id]);
+  }, [id, isGuest]);
 
   /* Moved fetchPosts outside of useEffect so that it is defined in the outer scope */
   const fetchPosts = async () => {
+    if (isGuest) return;
     setPostsLoading(true);
     setPostsError('');
     try {
@@ -163,16 +168,18 @@ function FamilyDetails() {
   };
 
   useEffect(() => {
+    if (isGuest) return;
     fetchPosts();
     // eslint-disable-next-line
-  }, [id]);
+  }, [id, isGuest]);
 
   // Effect to set initial edited name when family data is loaded
   useEffect(() => {
+    if (isGuest) return;
     if (family) {
       setEditedFamilyName(family.name);
     }
-  }, [family]);
+  }, [family, isGuest]);
 
   // Helper: check if current user is a member - now depends on currentUserId state
   // The calculation will happen on each render, but currentUserId is set in useEffect
