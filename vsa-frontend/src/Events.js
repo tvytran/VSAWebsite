@@ -27,9 +27,8 @@ function Events() {
   const navigate = useNavigate();
   const isGuest = localStorage.getItem('isGuest') === 'true';
 
-  if (isGuest) return <Navigate to="/dashboard" />;
-
   useEffect(() => {
+    if (isGuest) return;
     const checkAdminStatus = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
@@ -47,11 +46,11 @@ function Events() {
         console.error('Failed to check admin status:', err);
       }
     };
-
     checkAdminStatus();
-  }, []);
+  }, [isGuest]);
 
   useEffect(() => {
+    if (isGuest) return;
     const fetchEvents = async () => {
       setLoading(true);
       setError('');
@@ -73,9 +72,10 @@ function Events() {
         setLoading(false);
       }
     };
-
     fetchEvents();
-  }, []);
+  }, [isGuest]);
+
+  if (isGuest) return <Navigate to="/dashboard" />;
 
   const handleCreateEvent = async (e) => {
     e.preventDefault();
