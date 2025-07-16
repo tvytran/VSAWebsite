@@ -24,7 +24,13 @@ export function AuthProvider({ children }) {
       return;
     }
     console.log('Fetching user profile with token:', access_token);
-    const res = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5001'}/api/auth/me`, {
+    
+    // Use the same API base URL logic as api.js
+    const API_BASE_URL = process.env.NODE_ENV === 'production' 
+      ? '/api' 
+      : (process.env.REACT_APP_API_BASE_URL || 'http://localhost:5001').replace(/\/$/, '');
+    
+    const res = await fetch(`${API_BASE_URL}/auth/me`, {
       headers: { 'Authorization': `Bearer ${access_token}` }
     });
     if (res.ok) {

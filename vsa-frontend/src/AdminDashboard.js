@@ -5,8 +5,6 @@ import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from './supabaseClient';
 import { useAuth } from './AuthContext';
 
-export const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
-
 function AdminDashboard() {
   const [users, setUsers] = useState([]);
   const [families, setFamilies] = useState([]);

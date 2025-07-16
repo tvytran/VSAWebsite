@@ -15,15 +15,19 @@ const port = process.env.PORT || 5001; //setting port
 const allowedOrigins = [
   'http://localhost:3000',
   'https://www.vsacolumbia.com',
-  'https://vsa-website.vercel.app'
+  'https://vsa-website.vercel.app',
+  'https://vsa-website-git-main-tvytran.vercel.app',
+  'https://vsa-website-tvytran.vercel.app'
 ];
 
 const corsOptions = {
   origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
     if (allowedOrigins.includes(origin)) {
       return callback(null, true);
     } else {
+      console.log('CORS blocked origin:', origin);
       return callback(new Error('Not allowed by CORS'));
     }
   },
@@ -122,9 +126,38 @@ app.get('/', (req, res) => {
     res.json({ message: 'Welcome to VSA Website API' });
 });
 
+// Health check endpoint for debugging
+app.get('/api/health', (req, res) => {
+    res.json({ 
+        message: 'VSA API is running',
+        timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV || 'development',
+        supabaseUrl: process.env.SUPABASE_URL ? 'SET' : 'NOT SET',
+        supabaseKey: process.env.SUPABASE_KEY ? 'SET' : 'NOT SET',
+        jwtSecret: process.env.JWT_SECRET ? 'SET' : 'NOT SET'
+    });
+});
+
 // Global error handling middleware
 app.use((err, req, res, next) => {
-    console.error(err.stack);                 // Log error details to the console
+    console.error('Error details:', {
+        message: err.message,
+        stack: err.stack,
+        url: req.url,
+        method: req.method,
+        headers: req.headers,
+        body: req.body
+    });
+    
+    // Handle CORS errors specifically
+    if (err.message === 'Not allowed by CORS') {
+        return res.status(403).json({
+            success: false,
+            error: 'CORS Error: Request blocked by CORS policy',
+            origin: req.headers.origin
+        });
+    }
+    
     res.status(500).json({
         success: false,
         error: err.message || 'Server Error'
