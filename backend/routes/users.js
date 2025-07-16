@@ -1,8 +1,17 @@
+console.log("Loading users.js");
 const express = require('express');
 const router = express.Router();
+
+console.log("Requiring bcrypt");
 const bcrypt = require('bcrypt');
+
+console.log("Requiring jwt");
 const jwt = require('jsonwebtoken');
+
+console.log("Requiring supabase");
 const supabase = require('../supabaseClient');
+
+console.log("Requiring auth");
 const auth = require('../middleware/auth');
 
 // @route   GET /api/users
