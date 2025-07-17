@@ -46,6 +46,8 @@ function DashboardHome() {
     navigate('/login');
   };
 
+
+  console.log("API_BASE_URL in production:", api.defaults.baseURL);
   const fetchPublicPosts = async () => {
     setLoadingPosts(true);
     setError('');
