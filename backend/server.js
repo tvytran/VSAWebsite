@@ -225,6 +225,17 @@ app.use('*', (req, res) => {
     });
 });
 
+// Catch-all handler for any other requests
+app.use((req, res) => {
+    console.log('Catch-all handler for:', req.originalUrl);
+    res.status(404).json({
+        success: false,
+        error: 'Route not found',
+        path: req.originalUrl,
+        method: req.method
+    });
+});
+
 // Start the server only if not in production (Vercel)
 if (process.env.NODE_ENV !== 'production') {
   app.listen(port, () => {

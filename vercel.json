@@ -3,10 +3,7 @@
   "builds": [
     { 
       "src": "backend/server.js", 
-      "use": "@vercel/node",
-      "config": {
-        "includeFiles": ["backend/**"]
-      }
+      "use": "@vercel/node"
     },
     { 
       "src": "vsa-frontend/package.json", 
@@ -26,6 +23,11 @@
       "dest": "/vsa-frontend/$1" 
     }
   ],
+  "functions": {
+    "backend/server.js": {
+      "maxDuration": 30
+    }
+  },
   "env": {
     "NODE_ENV": "production"
   }
