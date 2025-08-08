@@ -117,18 +117,19 @@ function Login() {
   // Test API connection
   const testApiConnection = async () => {
     try {
-      const testUrl = process.env.NODE_ENV === 'production' ? '/api/health' : 'http://localhost:5001/api/health';
+      const testUrl = process.env.NODE_ENV === 'production' ? '/api/test' : 'http://localhost:5001/api/test';
       console.log('Testing API connection to:', testUrl);
       
       const response = await fetch(testUrl);
-      const data = await response.json();
-      console.log('API health check response:', data);
+      console.log('Test response status:', response.status);
+      console.log('Test response headers:', response.headers);
       
-      if (data.supabaseUrl === 'NOT SET' || data.supabaseKey === 'NOT SET') {
-        console.error('Backend environment variables not configured!');
-        alert('Backend configuration error: Missing Supabase credentials');
+      if (response.ok) {
+        const data = await response.json();
+        console.log('API test response:', data);
       } else {
-        console.log('Backend environment variables are configured correctly');
+        const text = await response.text();
+        console.error('API test failed:', text.substring(0, 200));
       }
     } catch (error) {
       console.error('API connection test failed:', error);

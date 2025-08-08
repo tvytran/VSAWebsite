@@ -118,6 +118,16 @@ app.get('/', (req, res) => {
     res.json({ message: 'Welcome to VSA Website API' });
 });
 
+// Test route to verify API is working
+app.get('/api/test', (req, res) => {
+    res.json({ 
+        message: 'API is working',
+        timestamp: new Date().toISOString(),
+        path: req.path,
+        method: req.method
+    });
+});
+
 // Health check endpoint for debugging
 app.get('/api/health', (req, res) => {
     res.json({ 
@@ -166,7 +176,18 @@ app.use((err, req, res, next) => {
         success: false,
         error: err.message || 'Server Error'
     });  // Send error response
-  });
+});
+
+// 404 handler for unmatched routes
+app.use('*', (req, res) => {
+    console.log('404 - Route not found:', req.originalUrl);
+    res.status(404).json({
+        success: false,
+        error: 'Route not found',
+        path: req.originalUrl,
+        method: req.method
+    });
+});
 
 // Start the server only if not in production (Vercel)
 if (process.env.NODE_ENV !== 'production') {
