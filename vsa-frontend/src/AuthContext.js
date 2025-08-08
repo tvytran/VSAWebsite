@@ -25,22 +25,23 @@ export function AuthProvider({ children }) {
     }
     console.log('Fetching user profile with token:', access_token);
     
-    // Use the same API base URL logic as api.js
-    const API_BASE_URL = process.env.NODE_ENV === 'production' 
-      ? '/api' 
-      : (process.env.REACT_APP_API_BASE_URL || 'http://localhost:5001').replace(/\/$/, '');
+    // Construct the API URL correctly for production
+    let meUrl;
+    if (process.env.NODE_ENV === 'production') {
+      // In production, the API is served from the same domain
+      meUrl = '/api/auth/me';
+    } else {
+      // In development, use the full URL
+      const API_BASE_URL = (process.env.REACT_APP_API_BASE_URL || 'http://localhost:5001').replace(/\/$/, '');
+      meUrl = `${API_BASE_URL}/api/auth/me`;
+    }
+    
+    console.log('Making request to:', meUrl);
+    console.log('NODE_ENV:', process.env.NODE_ENV);
     
     try {
-      // For development, we need to add /api, for production it's already included
-      const meUrl = process.env.NODE_ENV === 'production' 
-        ? `${API_BASE_URL}/auth/me`
-        : `${API_BASE_URL}/api/auth/me`;
-      
-      console.log('Making request to:', meUrl);
-      console.log('NODE_ENV:', process.env.NODE_ENV);
-      console.log('API_BASE_URL:', API_BASE_URL);
-      
       const res = await fetch(meUrl, {
+        method: 'GET',
         headers: { 
           'Authorization': `Bearer ${access_token}`,
           'Content-Type': 'application/json'
@@ -74,8 +75,10 @@ export function AuthProvider({ children }) {
         }
       } else {
         console.log('Failed to fetch user profile, status:', res.status);
-        const errorData = await res.json().catch(() => ({}));
-        console.log('Error data:', errorData);
+        
+        // Try to get the response text to see what's being returned
+        const responseText = await res.text();
+        console.log('Response text:', responseText);
         
         // If it's a 401, the token might be invalid
         if (res.status === 401) {

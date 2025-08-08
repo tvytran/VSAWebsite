@@ -126,7 +126,19 @@ app.get('/api/health', (req, res) => {
         environment: process.env.NODE_ENV || 'development',
         supabaseUrl: process.env.SUPABASE_URL ? 'SET' : 'NOT SET',
         supabaseKey: process.env.SUPABASE_KEY ? 'SET' : 'NOT SET',
+        supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY ? 'SET' : 'NOT SET',
         jwtSecret: process.env.JWT_SECRET ? 'SET' : 'NOT SET'
+    });
+});
+
+// Test endpoint for auth debugging
+app.get('/api/test-auth', (req, res) => {
+    res.json({
+        message: 'Auth test endpoint',
+        headers: req.headers,
+        method: req.method,
+        url: req.url,
+        environment: process.env.NODE_ENV
     });
 });
 

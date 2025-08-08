@@ -280,6 +280,17 @@ router.post(
 // Get current user
 router.get('/me', auth, async (req, res) => {
     try {
+        console.log('=== /me route called ===');
+        console.log('Request headers:', req.headers);
+        console.log('Request method:', req.method);
+        console.log('Request URL:', req.url);
+        console.log('User from auth middleware:', req.user);
+        
+        if (!req.user || !req.user.id) {
+            console.error('No user found in request');
+            return res.status(401).json({ success: false, message: 'User not authenticated' });
+        }
+        
         console.log('Fetching user with id:', req.user.id);
         let { data: user, error } = await req.supabase
             .from('users')

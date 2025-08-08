@@ -2,7 +2,9 @@ const jwt = require('jsonwebtoken');
 const { createClient } = require('@supabase/supabase-js');
 
 module.exports = async function(req, res, next) {
-    console.log('Auth middleware called for path:', req.path);
+    console.log('=== Auth middleware called ===');
+    console.log('Path:', req.path);
+    console.log('Method:', req.method);
     console.log('Headers:', req.headers);
 
     // Get token from header
@@ -27,14 +29,30 @@ module.exports = async function(req, res, next) {
         });
     }
 
+    console.log('Token found, length:', token.length);
+
     try {
         // Create a Supabase client using the service role key for admin operations
         const serviceKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY;
+        const supabaseUrl = process.env.SUPABASE_URL;
+        
+        console.log('Supabase URL exists:', !!supabaseUrl);
+        console.log('Service key exists:', !!serviceKey);
+        
+        if (!supabaseUrl || !serviceKey) {
+            console.error('Missing Supabase environment variables');
+            return res.status(500).json({ 
+                success: false, 
+                message: 'Server configuration error' 
+            });
+        }
+        
         if (!process.env.SUPABASE_SERVICE_KEY) {
             console.warn('WARNING: SUPABASE_SERVICE_KEY not found. Using regular key which may cause permission issues.');
         }
+        
         req.supabase = createClient(
-            process.env.SUPABASE_URL,
+            supabaseUrl,
             serviceKey,
             {
                 auth: {
@@ -46,7 +64,10 @@ module.exports = async function(req, res, next) {
 
         // First, try to verify as a Supabase session token
         try {
+            console.log('Attempting to verify as Supabase session token...');
             const { data: { user: supabaseUser }, error: supabaseError } = await req.supabase.auth.getUser(token);
+            
+            console.log('Supabase auth result:', { user: supabaseUser ? 'found' : 'not found', error: supabaseError });
             
             if (!supabaseError && supabaseUser) {
                 console.log('Valid Supabase session token found for user:', supabaseUser.id);
@@ -108,14 +129,27 @@ module.exports = async function(req, res, next) {
                     };
                 }
                 
+                console.log('Auth middleware success, user:', req.user);
                 return next();
+            } else {
+                console.log('Supabase session token verification failed:', supabaseError);
             }
         } catch (supabaseAuthError) {
-            console.log('Not a valid Supabase session token, trying JWT...');
+            console.log('Supabase auth error:', supabaseAuthError.message);
         }
 
         // If not a Supabase session token, try JWT
+        console.log('Trying JWT verification...');
         console.log('JWT_SECRET exists:', !!process.env.JWT_SECRET);
+        
+        if (!process.env.JWT_SECRET) {
+            console.error('JWT_SECRET not found');
+            return res.status(500).json({ 
+                success: false, 
+                message: 'Server configuration error' 
+            });
+        }
+        
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         console.log('Token decoded successfully:', decoded);
 
@@ -136,6 +170,7 @@ module.exports = async function(req, res, next) {
             role: userData.role
         };
 
+        console.log('JWT auth success, user:', req.user);
         next();
     } catch (err) {
         console.error('Token verification or DB error:', err.message);
