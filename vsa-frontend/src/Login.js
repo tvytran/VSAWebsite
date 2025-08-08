@@ -31,6 +31,17 @@ function Login() {
         return;
       }
       
+      // Check if we're in production and the redirect URL is correct
+      if (process.env.NODE_ENV === 'production') {
+        console.log('Production mode detected');
+        console.log('Expected redirect URL:', redirectTo);
+        
+        // Validate the redirect URL format
+        if (!redirectTo.startsWith('https://')) {
+          console.warn('Warning: Redirect URL is not HTTPS in production');
+        }
+      }
+      
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: { 
@@ -44,6 +55,11 @@ function Login() {
       
       if (error) {
         console.error('Google sign-in error:', error);
+        console.error('Error details:', {
+          message: error.message,
+          status: error.status,
+          name: error.name
+        });
         alert(`Google sign-in failed: ${error.message}\n\nPlease check:\n1. Google OAuth provider is enabled in Supabase\n2. Redirect URLs are configured correctly\n3. Google OAuth credentials are set up`);
       } else {
         console.log('Google sign-in initiated successfully:', data);
@@ -69,6 +85,7 @@ function Login() {
       }
     } catch (error) {
       console.error('Unexpected error during Google sign-in:', error);
+      console.error('Error stack:', error.stack);
       alert(`Unexpected error: ${error.message}`);
     }
   };
@@ -77,6 +94,30 @@ function Login() {
     localStorage.setItem('isGuest', 'true');
     navigate('/dashboard');
   };
+
+  // Debug function to test environment variables
+  const testEnvironment = () => {
+    console.log('=== Environment Test ===');
+    console.log('NODE_ENV:', process.env.NODE_ENV);
+    console.log('REACT_APP_SUPABASE_URL:', process.env.REACT_APP_SUPABASE_URL);
+    console.log('REACT_APP_SUPABASE_ANON_KEY:', process.env.REACT_APP_SUPABASE_ANON_KEY ? 'SET' : 'NOT SET');
+    console.log('REACT_APP_BASE_URL:', process.env.REACT_APP_BASE_URL);
+    console.log('Current URL:', window.location.href);
+    console.log('Origin:', window.location.origin);
+    
+    // Test Supabase client
+    if (supabase) {
+      console.log('Supabase client initialized');
+      console.log('Supabase URL:', supabase.supabaseUrl);
+    } else {
+      console.error('Supabase client not initialized');
+    }
+  };
+
+  // Run environment test on component mount
+  React.useEffect(() => {
+    testEnvironment();
+  }, []);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#faecd8]">

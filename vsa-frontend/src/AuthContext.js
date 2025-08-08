@@ -36,9 +36,20 @@ export function AuthProvider({ children }) {
         ? `${API_BASE_URL}/auth/me`
         : `${API_BASE_URL}/api/auth/me`;
       
+      console.log('Making request to:', meUrl);
+      console.log('NODE_ENV:', process.env.NODE_ENV);
+      console.log('API_BASE_URL:', API_BASE_URL);
+      
       const res = await fetch(meUrl, {
-        headers: { 'Authorization': `Bearer ${access_token}` }
+        headers: { 
+          'Authorization': `Bearer ${access_token}`,
+          'Content-Type': 'application/json'
+        }
       });
+      
+      console.log('Response status:', res.status);
+      console.log('Response headers:', res.headers);
+      
       if (res.ok) {
         const data = await res.json();
         console.log('Fetched user profile:', data.user);
@@ -65,6 +76,13 @@ export function AuthProvider({ children }) {
         console.log('Failed to fetch user profile, status:', res.status);
         const errorData = await res.json().catch(() => ({}));
         console.log('Error data:', errorData);
+        
+        // If it's a 401, the token might be invalid
+        if (res.status === 401) {
+          console.log('Token is invalid, clearing session');
+          await supabase.auth.signOut();
+        }
+        
         setUser(null);
         setIsLoggedIn(false);
       }
