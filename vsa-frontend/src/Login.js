@@ -11,17 +11,61 @@ function Login() {
   }, []);
 
   const handleGoogleSignIn = async () => {
-    localStorage.removeItem('isGuest');
-    const baseUrl = process.env.REACT_APP_BASE_URL || window.location.origin;
-    const redirectTo = baseUrl + '/dashboard';
-    await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo }
-    });
+    try {
+      localStorage.removeItem('isGuest');
+      const baseUrl = process.env.REACT_APP_BASE_URL || window.location.origin;
+      const redirectTo = baseUrl + '/dashboard';
+      
+      console.log('=== Google Sign-in Debug ===');
+      console.log('Base URL:', baseUrl);
+      console.log('Redirect To:', redirectTo);
+      console.log('Supabase URL:', process.env.REACT_APP_SUPABASE_URL);
+      console.log('Supabase Anon Key exists:', !!process.env.REACT_APP_SUPABASE_ANON_KEY);
+      console.log('Current URL:', window.location.href);
+      
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { 
+          redirectTo,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          }
+        }
+      });
+      
+      if (error) {
+        console.error('Google sign-in error:', error);
+        alert(`Google sign-in failed: ${error.message}\n\nPlease check:\n1. Google OAuth provider is enabled in Supabase\n2. Redirect URLs are configured correctly\n3. Google OAuth credentials are set up`);
+      } else {
+        console.log('Google sign-in initiated successfully:', data);
+        console.log('Redirect URL:', data.url);
+        console.log('Provider:', data.provider);
+        console.log('URL will redirect to:', redirectTo);
+        
+        // If there's a URL, it means we need to redirect
+        if (data.url) {
+          console.log('Redirecting to Google OAuth URL:', data.url);
+          window.location.href = data.url;
+        } else {
+          console.log('No redirect URL provided, checking for session...');
+          // Check if we already have a session
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session) {
+            console.log('Session found, redirecting to dashboard...');
+            window.location.href = redirectTo;
+          } else {
+            console.log('No session found, waiting for OAuth callback...');
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Unexpected error during Google sign-in:', error);
+      alert(`Unexpected error: ${error.message}`);
+    }
   };
 
   const handleGuestMode = () => {
-    localStorage.setItem('isGuest', 'true');
     navigate('/dashboard');
   };
 

@@ -30,19 +30,46 @@ export function AuthProvider({ children }) {
       ? '/api' 
       : (process.env.REACT_APP_API_BASE_URL || 'http://localhost:5001').replace(/\/$/, '');
     
-    const res = await fetch(`${API_BASE_URL}/auth/me`, {
-      headers: { 'Authorization': `Bearer ${access_token}` }
-    });
-    if (res.ok) {
-      const data = await res.json();
-      console.log('Fetched user profile:', data.user);
-      setUser(data.user);
-      setIsLoggedIn(true);
-      if (!data.user.family_id) {
-        navigate('/join-family');
+    try {
+      // For development, we need to add /api, for production it's already included
+      const meUrl = process.env.NODE_ENV === 'production' 
+        ? `${API_BASE_URL}/auth/me`
+        : `${API_BASE_URL}/api/auth/me`;
+      
+      const res = await fetch(meUrl, {
+        headers: { 'Authorization': `Bearer ${access_token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        console.log('Fetched user profile:', data.user);
+        setUser(data.user);
+        setIsLoggedIn(true);
+        
+        // Only redirect if the user is not already on the correct page
+        const currentPath = window.location.pathname;
+        
+        if (!data.user.family_id) {
+          console.log('User has no family_id');
+          if (currentPath !== '/join-family') {
+            console.log('Redirecting to join-family');
+            navigate('/join-family');
+          }
+        } else {
+          console.log('User has family_id:', data.user.family_id);
+          if (currentPath === '/join-family') {
+            console.log('Redirecting to dashboard (user has family)');
+            navigate('/dashboard');
+          }
+        }
+      } else {
+        console.log('Failed to fetch user profile, status:', res.status);
+        const errorData = await res.json().catch(() => ({}));
+        console.log('Error data:', errorData);
+        setUser(null);
+        setIsLoggedIn(false);
       }
-    } else {
-      console.log('Failed to fetch user profile, status:', res.status);
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
       setUser(null);
       setIsLoggedIn(false);
     }
@@ -57,22 +84,44 @@ export function AuthProvider({ children }) {
       setLoading(false);
       return;
     }
+    
+    console.log('Setting up auth state change listener');
+    
     // Listen for auth state changes (Supabase v2)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('=== Auth State Change ===');
+      console.log('Event:', event);
+      console.log('Session:', session);
+      console.log('Current URL:', window.location.href);
+      
       if (session) {
+        console.log('Session found, processing authentication...');
         localStorage.removeItem('isGuest');
+        const access_token = session.access_token;
+        console.log('Access token:', access_token ? 'Present' : 'Missing');
+        await fetchUserProfile(access_token);
+      } else {
+        console.log('No session found, setting user to null');
+        setUser(null);
+        setIsLoggedIn(false);
+        setLoading(false);
       }
-      console.log('onAuthStateChange event:', event, 'session:', session);
-      const access_token = session?.access_token;
-      await fetchUserProfile(access_token);
     });
 
     // Initial session check (Supabase v2)
     (async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      console.log('Initial Supabase session:', session);
-      const access_token = session?.access_token;
-      await fetchUserProfile(access_token);
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) {
+          console.error('Error getting session:', error);
+        }
+        console.log('Initial Supabase session:', session);
+        const access_token = session?.access_token;
+        await fetchUserProfile(access_token);
+      } catch (error) {
+        console.error('Error in initial session check:', error);
+        setLoading(false);
+      }
     })();
 
     // Cleanup for Supabase v2
@@ -82,15 +131,39 @@ export function AuthProvider({ children }) {
   }, [navigate]);
 
   const logout = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
-    setIsLoggedIn(false);
-    navigate('/');
+    try {
+      await supabase.auth.signOut();
+      setUser(null);
+      setIsLoggedIn(false);
+      navigate('/');
+    } catch (error) {
+      console.error('Error during logout:', error);
+    }
   };
 
   // Update user after joining family
   const updateUser = (updatedUser) => {
+    console.log('Updating user in AuthContext:', updatedUser);
     setUser(updatedUser);
+    setIsLoggedIn(true);
+    
+    // If the user now has a family_id and is on the join-family page, redirect to dashboard
+    if (updatedUser.family_id && window.location.pathname === '/join-family') {
+      console.log('User joined family, redirecting to dashboard');
+      navigate('/dashboard');
+    }
+  };
+
+  // Force refresh user data
+  const refreshUser = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        await fetchUserProfile(session.access_token);
+      }
+    } catch (error) {
+      console.error('Error refreshing user:', error);
+    }
   };
 
   const value = {
@@ -98,7 +171,8 @@ export function AuthProvider({ children }) {
     isLoggedIn,
     loading,
     logout,
-    updateUser
+    updateUser,
+    refreshUser
   };
 
   console.log('AuthContext render: isLoggedIn:', isLoggedIn, 'user:', user);

@@ -24,7 +24,7 @@ const ProtectedRoute = ({ children, requireAdmin = false, skipFamilyCheck = fals
   const { isLoggedIn, user, loading } = useAuth();
   const isGuest = localStorage.getItem('isGuest') === 'true';
   const path = window.location.pathname;
-  console.log('ProtectedRoute:', { isLoggedIn, user, loading, isGuest, path });
+  console.log('ProtectedRoute:', { isLoggedIn, user, loading, isGuest, path, userFamilyId: user?.family_id });
 
   if (loading) return <div>Loading...</div>;
   if (!isLoggedIn && !isGuest) {
@@ -41,7 +41,8 @@ const ProtectedRoute = ({ children, requireAdmin = false, skipFamilyCheck = fals
   if (requireAdmin && user?.role !== 'admin') {
     return <Navigate to="/dashboard" />;
   }
-  if (!skipFamilyCheck && user && !user.family_id) {
+  if (!skipFamilyCheck && user && !user.family_id && path !== '/join-family') {
+    console.log('User has no family_id, redirecting to join-family');
     return <Navigate to="/join-family" />;
   }
   return children;

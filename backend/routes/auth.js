@@ -287,13 +287,25 @@ router.get('/me', auth, async (req, res) => {
             .eq('id', req.user.id)
             .single();
         console.log('Supabase user:', user, 'Error:', error);
+        
         // If user profile does not exist, create it (for Google sign-in onboarding)
         if (error && error.code === 'PGRST116') {
-            // Try to get email from Supabase auth user if not present in req.user
-            // For now, use req.user.id and set email to null if not available
+            console.log('User profile not found, creating new profile for user:', req.user.id);
             const email = req.user.email || null;
+            
+            // Generate a username from email if available
+            let username = null;
+            if (email) {
+                username = email.split('@')[0]; // Use part before @ as username
+                // Add a random number to make it unique
+                username = username + Math.floor(Math.random() * 1000);
+            } else {
+                username = 'user_' + req.user.id.substring(0, 8);
+            }
+            
             const newUser = {
                 id: req.user.id,
+                username: username,
                 email: email,
                 family_id: null,
                 role: 'member',
@@ -309,13 +321,18 @@ router.get('/me', auth, async (req, res) => {
                 return res.status(500).json({ success: false, message: 'Failed to create user profile.' });
             }
             user = insertedUser;
+            console.log('Created new user profile:', user);
         } else if (error) {
+            console.error('Error fetching user:', error);
             throw error;
         }
+        
         if (!user) {
             console.log('User not found for ID:', req.user.id);
             return res.status(404).json({ success: false, message: 'User not found' });
         }
+        
+        console.log('Returning user profile:', user);
         res.json({ success: true, user });
     } catch (error) {
         console.error('ME route error:', error);

@@ -8,7 +8,7 @@ const JoinFamilyPage = () => {
   const [familyCode, setFamilyCode] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { updateUser } = useAuth();
+  const { updateUser, refreshUser } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -38,6 +38,9 @@ const JoinFamilyPage = () => {
 
       // Update the user in our AuthContext with the new profile data
       updateUser(res.data.user);
+      
+      // Force refresh the user data to ensure everything is up to date
+      await refreshUser();
 
       // Redirect to the main dashboard
       navigate('/dashboard');

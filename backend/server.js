@@ -86,15 +86,7 @@ console.log("Registering /api/users");
 app.use('/api/users', auth, userRoutes);
 
 console.log("Registering /api/auth");
-app.use('/api/auth', (req, res, next) => {
-    // The rate limiter has already been applied to /login and /register
-    // Skip auth middleware for login and register routes
-    if (req.path === '/login' || req.path === '/register') {
-        return next();
-    }
-    // Apply auth middleware for all other auth routes
-    auth(req, res, next);
-}, authRoutes);
+app.use('/api/auth', authRoutes);
 
 // Posts routes - some are public (for guests), some require auth
 console.log("Registering /api/posts");
