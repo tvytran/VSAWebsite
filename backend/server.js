@@ -17,6 +17,8 @@ const allowedOrigins = [
   'https://www.vsacolumbia.com',
   'https://vsa-website.vercel.app',
   'https://vsa-website-git-main-tvytran.vercel.app',
+  'https://vsa-website-tvytran.vercel.app',
+  'https://vsa-website-git-main-tvytran.vercel.app',
   'https://vsa-website-tvytran.vercel.app'
 ];
 
@@ -28,10 +30,13 @@ const corsOptions = {
       return callback(null, true);
     } else {
       console.log('CORS blocked origin:', origin);
-      return callback(new Error('Not allowed by CORS'));
+      // Temporarily allow all origins for debugging
+      return callback(null, true);
     }
   },
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-auth-token']
 };
 
 app.use(cors(corsOptions));
@@ -88,6 +93,36 @@ app.use('/api/users', auth, userRoutes);
 console.log("Registering /api/auth");
 app.use('/api/auth', authRoutes);
 
+// Debug route to test auth middleware
+app.get('/api/auth/test', (req, res) => {
+    res.json({ 
+        message: 'Auth route is working',
+        timestamp: new Date().toISOString(),
+        path: req.path,
+        method: req.method
+    });
+});
+
+// Debug route to test if auth middleware is working
+app.get('/api/auth/test-auth', auth, (req, res) => {
+    res.json({ 
+        message: 'Auth middleware is working',
+        user: req.user,
+        timestamp: new Date().toISOString()
+    });
+});
+
+// Debug route to test if the server is receiving requests
+app.get('/api/debug', (req, res) => {
+    res.json({
+        message: 'Debug endpoint',
+        headers: req.headers,
+        method: req.method,
+        url: req.url,
+        timestamp: new Date().toISOString()
+    });
+});
+
 // Posts routes - some are public (for guests), some require auth
 console.log("Registering /api/posts");
 app.use('/api/posts', (req, res, next) => {
@@ -137,7 +172,8 @@ app.get('/api/health', (req, res) => {
         supabaseUrl: process.env.SUPABASE_URL ? 'SET' : 'NOT SET',
         supabaseKey: process.env.SUPABASE_KEY ? 'SET' : 'NOT SET',
         supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY ? 'SET' : 'NOT SET',
-        jwtSecret: process.env.JWT_SECRET ? 'SET' : 'NOT SET'
+        jwtSecret: process.env.JWT_SECRET ? 'SET' : 'NOT SET',
+        supabaseBucket: process.env.SUPABASE_BUCKET ? 'SET' : 'NOT SET'
     });
 });
 

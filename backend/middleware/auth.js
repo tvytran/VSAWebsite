@@ -5,7 +5,8 @@ module.exports = async function(req, res, next) {
     console.log('=== Auth middleware called ===');
     console.log('Path:', req.path);
     console.log('Method:', req.method);
-    console.log('Headers:', req.headers);
+    console.log('URL:', req.url);
+    console.log('Original URL:', req.originalUrl);
 
     // Get token from header
     let token = req.header('x-auth-token');
@@ -30,6 +31,7 @@ module.exports = async function(req, res, next) {
     }
 
     console.log('Token found, length:', token.length);
+    console.log('Token preview:', token.substring(0, 20) + '...');
 
     try {
         // Create a Supabase client using the service role key for admin operations
@@ -65,9 +67,15 @@ module.exports = async function(req, res, next) {
         // First, try to verify as a Supabase session token
         try {
             console.log('Attempting to verify as Supabase session token...');
+            console.log('Supabase URL:', supabaseUrl);
+            console.log('Service key length:', serviceKey ? serviceKey.length : 0);
+            
             const { data: { user: supabaseUser }, error: supabaseError } = await req.supabase.auth.getUser(token);
             
-            console.log('Supabase auth result:', { user: supabaseUser ? 'found' : 'not found', error: supabaseError });
+            console.log('Supabase auth result:', { 
+                user: supabaseUser ? 'found' : 'not found', 
+                error: supabaseError ? supabaseError.message : null 
+            });
             
             if (!supabaseError && supabaseUser) {
                 console.log('Valid Supabase session token found for user:', supabaseUser.id);
@@ -136,6 +144,7 @@ module.exports = async function(req, res, next) {
             }
         } catch (supabaseAuthError) {
             console.log('Supabase auth error:', supabaseAuthError.message);
+            console.log('Supabase auth error stack:', supabaseAuthError.stack);
         }
 
         // If not a Supabase session token, try JWT
