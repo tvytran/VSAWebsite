@@ -163,6 +163,17 @@ app.get('/api/test', (req, res) => {
     });
 });
 
+// Test route to verify the backend is being served
+app.get('/api/backend-test', (req, res) => {
+    res.json({ 
+        message: 'Backend is working',
+        timestamp: new Date().toISOString(),
+        path: req.path,
+        method: req.method,
+        environment: process.env.NODE_ENV
+    });
+});
+
 // Health check endpoint for debugging
 app.get('/api/health', (req, res) => {
     res.json({ 
