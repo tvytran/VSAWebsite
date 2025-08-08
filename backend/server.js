@@ -12,6 +12,15 @@ app.use(helmet());
 
 const port = process.env.PORT || 5001; //setting port
 
+// Simple test route to verify the backend is working
+app.get('/api/vercel-test', (req, res) => {
+    res.json({ 
+        message: 'Vercel backend is working',
+        timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV || 'development'
+    });
+});
+
 const allowedOrigins = [
   'http://localhost:3000',
   'https://www.vsacolumbia.com',
