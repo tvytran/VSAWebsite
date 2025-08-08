@@ -22,6 +22,14 @@ function Login() {
       console.log('Supabase URL:', process.env.REACT_APP_SUPABASE_URL);
       console.log('Supabase Anon Key exists:', !!process.env.REACT_APP_SUPABASE_ANON_KEY);
       console.log('Current URL:', window.location.href);
+      console.log('NODE_ENV:', process.env.NODE_ENV);
+      
+      // Check if Supabase is properly configured
+      if (!process.env.REACT_APP_SUPABASE_URL || !process.env.REACT_APP_SUPABASE_ANON_KEY) {
+        console.error('Missing Supabase environment variables!');
+        alert('Configuration error: Missing Supabase credentials. Please contact the administrator.');
+        return;
+      }
       
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -66,6 +74,7 @@ function Login() {
   };
 
   const handleGuestMode = () => {
+    localStorage.setItem('isGuest', 'true');
     navigate('/dashboard');
   };
 
