@@ -13,10 +13,14 @@
       } 
     }
   ],
-  "rewrites": [
-    {
-      "source": "/api/:path*",
-      "destination": "/backend/server.js"
+  "routes": [
+    { 
+      "src": "/api/(.*)", 
+      "dest": "/backend/server.js"
+    },
+    { 
+      "src": "/(.*)", 
+      "dest": "/vsa-frontend/$1" 
     }
   ]
 } 
