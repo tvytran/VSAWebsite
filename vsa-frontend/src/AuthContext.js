@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
+import api from './api';
 import { useNavigate } from 'react-router-dom';
 
 const AuthContext = createContext();
@@ -25,47 +26,16 @@ export function AuthProvider({ children }) {
     }
     console.log('Fetching user profile with token:', access_token);
     
-    // Construct the API URL correctly for production
-    let meUrl;
-    if (process.env.NODE_ENV === 'production') {
-      // In production, the API is served from the same domain
-      meUrl = '/api/auth/me';
-    } else {
-      // In development, use the full URL
-      const API_BASE_URL = (process.env.REACT_APP_API_BASE_URL || 'http://localhost:5001').replace(/\/$/, '');
-      meUrl = `${API_BASE_URL}/api/auth/me`;
-    }
-    
-    console.log('Making request to:', meUrl);
-    console.log('NODE_ENV:', process.env.NODE_ENV);
-    console.log('Full URL:', window.location.origin + meUrl);
-    
+    // Use shared axios client to ensure correct base URL in all environments
     try {
-      const res = await fetch(meUrl, {
-        method: 'GET',
-        headers: { 
-          'Authorization': `Bearer ${access_token}`,
-          'Content-Type': 'application/json'
+      const res = await api.get('/api/auth/me', {
+        headers: {
+          'Authorization': `Bearer ${access_token}`
         }
       });
-      
-      console.log('Response status:', res.status);
-      console.log('Response headers:', res.headers);
-      console.log('Response URL:', res.url);
-      
-      if (res.ok) {
-        // Check if the response is actually JSON
-        const contentType = res.headers.get('content-type');
-        console.log('Content-Type:', contentType);
-        
-        if (!contentType || !contentType.includes('application/json')) {
-          console.error('Response is not JSON, content-type:', contentType);
-          const text = await res.text();
-          console.error('Response text:', text.substring(0, 200) + '...');
-          throw new Error('Response is not JSON');
-        }
-        
-        const data = await res.json();
+
+      if (res.status >= 200 && res.status < 300) {
+        const data = res.data;
         console.log('Fetched user profile:', data.user);
         setUser(data.user);
         setIsLoggedIn(true);
@@ -88,17 +58,10 @@ export function AuthProvider({ children }) {
         }
       } else {
         console.log('Failed to fetch user profile, status:', res.status);
-        
-        // Try to get the response text to see what's being returned
-        const responseText = await res.text();
-        console.log('Response text:', responseText.substring(0, 200) + '...');
-        
-        // If it's a 401, the token might be invalid
         if (res.status === 401) {
           console.log('Token is invalid, clearing session');
           await supabase.auth.signOut();
         }
-        
         setUser(null);
         setIsLoggedIn(false);
       }
