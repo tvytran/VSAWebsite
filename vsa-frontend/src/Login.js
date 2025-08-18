@@ -14,7 +14,8 @@ function Login() {
     try {
       localStorage.removeItem('isGuest');
       const baseUrl = process.env.REACT_APP_BASE_URL || window.location.origin;
-      const redirectTo = baseUrl + '/dashboard';
+      // Redirect to the site root after OAuth; app will route to dashboard/join-family
+      const redirectTo = baseUrl;
       
       console.log('=== Google Sign-in Debug ===');
       console.log('Base URL:', baseUrl);
@@ -117,7 +118,7 @@ function Login() {
   // Test API connection
   const testApiConnection = async () => {
     try {
-      const testUrl = process.env.NODE_ENV === 'production' ? '/api/test' : 'http://localhost:5001/api/test';
+      const testUrl = process.env.NODE_ENV === 'production' ? 'https://vsa-website.vercel.app/api/test' : 'http://localhost:5001/api/test';
       console.log('Testing API connection to:', testUrl);
       
       const response = await fetch(testUrl);
