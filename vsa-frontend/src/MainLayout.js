@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import AnnouncementsSidebar from './components/AnnouncementsSidebar';
 import api from './api';
 import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline';
@@ -15,6 +15,18 @@ function MainLayout({ children }) {
   const [familiesError, setFamiliesError] = useState('');
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const location = useLocation();
+
+  const isActive = (match) => {
+    if (!location) return false;
+    if (match === '/') return location.pathname === '/';
+    return location.pathname === match || location.pathname.startsWith(match + '/');
+  };
+
+  const navButtonClass = (match) => (
+    `w-full py-2.5 ${isActive(match) ? 'bg-[#e0c9a6] text-[#b32a2a]' : 'bg-white text-gray-700'} ` +
+    'font-medium rounded-lg hover:bg-[#e0c9a6] hover:text-[#b32a2a] hover:scale-105 transition-all duration-300 ease-in-out text-base shadow-sm flex items-center justify-center transform'
+  );
 
   const isGuest = localStorage.getItem('isGuest') === 'true';
 
@@ -118,30 +130,30 @@ function MainLayout({ children }) {
               </Link>
             )}
             <div className="flex flex-col space-y-3 w-full px-4">
-              <Link to="/about">
-                <button className="w-full py-2.5 bg-white text-gray-700 font-medium rounded-lg hover:bg-[#e0c9a6] hover:text-[#b32a2a] hover:scale-105 transition-all duration-300 ease-in-out text-base shadow-sm flex items-center justify-center transform">
+              <Link to="/about" aria-current={isActive('/about') ? 'page' : undefined}>
+                <button className={navButtonClass('/about')}>
                   About
                 </button>
               </Link>
-              <Link to="/families">
-                <button className="w-full py-2.5 bg-white text-gray-700 font-medium rounded-lg hover:bg-[#e0c9a6] hover:text-[#b32a2a] hover:scale-105 transition-all duration-300 ease-in-out text-base shadow-sm flex items-center justify-center transform">
+              <Link to="/families" aria-current={isActive('/families') ? 'page' : undefined}>
+                <button className={navButtonClass('/families')}>
                   Leaderboard
                 </button>
               </Link>
-              <Link to="/events">
-                <button className="w-full py-2.5 bg-white text-gray-700 font-medium rounded-lg hover:bg-[#e0c9a6] hover:text-[#b32a2a] hover:scale-105 transition-all duration-300 ease-in-out text-base shadow-sm flex items-center justify-center transform">
+              <Link to="/events" aria-current={isActive('/events') ? 'page' : undefined}>
+                <button className={navButtonClass('/events')}>
                   Events
                 </button>
               </Link>
-              <Link to="/newsletter">
-                <button className="w-full py-2.5 bg-white text-gray-700 font-medium rounded-lg hover:bg-[#e0c9a6] hover:text-[#b32a2a] hover:scale-105 transition-all duration-300 ease-in-out text-base shadow-sm flex items-center justify-center transform">
+              <Link to="/newsletter" aria-current={isActive('/newsletter') ? 'page' : undefined}>
+                <button className={navButtonClass('/newsletter')}>
                   Newsletter
                 </button>
               </Link>
               {/* Admin Dashboard Link */}
               {isLoggedIn && user && user.role === 'admin' && (
-                <Link to="/admin">
-                  <button className="w-full py-2.5 bg-[#b32a2a] text-white font-medium rounded-lg hover:bg-[#8a1f1f] hover:scale-105 transition-all duration-300 ease-in-out text-base shadow-sm flex items-center justify-center transform">
+                <Link to="/admin" aria-current={isActive('/admin') ? 'page' : undefined}>
+                  <button className={isActive('/admin') ? 'w-full py-2.5 bg-[#e0c9a6] text-[#b32a2a] font-medium rounded-lg hover:bg-[#8a1f1f] hover:scale-105 transition-all duration-300 ease-in-out text-base shadow-sm flex items-center justify-center transform' : 'w-full py-2.5 bg-[#b32a2a] text-white font-medium rounded-lg hover:bg-[#8a1f1f] hover:scale-105 transition-all duration-300 ease-in-out text-base shadow-sm flex items-center justify-center transform'}>
                     Admin Dashboard
                   </button>
                 </Link>
@@ -213,30 +225,30 @@ function MainLayout({ children }) {
             </Link>
           )}
           <div className="flex flex-col space-y-3 w-full px-4">
-            <Link to="/about">
-              <button className="w-full py-2.5 bg-white text-gray-700 font-medium rounded-lg hover:bg-[#e0c9a6] hover:text-[#b32a2a] hover:scale-105 transition-all duration-300 ease-in-out text-base shadow-sm flex items-center justify-center transform">
+            <Link to="/about" aria-current={isActive('/about') ? 'page' : undefined}>
+              <button className={navButtonClass('/about')}>
                 About
               </button>
             </Link>
-            <Link to="/families">
-              <button className="w-full py-2.5 bg-white text-gray-700 font-medium rounded-lg hover:bg-[#e0c9a6] hover:text-[#b32a2a] hover:scale-105 transition-all duration-300 ease-in-out text-base shadow-sm flex items-center justify-center transform">
+            <Link to="/families" aria-current={isActive('/families') ? 'page' : undefined}>
+              <button className={navButtonClass('/families')}>
                 Leaderboard
               </button>
             </Link>
-            <Link to="/events">
-              <button className="w-full py-2.5 bg-white text-gray-700 font-medium rounded-lg hover:bg-[#e0c9a6] hover:text-[#b32a2a] hover:scale-105 transition-all duration-300 ease-in-out text-base shadow-sm flex items-center justify-center transform">
+            <Link to="/events" aria-current={isActive('/events') ? 'page' : undefined}>
+              <button className={navButtonClass('/events')}>
                 Events
               </button>
             </Link>
-            <Link to="/newsletter">
-              <button className="w-full py-2.5 bg-white text-gray-700 font-medium rounded-lg hover:bg-[#e0c9a6] hover:text-[#b32a2a] hover:scale-105 transition-all duration-300 ease-in-out text-base shadow-sm flex items-center justify-center transform">
+            <Link to="/newsletter" aria-current={isActive('/newsletter') ? 'page' : undefined}>
+              <button className={navButtonClass('/newsletter')}>
                 Newsletter
               </button>
             </Link>
             {/* Admin Dashboard Link */}
             {isLoggedIn && user && user.role === 'admin' && (
-              <Link to="/admin">
-                <button className="w-full py-2.5 bg-[#b32a2a] text-white font-medium rounded-lg hover:bg-[#8a1f1f] hover:scale-105 transition-all duration-300 ease-in-out text-base shadow-sm flex items-center justify-center transform">
+              <Link to="/admin" aria-current={isActive('/admin') ? 'page' : undefined}>
+                <button className={isActive('/admin') ? 'w-full py-2.5 bg-[#e0c9a6] text-[#b32a2a] font-medium rounded-lg hover:bg-[#8a1f1f] hover:scale-105 transition-all duration-300 ease-in-out text-base shadow-sm flex items-center justify-center transform' : 'w-full py-2.5 bg-[#b32a2a] text-white font-medium rounded-lg hover:bg-[#8a1f1f] hover:scale-105 transition-all duration-300 ease-in-out text-base shadow-sm flex items-center justify-center transform'}>
                   Admin Dashboard
                 </button>
               </Link>

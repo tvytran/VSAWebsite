@@ -365,7 +365,7 @@ function Events() {
     <MainLayout>
       <div className="max-w-4xl mx-auto py-8">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold">Events</h1>
+          <h1 className="text-3xl font-bold text-[#b32a2a]">Events</h1>
           {isAdmin && !editingEventId && (
             <button
               onClick={() => setShowCreateForm(!showCreateForm)}
