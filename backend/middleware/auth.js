@@ -107,7 +107,8 @@ module.exports = async function(req, res, next) {
                         email: email,
                         family_id: null,
                         role: 'member',
-                        points: 0
+                        points_total: 0,
+                        points_semester: 0
                     };
                     
                     const { data: insertedUser, error: insertError } = await req.supabase

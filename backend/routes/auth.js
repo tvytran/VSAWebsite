@@ -178,7 +178,8 @@ router.post(
                 email: email.trim(),
                 family_id: familyData.id,
                 role: role,
-                points: 0
+                points_total: 0,
+                points_semester: 0
             });
 
         if (profileError) {
@@ -320,7 +321,8 @@ router.get('/me', auth, async (req, res) => {
                 email: email,
                 family_id: null,
                 role: 'member',
-                points: 0
+                points_total: 0,
+                points_semester: 0
             };
             const { data: insertedUser, error: insertError } = await req.supabase
                 .from('users')
