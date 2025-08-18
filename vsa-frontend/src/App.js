@@ -24,10 +24,19 @@ const ProtectedRoute = ({ children, requireAdmin = false, skipFamilyCheck = fals
   const { isLoggedIn, user, loading } = useAuth();
   const isGuest = localStorage.getItem('isGuest') === 'true';
   const path = window.location.pathname;
+  const hasOAuthParams =
+    (typeof window !== 'undefined' && (
+      (window.location.hash && window.location.hash.includes('access_token=')) ||
+      (window.location.search && window.location.search.includes('code='))
+    ));
   console.log('ProtectedRoute:', { isLoggedIn, user, loading, isGuest, path, userFamilyId: user?.family_id });
 
   if (loading) return <div>Loading...</div>;
   if (!isLoggedIn && !isGuest) {
+    // If OAuth parameters are present, let Supabase complete the session exchange
+    if (hasOAuthParams) {
+      return <div>Completing sign-in...</div>;
+    }
     // Not logged in and not guest
     return <Navigate to="/login" />;
   }
