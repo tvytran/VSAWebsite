@@ -31,7 +31,7 @@ const ProtectedRoute = ({ children, requireAdmin = false, skipFamilyCheck = fals
     ));
   console.log('ProtectedRoute:', { isLoggedIn, user, loading, isGuest, path, userFamilyId: user?.family_id });
 
-  if (loading) return <div>Loading...</div>;
+  if (loading) return <div style={{ padding: 24 }}>Loading your session...</div>;
   if (!isLoggedIn && !isGuest) {
     // If OAuth parameters are present, let Supabase complete the session exchange
     if (hasOAuthParams) {
