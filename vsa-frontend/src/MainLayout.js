@@ -8,7 +8,7 @@ import { supabase } from './supabaseClient';
 
 function MainLayout({ children }) {
   const { isLoggedIn, user, logout } = useAuth();
-  console.log('MainLayout - isLoggedIn:', isLoggedIn, 'user:', user);
+  // console debug removed
 
   const [topFamilies, setTopFamilies] = useState([]);
   const [loadingFamilies, setLoadingFamilies] = useState(true);
@@ -52,7 +52,7 @@ function MainLayout({ children }) {
         }
         setLoadingFamilies(false);
       } catch (err) {
-        console.error('Error fetching top families:', err);
+        // Swallow fetch error; UI will show a message
         setFamiliesError(err.response?.data?.message || 'Failed to load leaderboard.');
         setLoadingFamilies(false);
       }

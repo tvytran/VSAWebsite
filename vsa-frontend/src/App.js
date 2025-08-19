@@ -29,7 +29,7 @@ const ProtectedRoute = ({ children, requireAdmin = false, skipFamilyCheck = fals
       (window.location.hash && window.location.hash.includes('access_token=')) ||
       (window.location.search && window.location.search.includes('code='))
     ));
-  console.log('ProtectedRoute:', { isLoggedIn, user, loading, isGuest, path, userFamilyId: user?.family_id });
+  // debug log removed
 
   if (loading) return <div style={{ padding: 24 }}>Loading your session...</div>;
   if (!isLoggedIn && !isGuest) {
@@ -51,7 +51,7 @@ const ProtectedRoute = ({ children, requireAdmin = false, skipFamilyCheck = fals
     return <Navigate to="/dashboard" />;
   }
   if (!skipFamilyCheck && user && !user.family_id && path !== '/join-family') {
-    console.log('User has no family_id, redirecting to join-family');
+    // redirect when user has no family
     return <Navigate to="/join-family" />;
   }
   return children;

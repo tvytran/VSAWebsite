@@ -38,7 +38,7 @@ const corsOptions = {
     if (allowedOrigins.includes(origin)) {
       return callback(null, true);
     } else {
-      console.log('CORS blocked origin:', origin);
+      // console.log('CORS blocked origin:', origin);
       // Temporarily allow all origins for debugging
       return callback(null, true);
     }
@@ -72,22 +72,22 @@ app.use('/api/auth/register', authLimiter);
 const supabase = require('./supabaseClient');
 
 // Import routes
-console.log("Requiring userRoutes");
+// console.log("Requiring userRoutes");
 const userRoutes = require('./routes/users');
 
-console.log("Requiring authRoutes");
+// console.log("Requiring authRoutes");
 const authRoutes = require('./routes/auth');
 
-console.log("Requiring postRoutes");
+// console.log("Requiring postRoutes");
 const postRoutes = require('./routes/posts');
 
-console.log("Requiring pointsRoutes");
+// console.log("Requiring pointsRoutes");
 const pointsRoutes = require('./routes/points');
 
-console.log("Requiring familyRoutes");
+// console.log("Requiring familyRoutes");
 const familyRoutes = require('./routes/families');
 
-console.log("Requiring eventsRouter");
+// console.log("Requiring eventsRouter");
 const eventsRouter = require('./routes/events');
 
 // Import auth middleware
@@ -96,10 +96,10 @@ const auth = require('./middleware/auth');
 // Use routes
 
 // Apply auth middleware to routes that require it
-console.log("Registering /api/users");
+// console.log("Registering /api/users");
 app.use('/api/users', auth, userRoutes);
 
-console.log("Registering /api/auth");
+// console.log("Registering /api/auth");
 app.use('/api/auth', authRoutes);
 
 // Debug route to test auth middleware
@@ -133,7 +133,7 @@ app.get('/api/debug', (req, res) => {
 });
 
 // Posts routes - some are public (for guests), some require auth
-console.log("Registering /api/posts");
+// console.log("Registering /api/posts");
 app.use('/api/posts', (req, res, next) => {
     // Public routes that don't require authentication
     const publicRoutes = ['/announcements', '/public'];
@@ -147,13 +147,13 @@ app.use('/api/posts', (req, res, next) => {
     auth(req, res, next);
 }, postRoutes);
 
-console.log("Registering /api/points");
+// console.log("Registering /api/points");
 app.use('/api/points', auth, pointsRoutes);
 
-console.log("Registering /api/families");
+// console.log("Registering /api/families");
 app.use('/api/families', auth, familyRoutes);
 
-console.log("Registering /api/events");
+// console.log("Registering /api/events");
 app.use('/api/events', eventsRouter);
 
 // Basic test route to verify the server is running
@@ -236,7 +236,7 @@ app.use((err, req, res, next) => {
 
 // 404 handler for unmatched routes
 app.use('*', (req, res) => {
-    console.log('404 - Route not found:', req.originalUrl);
+    // console.log('404 - Route not found:', req.originalUrl);
     res.status(404).json({
         success: false,
         error: 'Route not found',
@@ -247,7 +247,7 @@ app.use('*', (req, res) => {
 
 // Catch-all handler for any other requests
 app.use((req, res) => {
-    console.log('Catch-all handler for:', req.originalUrl);
+    // console.log('Catch-all handler for:', req.originalUrl);
     res.status(404).json({
         success: false,
         error: 'Route not found',
@@ -260,7 +260,7 @@ app.use((req, res) => {
 if (process.env.NODE_ENV !== 'production') {
   try { 
     app.listen(port, () => {
-      console.log(`Server running on port ${port}`);
+      // console.log(`Server running on port ${port}`);
     });
   } catch (error) {
     console.error('Error starting server:', error);

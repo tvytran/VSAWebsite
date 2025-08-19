@@ -18,13 +18,13 @@ export function AuthProvider({ children }) {
   // Helper to fetch user profile with a valid token
   const fetchUserProfile = async (access_token) => {
     if (!access_token) {
-      console.log('No access token, setting user to null');
+      // no access token
       setUser(null);
       setIsLoggedIn(false);
       setLoading(false);
       return;
     }
-    console.log('Fetching user profile with token:', access_token);
+    // fetch user profile
     
     // Use shared axios client to ensure correct base URL in all environments
     try {
@@ -36,7 +36,7 @@ export function AuthProvider({ children }) {
 
       if (res.status >= 200 && res.status < 300) {
         const data = res.data;
-        console.log('Fetched user profile:', data.user);
+        // set user profile
         setUser(data.user);
         setIsLoggedIn(true);
         
@@ -44,29 +44,29 @@ export function AuthProvider({ children }) {
         const currentPath = window.location.pathname;
         
         if (!data.user.family_id) {
-          console.log('User has no family_id');
+          // user has no family
           if (currentPath !== '/join-family') {
-            console.log('Redirecting to join-family');
+            // navigate
             navigate('/join-family');
           }
         } else {
-          console.log('User has family_id:', data.user.family_id);
+          // user already has family
           if (currentPath === '/join-family') {
-            console.log('Redirecting to dashboard (user has family)');
+            // navigate
             navigate('/dashboard');
           }
         }
       } else {
-        console.log('Failed to fetch user profile, status:', res.status);
+        // fetch failed
         if (res.status === 401) {
-          console.log('Token is invalid, clearing session');
+          // invalid token -> sign out
           await supabase.auth.signOut();
         }
         setUser(null);
         setIsLoggedIn(false);
       }
     } catch (error) {
-      console.error('Error fetching user profile:', error);
+      // ignore fetch error
       setUser(null);
       setIsLoggedIn(false);
     }
@@ -82,23 +82,20 @@ export function AuthProvider({ children }) {
       return;
     }
     
-    console.log('Setting up auth state change listener');
+    // setup auth state listener
     
     // Listen for auth state changes (Supabase v2)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('=== Auth State Change ===');
-      console.log('Event:', event);
-      console.log('Session:', session);
-      console.log('Current URL:', window.location.href);
+      // auth state change
       
       if (session) {
-        console.log('Session found, processing authentication...');
+        // session found
         localStorage.removeItem('isGuest');
         const access_token = session.access_token;
-        console.log('Access token:', access_token ? 'Present' : 'Missing');
+        // token presence
         await fetchUserProfile(access_token);
       } else {
-        console.log('No session found, setting user to null');
+        // no session
         setUser(null);
         setIsLoggedIn(false);
         setLoading(false);
@@ -110,13 +107,13 @@ export function AuthProvider({ children }) {
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
         if (error) {
-          console.error('Error getting session:', error);
+          // ignore error
         }
-        console.log('Initial Supabase session:', session);
+        // initial session
         const access_token = session?.access_token;
         await fetchUserProfile(access_token);
       } catch (error) {
-        console.error('Error in initial session check:', error);
+        // ignore error
         setLoading(false);
       }
     })();
@@ -134,19 +131,19 @@ export function AuthProvider({ children }) {
       setIsLoggedIn(false);
       navigate('/');
     } catch (error) {
-      console.error('Error during logout:', error);
+      // ignore error
     }
   };
 
   // Update user after joining family
   const updateUser = (updatedUser) => {
-    console.log('Updating user in AuthContext:', updatedUser);
+    // update user in context
     setUser(updatedUser);
     setIsLoggedIn(true);
     
     // If the user now has a family_id and is on the join-family page, redirect to dashboard
     if (updatedUser.family_id && window.location.pathname === '/join-family') {
-      console.log('User joined family, redirecting to dashboard');
+      // navigate
       navigate('/dashboard');
     }
   };
@@ -159,7 +156,7 @@ export function AuthProvider({ children }) {
         await fetchUserProfile(session.access_token);
       }
     } catch (error) {
-      console.error('Error refreshing user:', error);
+      // ignore error
     }
   };
 
@@ -172,7 +169,7 @@ export function AuthProvider({ children }) {
     refreshUser
   };
 
-  console.log('AuthContext render: isLoggedIn:', isLoggedIn, 'user:', user);
+  // render
 
   return (
     <AuthContext.Provider value={value}>
