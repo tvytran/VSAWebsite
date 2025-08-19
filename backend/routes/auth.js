@@ -32,7 +32,7 @@ async function convertHeicToJpeg(buffer) {
     });
     return jpegBuffer;
   } catch (error) {
-    console.error('HEIC conversion error:', error);
+    // conversion error
     throw new Error('Failed to convert HEIC image');
   }
 }
@@ -65,12 +65,13 @@ router.post(
     async (req, res) => {
     try {
         const { username, email, password, family, role = 'member' } = req.body;
+        /*
         console.log('Registration request received:', { 
             username: req.body.username, 
             email: req.body.email, 
             family: req.body.family,
             hasPassword: !!req.body.password 
-        });
+        });*/
 
         // Validate required fields
         if (!username || !email || !password || !family) {
@@ -94,31 +95,31 @@ router.post(
         }
 
         // Check if username already exists
-        console.log('Checking if username exists:', username);
+        //
         const { data: existingUser, error: userCheckError } = await supabaseAdmin
             .from('users')
             .select('id')
             .eq('username', username.trim())
             .single();
 
-        console.log('Username check result:', { existingUser, userCheckError });
+        //
 
         if (userCheckError && userCheckError.code !== 'PGRST116') {
-            console.error('Error checking username:', userCheckError);
+            //
             return res.status(500).json({ message: 'Error checking username availability' });
         }
 
         if (existingUser) {
-            console.log('Username already exists, returning error');
+            //
             return res.status(400).json({ 
                 message: 'Username already exists. Please choose a different username.' 
             });
         }
 
-        console.log('Username is available, proceeding with registration');
+        //
 
         // Check if family exists
-        console.log('Checking if family exists:', family);
+        //
         const { data: familyData, error: familyError } = await supabaseAdmin
             .from('families')
             .select('id, name')
@@ -126,7 +127,7 @@ router.post(
             .single();
 
         if (familyError) {
-            console.error('Error checking family:', familyError);
+            //
             if (familyError.code === 'PGRST116') {
                 return res.status(400).json({ 
                     message: 'Family code is incorrect. Please check your family code and try again.' 
@@ -141,10 +142,10 @@ router.post(
             });
         }
 
-        console.log('Family found:', familyData);
+        //
 
         // Create user
-        console.log('Creating user with family_id:', familyData.id);
+        //
         const { data: user, error: createError } = await supabaseAdmin.auth.admin.createUser({
             email: email.trim(),
             password: password,
@@ -156,7 +157,7 @@ router.post(
         });
 
         if (createError) {
-            console.error('Error creating user:', createError);
+            //
             if (createError.message.includes('email')) {
                 return res.status(400).json({ 
                     message: 'Email address is already registered. Please use a different email or try logging in.' 
@@ -167,7 +168,7 @@ router.post(
             });
         }
 
-        console.log('User created successfully:', user.user.id);
+        //
 
         // Insert user profile
         const { error: profileError } = await supabaseAdmin
@@ -183,7 +184,7 @@ router.post(
             });
 
         if (profileError) {
-            console.error('Error creating user profile:', profileError);
+            //
             // Try to clean up the auth user if profile creation fails
             await supabaseAdmin.auth.admin.deleteUser(user.user.id);
             return res.status(500).json({ 
@@ -191,7 +192,7 @@ router.post(
             });
         }
 
-        console.log('User profile created successfully');
+        //
 
         res.status(201).json({
             message: 'User registered successfully',
@@ -205,7 +206,7 @@ router.post(
         });
 
     } catch (error) {
-        console.error('Registration error:', error);
+        //
         res.status(500).json({ 
             message: 'Registration failed. Please try again.' 
         });
@@ -281,28 +282,24 @@ router.post(
 // Get current user
 router.get('/me', auth, async (req, res) => {
     try {
-        console.log('=== /me route called ===');
-        console.log('Request headers:', req.headers);
-        console.log('Request method:', req.method);
-        console.log('Request URL:', req.url);
-        console.log('User from auth middleware:', req.user);
+        //
         
         if (!req.user || !req.user.id) {
-            console.error('No user found in request');
+            //
             return res.status(401).json({ success: false, message: 'User not authenticated' });
         }
         
-        console.log('Fetching user with id:', req.user.id);
+        //
         let { data: user, error } = await req.supabase
             .from('users')
             .select('*')
             .eq('id', req.user.id)
             .single();
-        console.log('Supabase user:', user, 'Error:', error);
+        //
         
         // If user profile does not exist, create it (for Google sign-in onboarding)
         if (error && error.code === 'PGRST116') {
-            console.log('User profile not found, creating new profile for user:', req.user.id);
+            //
             const email = req.user.email || null;
             
             // Generate a username from email if available
@@ -330,25 +327,25 @@ router.get('/me', auth, async (req, res) => {
                 .select()
                 .single();
             if (insertError) {
-                console.error('Error creating user profile for Google user:', insertError);
+                //
                 return res.status(500).json({ success: false, message: 'Failed to create user profile.' });
             }
             user = insertedUser;
-            console.log('Created new user profile:', user);
+            //
         } else if (error) {
-            console.error('Error fetching user:', error);
+            //
             throw error;
         }
         
         if (!user) {
-            console.log('User not found for ID:', req.user.id);
+            //
             return res.status(404).json({ success: false, message: 'User not found' });
         }
         
-        console.log('Returning user profile:', user);
+        //
         res.json({ success: true, user });
     } catch (error) {
-        console.error('ME route error:', error);
+        //
         res.status(500).json({ success: false, message: error.message || 'Server error' });
     }
 });
@@ -358,7 +355,7 @@ router.get('/me', auth, async (req, res) => {
 // @access  Private
 router.put('/profile', auth, upload.single('profilePicture'), async (req, res) => {
   try {
-    console.log('Token decoded successfully:', req.user);
+    //
 
     // Fetch user from Supabase using the request-scoped client
     const { data: user, error: userError } = await req.supabase
@@ -368,7 +365,7 @@ router.put('/profile', auth, upload.single('profilePicture'), async (req, res) =
       .single();
     if (userError) throw userError;
     if (!user) {
-      console.log('User not found for ID:', req.user.id);
+      //
       return res.status(404).json({ message: 'User not found' });
     }
 
@@ -397,13 +394,13 @@ router.put('/profile', auth, upload.single('profilePicture'), async (req, res) =
         fileBuffer = await convertHeicToJpeg(req.file.buffer);
         fileMimeType = 'image/jpeg';
       } catch (error) {
-        console.error('HEIC conversion failed:', error);
+        //
         return res.status(400).json({ message: 'Failed to convert HEIC image' });
       }
     }
 
     const fileName = `profiles/${user.id}_${Date.now()}.jpg`;
-    console.log('Uploading to Supabase:', fileName);
+    //
 
     const { data, error } = await req.supabase.storage
       .from(process.env.SUPABASE_BUCKET)
@@ -413,14 +410,14 @@ router.put('/profile', auth, upload.single('profilePicture'), async (req, res) =
       });
 
     if (error) {
-      console.log('Supabase upload error:', error);
+      //
       return res.status(500).json({ message: error.message });
     }
 
     const { publicUrl } = req.supabase.storage
       .from(process.env.SUPABASE_BUCKET)
       .getPublicUrl(fileName).data;
-    console.log('Supabase public URL:', publicUrl);
+    //
 
     // Update user profile
     const updateData = { profile_picture: publicUrl };
@@ -438,7 +435,7 @@ router.put('/profile', auth, upload.single('profilePicture'), async (req, res) =
 
     res.json({ success: true, user: updatedUser });
   } catch (err) {
-    console.error('Error in profile picture upload route:', err);
+    //
     res.status(500).json({ message: err.message || 'Server error' });
   }
 });
@@ -449,7 +446,7 @@ router.put('/profile', auth, upload.single('profilePicture'), async (req, res) =
 router.put('/password', auth, async (req, res) => {
     try {
         const { currentPassword, newPassword } = req.body;
-        console.log('Password update attempt for user:', req.user.id);
+        //
 
         // Get user
         const { data: user, error } = await supabase
@@ -459,7 +456,7 @@ router.put('/password', auth, async (req, res) => {
             .single();
         if (error) throw error;
         if (!user) {
-            console.log('User not found for ID:', req.user.id);
+            //
             return res.status(404).json({ 
                 success: false, 
                 message: 'User not found' 
@@ -469,7 +466,7 @@ router.put('/password', auth, async (req, res) => {
         // Verify current password
         const isMatch = await bcrypt.compare(currentPassword, user.password);
         if (!isMatch) {
-            console.log('Current password mismatch for user:', req.user.id);
+            //
             return res.status(400).json({ 
                 success: false, 
                 message: 'Current password is incorrect' 
@@ -488,14 +485,14 @@ router.put('/password', auth, async (req, res) => {
             .select()
             .single();
         if (updateError) throw updateError;
-        console.log('Password successfully updated for user:', req.user.id);
+        //
 
         res.json({ 
             success: true, 
             message: 'Password updated successfully' 
         });
     } catch (err) {
-        console.error('Password update error:', err.message);
+        //
         res.status(500).json({ 
             success: false, 
             message: 'Server error' 
@@ -563,7 +560,7 @@ router.put('/user/family', auth, async (req, res) => {
         });
 
     } catch (err) {
-        console.error('Error updating user family:', err);
+        //
         res.status(500).json({
             success: false,
             message: err.message || 'Server error'
@@ -604,7 +601,7 @@ router.put('/join-family', auth, async (req, res) => {
         }
         res.json({ success: true, user: updatedUser });
     } catch (err) {
-        console.error('Error in join-family endpoint:', err);
+        //
         res.status(500).json({ success: false, message: err.message || 'Server error' });
     }
 });

@@ -1,17 +1,17 @@
-console.log("Loading users.js");
+// debug removed
 const express = require('express');
 const router = express.Router();
 
-console.log("Requiring bcrypt");
+//
 const bcrypt = require('bcrypt');
 
-console.log("Requiring jwt");
+//
 const jwt = require('jsonwebtoken');
 
-console.log("Requiring supabase");
+//
 const supabase = require('../supabaseClient');
 
-console.log("Requiring auth");
+//
 const auth = require('../middleware/auth');
 
 // @route   GET /api/users
@@ -26,7 +26,7 @@ router.get('/', auth, async (req, res) => {
         if (error) throw error;
         res.json({ success: true, users });
     } catch (error) {
-        console.error(error.message);
+        // log suppressed
         res.status(500).json({ success: false, message: 'Server error' });
     }
 });
@@ -105,7 +105,7 @@ router.get('/:userId/groups', auth, async (req, res) => {
 // @access  Private (Admin only)
 router.delete('/:userId', auth, async (req, res) => {
     try {
-        console.log('Delete user request by:', req.user); // Debug log
+        //
         // Check if the user is an admin
         if (req.user.role !== 'admin') {
             return res.status(403).json({ success: false, message: 'Access denied. Admin only.' });
@@ -121,7 +121,7 @@ router.delete('/:userId', auth, async (req, res) => {
         }
         res.json({ success: true, message: 'User deleted successfully' });
     } catch (error) {
-        console.error(error.message);
+        //
         res.status(500).json({ success: false, message: 'Server error' });
     }
 });
@@ -170,7 +170,7 @@ router.put('/:userId/role', auth, async (req, res) => {
         });
 
     } catch (err) {
-        console.error('Error updating user role:', err);
+        //
         res.status(500).json({
             success: false,
             message: err.message || 'Server error'

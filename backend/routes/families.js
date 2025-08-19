@@ -30,7 +30,6 @@ async function convertHeicToJpeg(buffer) {
     });
     return jpegBuffer;
   } catch (error) {
-    console.error('HEIC conversion error:', error);
     throw new Error('Failed to convert HEIC image');
   }
 }
@@ -58,7 +57,6 @@ router.post('/', auth, async (req, res) => {
             .single();
 
         if (findError && findError.code !== 'PGRST116') {
-            console.error('Error finding family:', findError);
             throw findError;
         }
 
@@ -79,15 +77,11 @@ router.post('/', auth, async (req, res) => {
             .select()
             .single();
 
-        if (createError) {
-            console.error('Error creating family:', createError);
-            throw createError;
-        }
+        if (createError) { throw createError; }
 
         res.status(201).json({ success: true, family });
 
     } catch (err) {
-        console.error('Family creation failed:', err.message);
         res.status(500).json({ 
             success: false, 
             message: 'Server error during family creation.' 
@@ -115,7 +109,6 @@ router.get('/', async (req, res) => {
 
         res.json({ success: true, families: formattedFamilies });
     } catch (err) {
-        console.error(err.message);
         res.status(500).json({ success: false, message: 'Server error' });
     }
 });
@@ -150,7 +143,6 @@ router.get('/leaderboard', async (req, res) => {
 
         res.json({ success: true, families: formattedFamilies });
     } catch (err) {
-        console.error('Leaderboard error:', err);
         res.status(500).json({ success: false, message: 'Server error' });
     }
 });
@@ -178,7 +170,6 @@ router.get('/:id', async (req, res) => {
         family.members = members;
         res.json({ success: true, family });
     } catch (err) {
-        console.error(err.message);
         res.status(500).json({ success: false, message: 'Server error' });
     }
 });
@@ -188,15 +179,6 @@ router.get('/:id', async (req, res) => {
 // @access  Private (admin or family members)
 router.put('/:id', auth, upload.single('familyPicture'), async (req, res) => {
   try {
-    console.log('Family update request received:', {
-      userId: req.user.id,
-      familyId: req.params.id,
-      userRole: req.user.role,
-      hasFile: !!req.file,
-      fileName: req.file?.originalname,
-      fileSize: req.file?.size,
-      fileType: req.file?.mimetype
-    });
 
     // If user is admin, allow update without membership check
     if (req.user.role !== 'admin') {
@@ -224,7 +206,6 @@ router.put('/:id', auth, upload.single('familyPicture'), async (req, res) => {
     // Handle photo deletion
     if (req.body.deletePhoto === 'true') {
       updateFields.family_picture = null;
-      console.log('Photo deletion requested for family:', req.params.id);
     } else if (req.file) {
       // Handle file upload if present
       const fileName = `families/${req.params.id}_${Date.now()}.jpg`;
@@ -252,10 +233,7 @@ router.put('/:id', auth, upload.single('familyPicture'), async (req, res) => {
       .select()
       .single();
 
-    if (updateError) {
-      console.error('Database update error:', updateError);
-      throw updateError;
-    }
+    if (updateError) { throw updateError; }
 
     if (!updatedFamily) {
       return res.status(404).json({
@@ -264,7 +242,7 @@ router.put('/:id', auth, upload.single('familyPicture'), async (req, res) => {
       });
     }
 
-    console.log('Family updated successfully:', updatedFamily);
+    //
 
     // Fetch family members separately
     const { data: members, error: membersError } = await req.supabase
@@ -272,10 +250,7 @@ router.put('/:id', auth, upload.single('familyPicture'), async (req, res) => {
       .select('id, username, email, profile_picture')
       .eq('family_id', req.params.id);
 
-    if (membersError) {
-      console.error('Error fetching members:', membersError);
-      throw membersError;
-    }
+    if (membersError) { throw membersError; }
 
     // Combine family data with members
     const familyWithMembers = {
@@ -283,10 +258,8 @@ router.put('/:id', auth, upload.single('familyPicture'), async (req, res) => {
       members: members || []
     };
 
-    console.log('Sending response with updated family data');
     res.json({ success: true, family: familyWithMembers });
   } catch (err) {
-    console.error('Error updating family:', err);
     res.status(500).json({ 
       success: false, 
       message: err.message || 'Server error' 
@@ -319,8 +292,7 @@ router.delete('/:id', auth, async (req, res) => {
             if (findError.code === 'PGRST116') {
                 return res.status(404).json({ success: false, message: 'Family not found' });
             }
-            // For other errors, log and send a 500
-            console.error('Error finding family for deletion:', findError);
+            // For other errors, send a 500
             throw findError;
         }
 
@@ -334,15 +306,11 @@ router.delete('/:id', auth, async (req, res) => {
             .delete()
             .eq('id', req.params.id);
 
-        if (deleteError) {
-            console.error('Error deleting family:', deleteError);
-            throw deleteError;
-        }
+        if (deleteError) { throw deleteError; }
 
         res.json({ success: true, message: 'Family deleted successfully' });
         
     } catch (err) {
-        console.error('Family deletion process failed:', err);
         res.status(500).json({ 
             success: false, 
             message: err.message || 'Server error during family deletion' 

@@ -1,6 +1,5 @@
 const express = require('express');
 const router = express.Router();
-console.log('POSTS ROUTER FILE EXECUTED');
 const { body, validationResult } = require('express-validator');
 const auth = require('../middleware/auth');
 const { supabase, supabaseAdmin } = require('../supabaseClient');
@@ -32,7 +31,7 @@ async function convertHeicToJpeg(buffer) {
     });
     return jpegBuffer;
   } catch (error) {
-    console.error('Error converting HEIC to JPEG:', error);
+    // swallow
     throw new Error('Failed to convert HEIC image to JPEG');
   }
 }
@@ -62,12 +61,6 @@ router.post(
     handleValidationErrors,
     async (req, res) => {
     try {
-        console.log('Received post creation request:', {
-            body: req.body,
-            file: req.file,
-            user: req.user,
-            headers: req.headers
-        });
 
         const { title, type, content, family_id, pointValue } = req.body;
 
@@ -96,9 +89,7 @@ router.post(
             });
         }
 
-        console.log('SUPABASE_URL:', process.env.SUPABASE_URL);
-        console.log('SUPABASE_KEY:', process.env.SUPABASE_KEY ? 'SET' : 'NOT SET');
-        console.log('SUPABASE_BUCKET:', process.env.SUPABASE_BUCKET);
+        // env markers removed
         // Check user and family exist
         const { data: family, error: famError } = await req.supabase
             .from('families')
@@ -161,8 +152,6 @@ router.post(
                 .from(process.env.SUPABASE_BUCKET)
                 .getPublicUrl(fileName).data;
 
-            console.log('Upload result:', uploadData, uploadError);
-            console.log('Public URL:', publicUrl);
             postData.image_path = publicUrl;
         }
 
@@ -193,16 +182,15 @@ router.post(
                         semester_points: (family.semester_points || 0) + postData.point_value
                     })
                     .eq('id', family_id);
-                console.log(`Family points updated by ${postData.point_value} on post creation.`);
+                // points updated
             } catch (err) {
-                console.error('Failed to update family points on post creation:', err);
+                // ignore
                 // Log error but don't block the post creation
             }
         }
 
         res.status(201).json({ success: true, post: newPost });
     } catch (err) {
-        console.error('Error in post creation:', err);
         res.status(500).json({ success: false, message: 'Server Error during post creation.' });
     }
 });
@@ -255,10 +243,7 @@ router.get('/family/:familyId', auth, async (req, res) => {
             .eq('family_id', req.params.familyId)
             .order('created_at', { ascending: false });
 
-        if (error) {
-            console.error('Error fetching family posts:', error);
-            throw error;
-        }
+        if (error) { throw error; }
         
         // Rename 'author' to 'author_id' to match frontend expectations
         const formattedPosts = posts.map(p => {
@@ -280,7 +265,6 @@ router.get('/family/:familyId', auth, async (req, res) => {
 // @access   Public
 router.get('/announcements', async (req, res) => {
     try {
-        console.log('Attempting to fetch announcements from Supabase...');
         const { data: posts, error } = await supabaseAdmin
             .from('posts')
             .select(`
@@ -301,18 +285,11 @@ router.get('/announcements', async (req, res) => {
             .order('created_at', { ascending: false })
             .limit(3);
 
-        if (error) {
-            console.error('Supabase error fetching announcements:', error);
-            throw error; // This will be caught by the catch block
-        }
+        if (error) { throw error; }
 
-        console.log(`Successfully fetched ${posts.length} announcement(s).`);
         res.json({ success: true, posts });
 
     } catch (err) {
-        console.error('--- CRITICAL ERROR in /api/posts/announcements route ---');
-        console.error('Error message:', err.message);
-        console.error('Full error object:', err);
         res.status(500).json({ success: false, message: 'Server Error while fetching announcements.' });
     }
 });
