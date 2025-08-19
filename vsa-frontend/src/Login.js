@@ -17,29 +17,22 @@ function Login() {
       // Redirect to the site root after OAuth; app will route to dashboard/join-family
       const redirectTo = baseUrl;
       
-      console.log('=== Google Sign-in Debug ===');
-      console.log('Base URL:', baseUrl);
-      console.log('Redirect To:', redirectTo);
-      console.log('Supabase URL:', process.env.REACT_APP_SUPABASE_URL);
-      console.log('Supabase Anon Key exists:', !!process.env.REACT_APP_SUPABASE_ANON_KEY);
-      console.log('Current URL:', window.location.href);
-      console.log('NODE_ENV:', process.env.NODE_ENV);
+      // debug removed
       
       // Check if Supabase is properly configured
       if (!process.env.REACT_APP_SUPABASE_URL || !process.env.REACT_APP_SUPABASE_ANON_KEY) {
-        console.error('Missing Supabase environment variables!');
+        // missing Supabase config
         alert('Configuration error: Missing Supabase credentials. Please contact the administrator.');
         return;
       }
       
       // Check if we're in production and the redirect URL is correct
       if (process.env.NODE_ENV === 'production') {
-        console.log('Production mode detected');
-        console.log('Expected redirect URL:', redirectTo);
+        // in production
         
         // Validate the redirect URL format
         if (!redirectTo.startsWith('https://')) {
-          console.warn('Warning: Redirect URL is not HTTPS in production');
+          // warn only in dev
         }
       }
       
@@ -55,38 +48,29 @@ function Login() {
       });
       
       if (error) {
-        console.error('Google sign-in error:', error);
-        console.error('Error details:', {
-          message: error.message,
-          status: error.status,
-          name: error.name
-        });
+        // error
         alert(`Google sign-in failed: ${error.message}\n\nPlease check:\n1. Google OAuth provider is enabled in Supabase\n2. Redirect URLs are configured correctly\n3. Google OAuth credentials are set up`);
       } else {
-        console.log('Google sign-in initiated successfully:', data);
-        console.log('Redirect URL:', data.url);
-        console.log('Provider:', data.provider);
-        console.log('URL will redirect to:', redirectTo);
+        // success
         
         // If there's a URL, it means we need to redirect
         if (data.url) {
-          console.log('Redirecting to Google OAuth URL:', data.url);
+          // redirect
           window.location.href = data.url;
         } else {
-          console.log('No redirect URL provided, checking for session...');
+          // check session
           // Check if we already have a session
           const { data: { session } } = await supabase.auth.getSession();
           if (session) {
-            console.log('Session found, redirecting to dashboard...');
+            // redirect
             window.location.href = redirectTo;
           } else {
-            console.log('No session found, waiting for OAuth callback...');
+            // waiting
           }
         }
       }
     } catch (error) {
-      console.error('Unexpected error during Google sign-in:', error);
-      console.error('Error stack:', error.stack);
+      // ignore error
       alert(`Unexpected error: ${error.message}`);
     }
   };
@@ -98,20 +82,13 @@ function Login() {
 
   // Debug function to test environment variables
   const testEnvironment = () => {
-    console.log('=== Environment Test ===');
-    console.log('NODE_ENV:', process.env.NODE_ENV);
-    console.log('REACT_APP_SUPABASE_URL:', process.env.REACT_APP_SUPABASE_URL);
-    console.log('REACT_APP_SUPABASE_ANON_KEY:', process.env.REACT_APP_SUPABASE_ANON_KEY ? 'SET' : 'NOT SET');
-    console.log('REACT_APP_BASE_URL:', process.env.REACT_APP_BASE_URL);
-    console.log('Current URL:', window.location.href);
-    console.log('Origin:', window.location.origin);
+    // debug
     
     // Test Supabase client
     if (supabase) {
-      console.log('Supabase client initialized');
-      console.log('Supabase URL:', supabase.supabaseUrl);
+      // supabase ok
     } else {
-      console.error('Supabase client not initialized');
+      // supabase not initialized
     }
   };
 
@@ -119,21 +96,20 @@ function Login() {
   const testApiConnection = async () => {
     try {
       const testUrl = process.env.NODE_ENV === 'production' ? 'https://vsa-website.vercel.app/api/test' : 'http://localhost:5001/api/test';
-      console.log('Testing API connection to:', testUrl);
+      // test
       
       const response = await fetch(testUrl);
-      console.log('Test response status:', response.status);
-      console.log('Test response headers:', response.headers);
+      // test result
       
       if (response.ok) {
         const data = await response.json();
-        console.log('API test response:', data);
+        // ok
       } else {
         const text = await response.text();
-        console.error('API test failed:', text.substring(0, 200));
+        // fail
       }
     } catch (error) {
-      console.error('API connection test failed:', error);
+      // ignore
     }
   };
 
