@@ -250,8 +250,8 @@ function Events() {
     setImageToCrop(null);
   };
 
-  if (loading) return <MainLayout><div className="p-8 text-center">Loading events...</div></MainLayout>;
-  if (error) return <MainLayout><div className="p-8 text-center text-red-600">{error}</div></MainLayout>;
+  if (loading) return <MainLayout><div className="w-full max-w-4xl bg-white rounded-lg shadow-md p-8 text-center">Loading events...</div></MainLayout>;
+  if (error) return <MainLayout><div className="w-full max-w-4xl bg-white rounded-lg shadow-md p-8 text-center text-red-600">{error}</div></MainLayout>;
 
   const renderEventForm = (isEditing = false) => (
     <div className="bg-white rounded-lg shadow-md p-6 mb-8">
@@ -363,7 +363,7 @@ function Events() {
 
   return (
     <MainLayout>
-      <div className="max-w-4xl mx-auto py-8">
+      <div className="w-full max-w-4xl bg-white rounded-lg shadow-md p-8 mx-auto">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold text-[#b32a2a]">Events</h1>
           {isAdmin && !editingEventId && (
@@ -379,6 +379,9 @@ function Events() {
         {showCreateForm && isAdmin && !editingEventId && renderEventForm(false)}
         {editingEventId && isAdmin && renderEventForm(true)}
 
+        {events.length === 0 ? (
+          <p className="text-gray-600 text-center">Coming soon...</p>
+        ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           {events.map(event => (
             <div key={event.id} className="block bg-white rounded-lg shadow hover:shadow-lg transition relative">
@@ -419,6 +422,7 @@ function Events() {
             </div>
           ))}
         </div>
+        )}
       </div>
     </MainLayout>
   );
