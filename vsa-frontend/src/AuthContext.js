@@ -59,16 +59,15 @@ export function AuthProvider({ children }) {
       } else {
         // fetch failed
         if (res.status === 401) {
-          // invalid token -> sign out
-          await supabase.auth.signOut();
+          // Preserve existing session on transient 401s
+          setLoading(false);
+          return;
         }
         setUser(null);
         setIsLoggedIn(false);
       }
     } catch (error) {
-      // ignore fetch error
-      setUser(null);
-      setIsLoggedIn(false);
+      // Ignore transient errors and keep current session state
     }
     setLoading(false);
   };
