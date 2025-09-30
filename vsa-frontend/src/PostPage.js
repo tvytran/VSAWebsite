@@ -29,6 +29,62 @@ const PostPage = () => {
   const [editError, setEditError] = useState('');
   const isGuest = localStorage.getItem('isGuest') === 'true';
 
+  const decodeHtml = (str) => {
+    if (typeof window === 'undefined' || !str) return str || '';
+    const txt = document.createElement('textarea');
+    txt.innerHTML = str;
+    return txt.value;
+  };
+
+  const renderLinkified = (text) => {
+    const decoded = decodeHtml(text || '');
+    const urlRegex = /(\b(https?|ftp):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/=~_|])/gi;
+    const markdownLinkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+
+    const renderLine = (line, baseKey) => {
+      const elements = [];
+      let lastIndex = 0;
+      let mdMatch;
+      while ((mdMatch = markdownLinkRegex.exec(line)) !== null) {
+        const before = line.substring(lastIndex, mdMatch.index);
+        if (before) {
+          const parts = before.split(urlRegex);
+          parts.forEach((part, idx) => {
+            if (part.match && part.match(urlRegex)) {
+              elements.push(<a key={`u-${baseKey}-${lastIndex}-${idx}`} href={part} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{part}</a>);
+            } else {
+              elements.push(<span key={`t-${baseKey}-${lastIndex}-${idx}`}>{part}</span>);
+            }
+          });
+        }
+        const linkText = mdMatch[1];
+        const linkUrl = mdMatch[2];
+        elements.push(<a key={`md-${baseKey}-${mdMatch.index}`} href={linkUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{linkText}</a>);
+        lastIndex = markdownLinkRegex.lastIndex;
+      }
+      const remaining = line.substring(lastIndex);
+      if (remaining) {
+        const parts = remaining.split(urlRegex);
+        parts.forEach((part, idx) => {
+          if (part.match && part.match(urlRegex)) {
+            elements.push(<a key={`u-end-${baseKey}-${idx}`} href={part} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{part}</a>);
+          } else {
+            elements.push(<span key={`t-end-${baseKey}-${idx}`}>{part}</span>);
+          }
+        });
+      }
+      return elements;
+    };
+
+    const lines = decoded.split('\n');
+    return lines.map((line, i) => (
+      <React.Fragment key={`cmt-ln-${i}`}>
+        {renderLine(line, i)}
+        {i < lines.length - 1 && <br />}
+      </React.Fragment>
+    ));
+  };
+
   useEffect(() => {
     if (isGuest) return;
     const fetchPost = async () => {
@@ -187,7 +243,7 @@ const PostPage = () => {
 
   const startEditPost = () => {
     setEditTitle(post.title);
-    setEditContent(post.content);
+    setEditContent(decodeHtml(post.content));
     setEditPointValue(post.point_value?.toString() || '');
     setIsEditingPost(true);
     setEditError('');
@@ -395,7 +451,7 @@ const PostPage = () => {
                   </div>
                 )}
 
-                <p className="text-gray-700 whitespace-pre-wrap mb-4">{post.content}</p>
+                <p className="text-gray-700 whitespace-pre-wrap mb-4">{decodeHtml(post.content)}</p>
 
                 {post.point_value > 0 && (
                   <div className="mb-4">
@@ -508,11 +564,11 @@ const PostPage = () => {
                             <div className="flex gap-2">
                               <button
                                 onClick={() => {
-                                  setEditingComment(comment.id);
-                                  setCommentStates(prev => ({
-                                    ...prev,
-                                    [`edit-${comment.id}`]: comment.text
-                                  }));
+                              setEditingComment(comment.id);
+                              setCommentStates(prev => ({
+                                ...prev,
+                                [`edit-${comment.id}`]: decodeHtml(comment.text)
+                              }));
                                 }}
                                 className="text-gray-500 hover:text-[#b32a2a] transition duration-200"
                               >
@@ -569,7 +625,7 @@ const PostPage = () => {
                             </div>
                           </form>
                         ) : (
-                          <p className="text-gray-700 mt-1">{comment.text}</p>
+                          <p className="text-gray-700 mt-1">{renderLinkified(comment.text)}</p>
                         )}
                       </div>
                     ))}

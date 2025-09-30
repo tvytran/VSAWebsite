@@ -58,12 +58,18 @@ const ProtectedRoute = ({ children, requireAdmin = false, skipFamilyCheck = fals
 };
 
 function AppRoutes() {
-  const { isLoggedIn } = useAuth();
+  const { isLoggedIn, loading } = useAuth();
   const isGuest = localStorage.getItem('isGuest') === 'true';
   return (
     <Routes>
-      <Route path="/" element={isLoggedIn || isGuest ? <Navigate to="/dashboard" /> : <Login />} />
-      <Route path="/login" element={isLoggedIn || isGuest ? <Navigate to="/dashboard" /> : <Login />} />
+      <Route
+        path="/"
+        element={loading ? <Login /> : (isLoggedIn || isGuest ? <Navigate to="/dashboard" /> : <Login />)}
+      />
+      <Route
+        path="/login"
+        element={loading ? <Login /> : (isLoggedIn || isGuest ? <Navigate to="/dashboard" /> : <Login />)}
+      />
       <Route path="/about" element={<ProtectedRoute><AboutVSA /></ProtectedRoute>} />
       <Route path="/dashboard" element={
         <ProtectedRoute>

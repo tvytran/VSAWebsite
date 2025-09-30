@@ -270,7 +270,7 @@ function Profile() {
         {/* Image Cropper Modal */}
         {imageToCrop && (
           <ImageCropperModal
-            image={imageToCrop}
+            imageUrl={imageToCrop}
             onCropComplete={handleProfilePictureUpload}
             onCancel={handleCropperCancel}
             loading={uploadLoading}

@@ -53,8 +53,8 @@ router.post(
     auth, 
     upload.single('image'), 
     [
-        body('title', 'Title is required').not().isEmpty().trim().escape(),
-        body('content', 'Content is required').not().isEmpty().trim().escape(),
+        body('title', 'Title is required').not().isEmpty().trim(),
+        body('content', 'Content is required').not().isEmpty().trim(),
         body('type').isIn(['announcement', 'hangout']).withMessage('Invalid post type'),
         body('pointValue').optional().isInt({ min: 0, max: 13 }).withMessage('Point value must be between 0 and 13'),
     ],
@@ -587,7 +587,7 @@ router.post(
   '/comment/:id',
   auth,
   [
-    body('text', 'Comment text cannot be empty').not().isEmpty().trim().escape(),
+    body('text', 'Comment text cannot be empty').not().isEmpty().trim(),
   ],
   handleValidationErrors,
   async (req, res) => {
@@ -650,7 +650,7 @@ router.post(
 // @desc     Edit a comment
 // @access   Private
 router.put('/comment/:id/:comment_id', auth, [
-    body('text', 'Comment text cannot be empty').not().isEmpty().trim().escape(),
+    body('text', 'Comment text cannot be empty').not().isEmpty().trim(),
 ], handleValidationErrors, async (req, res) => {
   try {
     const { text } = req.body;
@@ -784,8 +784,8 @@ router.put(
   '/:id',
   auth,
   [
-    body('title', 'Title is required').optional().not().isEmpty().trim().escape(),
-    body('content', 'Content is required').optional().not().isEmpty().trim().escape(),
+    body('title', 'Title is required').optional().not().isEmpty().trim(),
+    body('content', 'Content is required').optional().not().isEmpty().trim(),
     body('pointValue').optional().isInt({ min: 0, max: 13 }).withMessage('Point value must be between 0 and 13'),
   ],
   handleValidationErrors,

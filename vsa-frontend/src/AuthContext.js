@@ -15,6 +15,13 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
+  // Hard fallback: ensure loading cannot hang forever
+  useEffect(() => {
+    if (!loading) return;
+    const timer = setTimeout(() => setLoading(false), 5000);
+    return () => clearTimeout(timer);
+  }, [loading]);
+
   // Helper to fetch user profile with a valid token
   const fetchUserProfile = async (access_token) => {
     if (!access_token) {
@@ -57,17 +64,21 @@ export function AuthProvider({ children }) {
           }
         }
       } else {
-        // fetch failed
+        // fetch failed – do not clear session; retry shortly
         if (res.status === 401) {
-          // Preserve existing session on transient 401s
+          // For explicit auth failures, just stop here; onAuthStateChange will handle real sign-outs
           setLoading(false);
           return;
         }
-        setUser(null);
-        setIsLoggedIn(false);
+        setTimeout(() => fetchUserProfile(access_token), 2000);
+        setLoading(false);
+        return;
       }
     } catch (error) {
-      // Ignore transient errors and keep current session state
+      // Ignore transient errors; retry shortly and keep session
+      setTimeout(() => fetchUserProfile(access_token), 2000);
+      setLoading(false);
+      return;
     }
     setLoading(false);
   };
@@ -85,18 +96,20 @@ export function AuthProvider({ children }) {
     
     // Listen for auth state changes (Supabase v2)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      // auth state change
-      
+      // Only hard-clear on explicit sign-out events; ignore transient null sessions
       if (session) {
         // session found
         localStorage.removeItem('isGuest');
+        setIsLoggedIn(true);
         const access_token = session.access_token;
         // token presence
         await fetchUserProfile(access_token);
       } else {
-        // no session
-        setUser(null);
-        setIsLoggedIn(false);
+        // For events other than explicit sign-out, keep current state
+        if (event === 'SIGNED_OUT' || event === 'USER_DELETED') {
+          setUser(null);
+          setIsLoggedIn(false);
+        }
         setLoading(false);
       }
     });
@@ -110,6 +123,9 @@ export function AuthProvider({ children }) {
         }
         // initial session
         const access_token = session?.access_token;
+        if (access_token) {
+          setIsLoggedIn(true);
+        }
         await fetchUserProfile(access_token);
       } catch (error) {
         // ignore error

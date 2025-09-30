@@ -75,6 +75,7 @@ function MainLayout({ children }) {
   // For logged-in users, show the full layout with sidebars
   return (
     <div className="min-h-screen w-full bg-[#faecd8] flex flex-col font-sans">
+      {/* Troubleshooting button moved to posts page */}
       {/* Mobile Top Bar */}
       <div className="md:hidden flex items-center justify-between bg-white px-4 py-3 border-b border-[#e0c9a6] shadow-lg">
         <button
@@ -225,6 +226,11 @@ function MainLayout({ children }) {
             </Link>
           )}
           <div className="flex flex-col space-y-3 w-full px-4">
+            <Link to="/dashboard" aria-current={isActive('/dashboard') ? 'page' : undefined}>
+              <button className={navButtonClass('/dashboard')}>
+                Home
+              </button>
+            </Link>
             <Link to="/about" aria-current={isActive('/about') ? 'page' : undefined}>
               <button className={navButtonClass('/about')}>
                 About

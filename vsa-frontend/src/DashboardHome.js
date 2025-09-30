@@ -40,6 +40,13 @@ function DashboardHome() {
   const navigate = useNavigate();
   const isGuest = localStorage.getItem('isGuest') === 'true';
 
+  const decodeHtml = (str) => {
+    if (typeof window === 'undefined' || !str) return str || '';
+    const txt = document.createElement('textarea');
+    txt.innerHTML = str;
+    return txt.value;
+  };
+
   // Guest mode: login button handler
   const handleGuestLogin = () => {
     localStorage.removeItem('isGuest');
@@ -145,7 +152,7 @@ function DashboardHome() {
   const startEdit = (post) => {
     setEditingPostId(post.id);
     setEditTitle(post.title);
-    setEditContent(post.content);
+    setEditContent(decodeHtml(post.content));
     const currentUser = JSON.parse(localStorage.getItem('user'));
     const isCurrentUserAuthor = post.author.id === currentUser?.id;
     const isCurrentUserAdmin = currentUser?.role === 'admin';
@@ -310,8 +317,19 @@ function DashboardHome() {
       return elements;
     };
 
-    // Always render full text with links, no truncation
-    return renderTextWithLinks(text);
+    // Preserve line breaks similar to Instagram
+    const safeText = decodeHtml(text || '');
+    const lines = String(safeText).split('\n');
+    return (
+      <>
+        {lines.map((line, i) => (
+          <React.Fragment key={`ln-${id}-${i}`}>
+            {renderTextWithLinks(line)}
+            {i < lines.length - 1 && <br />}
+          </React.Fragment>
+        ))}
+      </>
+    );
   };
 
   const handleLike = async (postId) => {
@@ -467,7 +485,7 @@ function DashboardHome() {
     <MainLayout>
       {/* Welcome Message for Logged-in Users */}
       {isLoggedIn && user && (
-        <div className="w-full max-w-2xl text-center mb-6">
+        <div className="w-full max-w-2xl text-center mb-6 sticky top-16 z-30 bg-[#faecd8] pt-4">
           <h2 className="text-2xl font-bold text-[#b32a2a] mb-4">Welcome, {user.username}!</h2>
           <p className="text-gray-700 mb-4">Check out the latest posts from your family and the VSA community.</p>
         </div>
@@ -500,7 +518,7 @@ function DashboardHome() {
 
       {/* Search Bar */}
       {isLoggedIn && user && (
-      <div className="w-full max-w-2xl flex items-center mb-6 relative">
+      <div className="w-full max-w-2xl flex items-center mb-6 relative sticky top-0 z-30 bg-[#faecd8] py-2" style={{position:'sticky'}}>
         <div className="relative flex-1">
           <input
             type="text"
@@ -598,7 +616,7 @@ function DashboardHome() {
                           </div>
                         </div>
                         <h4 className="font-medium text-gray-900 mb-1">{post.title}</h4>
-                        <p className="text-sm text-gray-600 line-clamp-2">{post.content}</p>
+                        <p className="text-sm text-gray-600 line-clamp-2">{decodeHtml(post.content)}</p>
                       </div>
                       {/* Delete button for author or admin */}
                       {!isLoggedIn && (user && (user.id === post.author.id || user.role === 'admin')) && (
@@ -690,10 +708,7 @@ function DashboardHome() {
                       </div>
                     )}
 
-                    <p className="text-gray-700 mb-4 line-clamp-3">
-                      {post.content
-                      }
-                    </p>
+                    <p className="text-gray-700 mb-4 whitespace-pre-wrap">{truncateText(post.content, post.id)}</p>
 
                     {post.point_value > 0 && isLoggedIn && (
                       <div className="mb-4">
@@ -747,17 +762,34 @@ function DashboardHome() {
 
       {/* Floating Create Post Button */}
       {isLoggedIn && (
-        <div className="fixed bottom-8 right-1/2 translate-x-[calc(50%+max(0px,calc((100vw-32rem)/2))-6rem)]">
-          <Link 
-            to="/create-post"
-            className="flex items-center justify-center gap-2 bg-[#b32a2a] text-white p-4 rounded-full shadow-lg hover:bg-[#8a1f1f] transition duration-200 ease-in-out"
-            aria-label="Create Post"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-          </Link>
-        </div>
+        <>
+          <div className="fixed bottom-8 right-1/2 translate-x-[calc(50%+max(0px,calc((100vw-32rem)/2))-6rem)] z-40">
+            <Link 
+              to="/create-post"
+              className="flex items-center justify-center gap-2 bg-[#b32a2a] text-white p-4 rounded-full shadow-lg hover:bg-[#8a1f1f] transition duration-200 ease-in-out"
+              aria-label="Create Post"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+            </Link>
+          </div>
+          {/* Troubleshooting button opposite corner */}
+          <div className="fixed bottom-8 left-1/2 -translate-x-[calc(50%+max(0px,calc((100vw-32rem)/2))-6rem)] z-40">
+            <a
+              href="https://forms.gle/fB8nBWiJeWBc9Ksa6"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center bg-white text-[#b32a2a] p-4 rounded-full shadow-lg border-2 border-[#b32a2a] hover:bg-[#faecd8] transition"
+              aria-label="Troubleshooting"
+              title="Troubleshooting"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
+                <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25Zm.007 14.25a.997.997 0 1 0 0 1.995.997.997 0 0 0 0-1.995ZM12 6a3.75 3.75 0 0 0-3.75 3.75.75.75 0 0 0 1.5 0A2.25 2.25 0 1 1 12 12a.75.75 0 0 0-.75.75v1.5a.75.75 0 0 0 1.5 0v-1.02a3.75 3.75 0 0 0-.75-7.48Z" clipRule="evenodd" />
+              </svg>
+            </a>
+          </div>
+        </>
       )}
     </MainLayout>
   );

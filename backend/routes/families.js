@@ -200,8 +200,8 @@ router.put('/:id', auth, upload.single('familyPicture'), async (req, res) => {
     }
 
     const updateFields = {};
-    if (req.body.name) updateFields.name = req.body.name;
-    if (req.body.description) updateFields.description = req.body.description;
+    if (Object.prototype.hasOwnProperty.call(req.body, 'name')) updateFields.name = req.body.name;
+    if (Object.prototype.hasOwnProperty.call(req.body, 'description')) updateFields.description = req.body.description;
     
     // Handle photo deletion
     if (req.body.deletePhoto === 'true') {

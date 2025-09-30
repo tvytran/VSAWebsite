@@ -41,7 +41,7 @@ const getCroppedImg = (image, crop, fileName) => {
   });
 };
 
-function ImageCropperModal({ imageUrl, onCropComplete, onCancel, aspect = 1 / 1, circularCrop = true }) {
+function ImageCropperModal({ imageUrl, image, onCropComplete, onCancel, aspect = 1 / 1, circularCrop = true }) {
   const [crop, setCrop] = useState(); // Initialize crop state without values
   const imgRef = useRef(null);
   const [completedCrop, setCompletedCrop] = useState(null);
@@ -63,16 +63,19 @@ function ImageCropperModal({ imageUrl, onCropComplete, onCancel, aspect = 1 / 1,
       height
     );
     setCrop(newCrop);
+    const pixelCrop = {
+      unit: 'px',
+      x: Math.round((newCrop.x * width) / 100),
+      y: Math.round((newCrop.y * height) / 100),
+      width: Math.round((newCrop.width * width) / 100),
+      height: Math.round((newCrop.height * height) / 100),
+    };
+    setCompletedCrop(pixelCrop);
   }, [aspect]);
 
   // Handle save button click
   const handleSave = useCallback(async () => {
-    console.log('handleSave called'); // Log when handleSave is called
-    console.log('completedCrop:', completedCrop); // Log completedCrop state
-    console.log('imgRef.current:', imgRef.current); // Log imgRef.current
-
     if (!completedCrop || !imgRef.current) {
-      console.log('Save aborted: completedCrop or imgRef.current missing'); // Log if save is aborted
       return;
     }
     try {
@@ -83,8 +86,7 @@ function ImageCropperModal({ imageUrl, onCropComplete, onCancel, aspect = 1 / 1,
       );
       onCropComplete(croppedBlob); // Pass the blob to the parent
     } catch (e) {
-      console.error('Error cropping image:', e);
-      // Handle error (e.g., show error message)
+      // swallow
     }
   }, [completedCrop, onCropComplete]);
 
@@ -92,14 +94,13 @@ function ImageCropperModal({ imageUrl, onCropComplete, onCancel, aspect = 1 / 1,
     <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg p-6 w-full max-w-md">
         <h2 className="text-xl font-bold mb-4">Crop Profile Picture</h2>
-        {imageUrl && (
+        {(imageUrl || image) && (
           <div className="relative flex justify-center" style={{ width: '300px', height: '300px', overflow: 'hidden' }}>
             <ReactCrop
               crop={crop}
               onChange={(_, percentCrop) => setCrop(percentCrop)}
               onComplete={(c) => {
                 setCompletedCrop(c);
-                console.log('onComplete called with:', c); // Log when onComplete is called
               }}
               aspect={aspect}
               circularCrop={circularCrop}
@@ -107,7 +108,7 @@ function ImageCropperModal({ imageUrl, onCropComplete, onCancel, aspect = 1 / 1,
               <img
                 ref={imgRef}
                 alt="Crop me"
-                src={imageUrl}
+                src={imageUrl || image}
                 onLoad={onImageLoad}
                 style={{ display: 'block', maxHeight: '100%', maxWidth: '100%' }} // Ensure image fits and is block level
               />
@@ -126,7 +127,7 @@ function ImageCropperModal({ imageUrl, onCropComplete, onCancel, aspect = 1 / 1,
           <button
             onClick={handleSave}
             className="px-4 py-2 bg-[#b32a2a] text-white rounded-md"
-            disabled={!completedCrop}
+            disabled={!completedCrop || !completedCrop.width || !completedCrop.height}
           >
             Save
           </button>
