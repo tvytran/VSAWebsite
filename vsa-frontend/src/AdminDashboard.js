@@ -610,7 +610,7 @@ function AdminDashboard() {
                             <>
                               <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm sm:pl-6 w-1/4">
                                 <div className="font-medium text-gray-900">{user.username}</div>
-                                <div className="text-gray-500 text-xs">Joined {new Date(user.created_at).toLocaleDateString()}</div>
+                                <div className="text-gray-500 text-xs">Joined {(() => { const ts = user.created_at ?? user.createdAt; if (!ts) return '—'; const d = new Date(ts); return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'}); })()}</div>
                               </td>
                               <td className="whitespace-nowrap px-3 py-4 text-sm w-1/4">
                                 {user.email}
@@ -664,7 +664,7 @@ function AdminDashboard() {
                             <>
                               <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm sm:pl-6 w-1/4">
                                 <div className="font-medium text-gray-900">{user.username}</div>
-                                <div className="text-gray-500 text-xs">Joined {new Date(user.created_at).toLocaleDateString()}</div>
+                                      <div className="text-gray-500 text-xs">Joined {(() => { const ts = user.created_at ?? user.createdAt; if (!ts) return '—'; const d = new Date(ts); return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'}); })()}</div>
                               </td>
                               <td className="whitespace-nowrap px-3 py-4 text-sm w-1/4">
                                 {user.email}
@@ -836,7 +836,7 @@ function AdminDashboard() {
                                     <div className="ml-4">
                                       <div className="font-medium text-gray-900">{family.name}</div>
                                       <div className="text-gray-500 text-xs">
-                                        Created {new Date(family.created_at).toLocaleDateString()}
+                                        Created {(() => { const d = new Date(family.created_at); return isNaN(d) ? '—' : d.toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'}); })()}
                                       </div>
                                       {family.description && (
                                         <div className="text-gray-500 text-xs mt-1">{family.description}</div>
