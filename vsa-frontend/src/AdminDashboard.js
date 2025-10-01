@@ -408,9 +408,8 @@ function AdminDashboard() {
       // Create FormData for file upload
       const formData = new FormData();
       formData.append('name', editFamilyName);
-      if (editFamilyDescription) {
-        formData.append('description', editFamilyDescription);
-      }
+      // Always send description, even if empty, so clears are saved
+      formData.append('description', editFamilyDescription ?? '');
       if (selectedFamilyFile) {
         formData.append('familyPicture', selectedFamilyFile);
       }
@@ -420,8 +419,7 @@ function AdminDashboard() {
 
       const res = await api.put(`/api/families/${editingFamilyId}`, formData, {
         headers: { 
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'multipart/form-data'
+          'Authorization': `Bearer ${token}`
         }
       });
 

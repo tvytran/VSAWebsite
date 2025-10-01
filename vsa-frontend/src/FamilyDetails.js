@@ -191,11 +191,13 @@ function FamilyDetails() {
     // formData.append('description', editedFamilyDescription);
 
     if (selectedFamilyFile) {
-      formData.append('family_picture', selectedFamilyFile);
+      formData.append('familyPicture', selectedFamilyFile);
     }
 
     try {
-      const res = await api.put(`/api/families/${family.id}`, formData);
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const res = await api.put(`/api/families/${family.id}`, formData, token ? { headers: { 'Authorization': `Bearer ${token}` } } : undefined);
       console.log('Family update successful. Response data:', res.data);
       setFamily(res.data.family); // Update family state with new data
       setIsEditingFamily(false); // Exit editing mode

@@ -10,7 +10,7 @@ const heicConvert = require('heic-convert');
 // Configure multer for memory storage
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  limits: { fileSize: 20 * 1024 * 1024 }, // 20MB limit
   fileFilter: function(req, file, cb) {
     // Allow images including HEIC
     if (!file.originalname.match(/\.(jpg|jpeg|png|gif|heic|heif)$/i)) {
@@ -208,18 +208,40 @@ router.put('/:id', auth, upload.single('familyPicture'), async (req, res) => {
       updateFields.family_picture = null;
     } else if (req.file) {
       // Handle file upload if present
-      const fileName = `families/${req.params.id}_${Date.now()}.jpg`;
+      let fileBuffer = req.file.buffer;
+      let fileMimeType = req.file.mimetype;
+
+      // Normalize JPEG mimetype
+      if (fileMimeType === 'image/jpg') {
+        fileMimeType = 'image/jpeg';
+      }
+
+      // Convert HEIC/HEIF to JPEG for compatibility
+      if (req.file.originalname.toLowerCase().endsWith('.heic') || req.file.originalname.toLowerCase().endsWith('.heif')) {
+        try {
+          fileBuffer = await convertHeicToJpeg(req.file.buffer);
+          fileMimeType = 'image/jpeg';
+        } catch (err) {
+          return res.status(400).json({ success: false, message: 'Failed to process HEIC image. Please try converting to JPEG/PNG first.' });
+        }
+      }
+
+      let ext = '.jpg';
+      if (fileMimeType === 'image/png') ext = '.png';
+      if (fileMimeType === 'image/gif') ext = '.gif';
+      const fileName = `families/${req.params.id}_${Date.now()}${ext}`;
+      const bucket = process.env.SUPABASE_BUCKET || 'vsa-images';
       const { data: fileData, error: fileError } = await req.supabase.storage
-        .from(process.env.SUPABASE_BUCKET)
-        .upload(fileName, req.file.buffer, {
-          contentType: req.file.mimetype,
+        .from(bucket)
+        .upload(fileName, fileBuffer, {
+          contentType: fileMimeType,
           upsert: true
         });
       
       if (fileError) throw fileError;
       
       const { data: { publicUrl } } = req.supabase.storage
-        .from(process.env.SUPABASE_BUCKET)
+        .from(bucket)
         .getPublicUrl(fileName);
       
       updateFields.family_picture = publicUrl;
