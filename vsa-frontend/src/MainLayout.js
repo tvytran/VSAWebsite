@@ -131,6 +131,11 @@ function MainLayout({ children }) {
               </Link>
             )}
             <div className="flex flex-col space-y-3 w-full px-4">
+              <Link to="/dashboard" aria-current={isActive('/dashboard') ? 'page' : undefined}>
+                <button className={navButtonClass('/dashboard')}>
+                  Home
+                </button>
+              </Link>
               <Link to="/about" aria-current={isActive('/about') ? 'page' : undefined}>
                 <button className={navButtonClass('/about')}>
                   About
