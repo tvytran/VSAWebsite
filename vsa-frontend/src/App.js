@@ -60,6 +60,18 @@ const ProtectedRoute = ({ children, requireAdmin = false, skipFamilyCheck = fals
 function AppRoutes() {
   const { isLoggedIn, loading } = useAuth();
   const isGuest = localStorage.getItem('isGuest') === 'true';
+  const isOAuthCallback = (typeof window !== 'undefined') && (
+    (window.location.hash && window.location.hash.includes('access_token=')) ||
+    (window.location.search && window.location.search.includes('code='))
+  );
+
+  if (isOAuthCallback) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#faecd8]">
+        <div className="text-2xl text-[#b32a2a]">Completing sign-in...</div>
+      </div>
+    );
+  }
   return (
     <Routes>
       <Route
