@@ -71,6 +71,35 @@ router.put('/profile', auth, async (req, res) => {
             if (newUsername.length === 0) {
                 return res.status(400).json({ message: 'Username cannot be empty.' });
             }
+            // If not admin, enforce 3 changes per 30 days when attempting to change to a different username
+            // Fetch current user to read role and counters
+            const { data: currentUser, error: meError } = await req.supabase
+                .from('users')
+                .select('id, role, username, username_change_count, username_change_count_30d, username_change_window_started_at')
+                .eq('id', req.user.id)
+                .single();
+            if (meError) {
+                return res.status(500).json({ message: 'Failed to read user profile' });
+            }
+            if (currentUser && currentUser.role !== 'admin' && newUsername !== currentUser.username) {
+                const now = new Date();
+                if (Object.prototype.hasOwnProperty.call(currentUser, 'username_change_count_30d') && Object.prototype.hasOwnProperty.call(currentUser, 'username_change_window_started_at')) {
+                    const windowStart = currentUser.username_change_window_started_at ? new Date(currentUser.username_change_window_started_at) : null;
+                    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                    let effectiveCount = currentUser.username_change_count_30d ?? 0;
+                    if (!windowStart || windowStart < thirtyDaysAgo) {
+                        effectiveCount = 0;
+                    }
+                    if (effectiveCount >= 3) {
+                        return res.status(400).json({ message: 'you have reached the maximum number of username changes (3 in 30 days)' });
+                    }
+                } else if (Object.prototype.hasOwnProperty.call(currentUser, 'username_change_count')) {
+                    const currentCount = currentUser.username_change_count ?? 0;
+                    if (currentCount >= 3) {
+                        return res.status(400).json({ message: 'you have reached the maximum number of username changes (3)' });
+                    }
+                }
+            }
             // Case-insensitive uniqueness check excluding current user
             const { count: existsCount, error: checkError } = await req.supabase
                 .from('users')
@@ -84,6 +113,25 @@ router.put('/profile', auth, async (req, res) => {
                 return res.status(400).json({ message: 'someone with this username already exists' });
             }
             updateData.username = newUsername;
+            // Increment change counter for non-admins
+            if (currentUser && currentUser.role !== 'admin' && newUsername !== currentUser.username) {
+                const now = new Date();
+                updateData.username_changed_at = now.toISOString();
+                if (Object.prototype.hasOwnProperty.call(currentUser, 'username_change_count_30d') && Object.prototype.hasOwnProperty.call(currentUser, 'username_change_window_started_at')) {
+                    const windowStart = currentUser.username_change_window_started_at ? new Date(currentUser.username_change_window_started_at) : null;
+                    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                    let effectiveCount = currentUser.username_change_count_30d ?? 0;
+                    let windowStartToPersist = windowStart;
+                    if (!windowStart || windowStart < thirtyDaysAgo) {
+                        effectiveCount = 0;
+                        windowStartToPersist = now;
+                    }
+                    updateData.username_change_count_30d = effectiveCount + 1;
+                    updateData.username_change_window_started_at = windowStartToPersist.toISOString();
+                } else if (Object.prototype.hasOwnProperty.call(currentUser, 'username_change_count')) {
+                    updateData.username_change_count = (currentUser.username_change_count || 0) + 1;
+                }
+            }
         }
 
         if (Object.keys(updateData).length === 0) {

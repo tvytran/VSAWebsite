@@ -364,6 +364,7 @@ router.put('/profile', auth, upload.single('profilePicture'), async (req, res) =
     }
 
     const hasUsernameChangeCount = Object.prototype.hasOwnProperty.call(user, 'username_change_count');
+    const hasWindowLimitFields = Object.prototype.hasOwnProperty.call(user, 'username_change_count_30d') && Object.prototype.hasOwnProperty.call(user, 'username_change_window_started_at');
     if (!req.file) {
       // If no file is uploaded but username is being updated
       if (req.body.username) {
@@ -379,10 +380,26 @@ router.put('/profile', auth, upload.single('profilePicture'), async (req, res) =
         }
 
         // If not admin, enforce change limit when attempting to change to a different username
-        if (hasUsernameChangeCount && user.role !== 'admin' && newUsername !== user.username) {
-          const currentCount = user.username_change_count ?? 0;
-          if (currentCount >= 3) {
-            return res.status(400).json({ message: 'you have reached the maximum number of username changes (3)' });
+        if (user.role !== 'admin' && newUsername !== user.username) {
+          const now = new Date();
+          if (hasWindowLimitFields) {
+            const windowStart = user.username_change_window_started_at ? new Date(user.username_change_window_started_at) : null;
+            const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+            let effectiveCount = user.username_change_count_30d ?? 0;
+            let isReset = false;
+            if (!windowStart || windowStart < thirtyDaysAgo) {
+              // reset window
+              effectiveCount = 0;
+              isReset = true;
+            }
+            if (effectiveCount >= 3) {
+              return res.status(400).json({ message: 'you have reached the maximum number of username changes (3 in 30 days)' });
+            }
+          } else if (hasUsernameChangeCount) {
+            const currentCount = user.username_change_count ?? 0;
+            if (currentCount >= 3) {
+              return res.status(400).json({ message: 'you have reached the maximum number of username changes (3)' });
+            }
           }
         }
 
@@ -400,9 +417,23 @@ router.put('/profile', auth, upload.single('profilePicture'), async (req, res) =
         }
 
         const updatePayload = { username: newUsername };
-        if (hasUsernameChangeCount && newUsername !== user.username) {
-          updatePayload.username_change_count = (user.username_change_count || 0) + 1;
-          updatePayload.username_changed_at = new Date().toISOString();
+        if (newUsername !== user.username) {
+          const now = new Date();
+          updatePayload.username_changed_at = now.toISOString();
+          if (hasWindowLimitFields) {
+            const windowStart = user.username_change_window_started_at ? new Date(user.username_change_window_started_at) : null;
+            const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+            let effectiveCount = user.username_change_count_30d ?? 0;
+            let windowStartToPersist = windowStart;
+            if (!windowStart || windowStart < thirtyDaysAgo) {
+              windowStartToPersist = now;
+              effectiveCount = 0;
+            }
+            updatePayload.username_change_count_30d = effectiveCount + 1;
+            updatePayload.username_change_window_started_at = windowStartToPersist.toISOString();
+          } else if (hasUsernameChangeCount) {
+            updatePayload.username_change_count = (user.username_change_count || 0) + 1;
+          }
         }
         const { data: updatedUser, error: updateError } = await req.supabase
           .from('users')
@@ -465,6 +496,27 @@ router.put('/profile', auth, upload.single('profilePicture'), async (req, res) =
         return res.status(400).json({ message: 'Username cannot be empty.' });
       }
 
+      // If not admin, enforce change limit when attempting to change to a different username
+      if (user.role !== 'admin' && newUsername !== user.username) {
+        const now = new Date();
+        if (hasWindowLimitFields) {
+          const windowStart = user.username_change_window_started_at ? new Date(user.username_change_window_started_at) : null;
+          const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          let effectiveCount = user.username_change_count_30d ?? 0;
+          if (!windowStart || windowStart < thirtyDaysAgo) {
+            effectiveCount = 0;
+          }
+          if (effectiveCount >= 3) {
+            return res.status(400).json({ message: 'you have reached the maximum number of username changes (3 in 30 days)' });
+          }
+        } else if (hasUsernameChangeCount) {
+          const currentCount = user.username_change_count ?? 0;
+          if (currentCount >= 3) {
+            return res.status(400).json({ message: 'you have reached the maximum number of username changes (3)' });
+          }
+        }
+      }
+
       // Check uniqueness (case-insensitive, excluding current user)
       const { count: existsCount, error: checkError } = await req.supabase
         .from('users')
@@ -479,6 +531,24 @@ router.put('/profile', auth, upload.single('profilePicture'), async (req, res) =
       }
 
       updateData.username = newUsername;
+      if (newUsername !== user.username) {
+        const now = new Date();
+        updateData.username_changed_at = now.toISOString();
+        if (hasWindowLimitFields) {
+          const windowStart = user.username_change_window_started_at ? new Date(user.username_change_window_started_at) : null;
+          const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          let effectiveCount = user.username_change_count_30d ?? 0;
+          let windowStartToPersist = windowStart;
+          if (!windowStart || windowStart < thirtyDaysAgo) {
+            windowStartToPersist = now;
+            effectiveCount = 0;
+          }
+          updateData.username_change_count_30d = effectiveCount + 1;
+          updateData.username_change_window_started_at = windowStartToPersist.toISOString();
+        } else if (hasUsernameChangeCount) {
+          updateData.username_change_count = (user.username_change_count || 0) + 1;
+        }
+      }
     }
 
     const { data: updatedUser, error: updateError } = await req.supabase
