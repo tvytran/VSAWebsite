@@ -485,7 +485,7 @@ function DashboardHome() {
     <MainLayout>
       {/* Welcome Message for Logged-in Users */}
       {isLoggedIn && user && (
-        <div className="w-full max-w-2xl text-center mb-6 sticky top-16 z-30 bg-[#faecd8] pt-4">
+        <div className="w-full max-w-2xl text-center mb-4 pt-4">
           <h2 className="text-2xl font-bold text-[#b32a2a] mb-4">Welcome, {user.username}!</h2>
           <p className="text-gray-700 mb-4">Check out the latest posts from your family and the VSA community.</p>
         </div>
@@ -518,12 +518,12 @@ function DashboardHome() {
 
       {/* Search Bar */}
       {isLoggedIn && user && (
-      <div className="w-full max-w-2xl flex items-center mb-6 relative sticky top-0 z-30 bg-[#faecd8] py-2" style={{position:'sticky'}}>
+      <div className="w-full max-w-2xl flex items-center mb-4 relative sticky top-0 z-30 bg-[#faecd8] py-2" style={{position:'sticky'}}>
         <div className="relative flex-1">
           <input
             type="text"
             placeholder="Search posts, families, or authors..."
-            className="w-full border-2 border-[#b32a2a] rounded-lg px-4 py-3 pl-10 text-lg focus:outline-none focus:border-[#8a1f1f] focus:ring-2 focus:ring-[#b32a2a] focus:ring-opacity-50 transition-all duration-200"
+            className="w-full bg-white border border-gray-300 rounded-lg px-4 py-3 pl-10 text-lg focus:outline-none focus:border-[#b32a2a] focus:ring-2 focus:ring-[#b32a2a] focus:ring-opacity-30 transition-all duration-200"
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
           />
