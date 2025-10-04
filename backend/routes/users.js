@@ -42,6 +42,10 @@ router.get('/profile', auth, async (req, res) => {
         if (error) throw error;
         res.json({ success: true, user });
     } catch (error) {
+        const msg = (error && (error.message || error.code || '')) || '';
+        if (msg.includes('users_username_lower_unique') || (msg.includes('duplicate key value') && msg.toLowerCase().includes('username'))) {
+            return res.status(400).json({ message: 'someone with this username already exists' });
+        }
         res.status(500).json({ message: 'Server error' });
     }
 });
@@ -49,14 +53,51 @@ router.get('/profile', auth, async (req, res) => {
 // Update user profile
 router.put('/profile', auth, async (req, res) => {
     try {
-        // Update user fields (add validation as needed)
+        const updateData = {};
         const { username, email, profile_picture } = req.body;
-        const { data, error } = await req.supabase
+
+        if (typeof email !== 'undefined') {
+            updateData.email = email;
+        }
+        if (typeof profile_picture !== 'undefined') {
+            updateData.profile_picture = profile_picture;
+        }
+
+        if (typeof username !== 'undefined') {
+            const newUsername = String(username).trim();
+            if (/\s/.test(newUsername)) {
+                return res.status(400).json({ message: 'Username cannot contain spaces.' });
+            }
+            if (newUsername.length === 0) {
+                return res.status(400).json({ message: 'Username cannot be empty.' });
+            }
+            // Case-insensitive uniqueness check excluding current user
+            const { count: existsCount, error: checkError } = await req.supabase
+                .from('users')
+                .select('id', { count: 'exact', head: true })
+                .ilike('username', newUsername)
+                .neq('id', req.user.id);
+            if (checkError) {
+                return res.status(500).json({ message: 'Error checking username availability' });
+            }
+            if ((existsCount || 0) > 0) {
+                return res.status(400).json({ message: 'someone with this username already exists' });
+            }
+            updateData.username = newUsername;
+        }
+
+        if (Object.keys(updateData).length === 0) {
+            return res.status(400).json({ message: 'No valid fields to update' });
+        }
+
+        const { data: updatedUser, error } = await req.supabase
             .from('users')
-            .update({ username, email, profile_picture })
-            .eq('id', req.user.id);
+            .update(updateData)
+            .eq('id', req.user.id)
+            .select()
+            .single();
         if (error) throw error;
-        res.json({ success: true, message: 'Profile updated' });
+        res.json({ success: true, user: updatedUser });
     } catch (error) {
         res.status(500).json({ message: 'Server error' });
     }

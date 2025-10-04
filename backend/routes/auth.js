@@ -94,25 +94,19 @@ router.post(
             });
         }
 
-        // Check if username already exists
-        //
-        const { data: existingUser, error: userCheckError } = await supabaseAdmin
+        // Check if username already exists (case-insensitive)
+        const { count: existingCount, error: userCheckError } = await supabaseAdmin
             .from('users')
-            .select('id')
-            .eq('username', username.trim())
-            .single();
+            .select('id', { count: 'exact', head: true })
+            .ilike('username', username.trim());
 
-        //
-
-        if (userCheckError && userCheckError.code !== 'PGRST116') {
-            //
+        if (userCheckError) {
             return res.status(500).json({ message: 'Error checking username availability' });
         }
 
-        if (existingUser) {
-            //
+        if ((existingCount || 0) > 0) {
             return res.status(400).json({ 
-                message: 'Username already exists. Please choose a different username.' 
+                message: 'someone with this username already exists' 
             });
         }
 
@@ -369,12 +363,50 @@ router.put('/profile', auth, upload.single('profilePicture'), async (req, res) =
       return res.status(404).json({ message: 'User not found' });
     }
 
+    const hasUsernameChangeCount = Object.prototype.hasOwnProperty.call(user, 'username_change_count');
     if (!req.file) {
       // If no file is uploaded but username is being updated
       if (req.body.username) {
+        const rawUsername = String(req.body.username);
+        const newUsername = rawUsername.trim();
+
+        // Validate no spaces
+        if (/\s/.test(newUsername)) {
+          return res.status(400).json({ message: 'Username cannot contain spaces.' });
+        }
+        if (newUsername.length === 0) {
+          return res.status(400).json({ message: 'Username cannot be empty.' });
+        }
+
+        // If not admin, enforce change limit when attempting to change to a different username
+        if (hasUsernameChangeCount && user.role !== 'admin' && newUsername !== user.username) {
+          const currentCount = user.username_change_count ?? 0;
+          if (currentCount >= 3) {
+            return res.status(400).json({ message: 'you have reached the maximum number of username changes (3)' });
+          }
+        }
+
+        // Check uniqueness (case-insensitive, excluding current user)
+        const { count: existsCount, error: checkError } = await req.supabase
+          .from('users')
+          .select('id', { count: 'exact', head: true })
+          .ilike('username', newUsername)
+          .neq('id', req.user.id);
+        if (checkError) {
+          return res.status(500).json({ message: 'Error checking username availability' });
+        }
+        if ((existsCount || 0) > 0) {
+          return res.status(400).json({ message: 'someone with this username already exists' });
+        }
+
+        const updatePayload = { username: newUsername };
+        if (hasUsernameChangeCount && newUsername !== user.username) {
+          updatePayload.username_change_count = (user.username_change_count || 0) + 1;
+          updatePayload.username_changed_at = new Date().toISOString();
+        }
         const { data: updatedUser, error: updateError } = await req.supabase
           .from('users')
-          .update({ username: req.body.username })
+          .update(updatePayload)
           .eq('id', req.user.id)
           .select()
           .single();
@@ -422,7 +454,31 @@ router.put('/profile', auth, upload.single('profilePicture'), async (req, res) =
     // Update user profile
     const updateData = { profile_picture: publicUrl };
     if (req.body.username) {
-      updateData.username = req.body.username;
+      const rawUsername = String(req.body.username);
+      const newUsername = rawUsername.trim();
+
+      // Validate no spaces
+      if (/\s/.test(newUsername)) {
+        return res.status(400).json({ message: 'Username cannot contain spaces.' });
+      }
+      if (newUsername.length === 0) {
+        return res.status(400).json({ message: 'Username cannot be empty.' });
+      }
+
+      // Check uniqueness (case-insensitive, excluding current user)
+      const { count: existsCount, error: checkError } = await req.supabase
+        .from('users')
+        .select('id', { count: 'exact', head: true })
+        .ilike('username', newUsername)
+        .neq('id', req.user.id);
+      if (checkError) {
+        return res.status(500).json({ message: 'Error checking username availability' });
+      }
+      if ((existsCount || 0) > 0) {
+        return res.status(400).json({ message: 'someone with this username already exists' });
+      }
+
+      updateData.username = newUsername;
     }
 
     const { data: updatedUser, error: updateError } = await req.supabase
@@ -435,7 +491,11 @@ router.put('/profile', auth, upload.single('profilePicture'), async (req, res) =
 
     res.json({ success: true, user: updatedUser });
   } catch (err) {
-    //
+    // Map DB unique constraint errors to friendly message
+    const msg = (err && (err.message || err.code || '')) || '';
+    if (msg.includes('users_username_lower_unique') || msg.includes('duplicate key value') && msg.toLowerCase().includes('username')) {
+      return res.status(400).json({ message: 'someone with this username already exists' });
+    }
     res.status(500).json({ message: err.message || 'Server error' });
   }
 });

@@ -17,7 +17,7 @@ function Profile() {
   const [postsError, setPostsError] = useState('');
 
   // State for profile picture upload
-  const [selectedFile, setSelectedFile] = useState(null);
+  const [, setSelectedFile] = useState(null);
   const [uploadLoading, setUploadLoading] = useState(false);
   const [uploadError, setUploadError] = useState('');
 
@@ -172,6 +172,23 @@ function Profile() {
     e.preventDefault();
     setUsernameEditLoading(true);
     setUsernameEditError('');
+    const nextUsername = (editedUsername || '').trim();
+    // Frontend validation: block spaces and empty
+    if (/\s/.test(nextUsername)) {
+      setUsernameEditError('Username cannot contain spaces.');
+      setUsernameEditLoading(false);
+      return;
+    }
+    if (nextUsername.length === 0) {
+      setUsernameEditError('Username cannot be empty.');
+      setUsernameEditLoading(false);
+      return;
+    }
+    if (nextUsername === authUser.username) {
+      setUsernameEditError('That is already your username.');
+      setUsernameEditLoading(false);
+      return;
+    }
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token;
     if (!token) {
@@ -181,7 +198,7 @@ function Profile() {
     }
     try {
       const res = await api.put('/api/auth/profile', {
-        username: editedUsername
+        username: nextUsername
       }, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -190,7 +207,9 @@ function Profile() {
       setUsernameEditLoading(false);
       await fetchUserData();
     } catch (err) {
-      setUsernameEditError(err.response?.data?.message || 'Failed to update username.');
+      const serverMsg = err.response?.data?.message || err.response?.data || err.message || '';
+      const isDup = /users_username_lower_unique|duplicate key value|23505/i.test(String(serverMsg));
+      setUsernameEditError(isDup ? 'someone with this username already exists' : (serverMsg || 'Failed to update username.'));
       setUsernameEditLoading(false);
     }
   };
@@ -218,7 +237,8 @@ function Profile() {
                 <input
                   type="text"
                   value={editedUsername}
-                  onChange={e => setEditedUsername(e.target.value)}
+                  onChange={e => setEditedUsername(e.target.value.replace(/\s+/g, ''))}
+                  placeholder="New username"
                   className="border border-gray-300 rounded px-2 py-1 mr-2"
                   disabled={usernameEditLoading}
                 />
@@ -234,10 +254,10 @@ function Profile() {
             <span className="font-semibold">Email:</span> <span className="ml-2">{authUser.email}</span>
           </div>
           <div className="mb-4">
-            <span className="font-semibold">Total Points:</span> <span className="ml-2">{authUser.points_total}</span>
+            <span className="font-semibold">Total Points:</span> <span className="ml-2">{family.total_points}</span>
           </div>
           <div className="mb-4">
-            <span className="font-semibold">Semester Points:</span> <span className="ml-2">{authUser.points_semest}</span>
+            <span className="font-semibold">Semester Points:</span> <span className="ml-2">{family.semester_points }</span>
           </div>
         </div>
         {/* Profile Picture Section */}
@@ -299,16 +319,51 @@ function Profile() {
           ) : userPosts.length === 0 ? (
             <div className="text-gray-600">You haven't posted yet.</div>
           ) : (
-            <ul className="space-y-2">
-              {userPosts.map(post => (
-                <li key={post.id} className="bg-[#faecd8] rounded-lg p-4">
-                  <Link to={`/post/${post.id}`} className="text-[#b32a2a] font-semibold hover:underline">
-                    {post.title}
-                  </Link>
-                  <span className="ml-2 text-gray-600 text-sm">{new Date(post.created_at).toLocaleString()}</span>
-                </li>
-              ))}
-            </ul>
+            <>
+              {userPosts.some(post => post.image_path) ? (
+                <div className="grid grid-cols-3 gap-4">
+                  {userPosts.map(post => (
+                    post.image_path && (
+                      <div
+                        key={post.id}
+                        className="aspect-square rounded overflow-hidden bg-gray-200 cursor-pointer hover:opacity-90 transition-opacity duration-200 relative"
+                        onClick={() => navigate(`/post/${post.id}`)}
+                      >
+                        <img
+                          src={post.image_path}
+                          alt={post.title || 'User post'}
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute bottom-2 right-2 w-8 h-8 rounded-full overflow-hidden border-2 border-white shadow-md">
+                          {authUser.profile_picture ? (
+                            <img
+                              src={authUser.profile_picture}
+                              alt={authUser.username}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-[#b32a2a] flex items-center justify-center text-white text-xs font-bold">
+                              {authUser.username?.charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  ))}
+                </div>
+              ) : (
+                <ul className="space-y-2">
+                  {userPosts.map(post => (
+                    <li key={post.id} className="bg-[#faecd8] rounded-lg p-4">
+                      <Link to={`/post/${post.id}`} className="text-[#b32a2a] font-semibold hover:underline">
+                        {post.title}
+                      </Link>
+                      <span className="ml-2 text-gray-600 text-sm">{new Date(post.created_at).toLocaleString()}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
           )}
         </div>
       </div>
