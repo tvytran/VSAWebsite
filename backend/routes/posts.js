@@ -12,6 +12,7 @@ const heicConvert = require('heic-convert');
 // Configure multer for memory storage
 const upload = multer({
   storage: multer.memoryStorage(),
+  limits: { fileSize: 30 * 1024 * 1024 }, // 30MB max
   fileFilter: function(req, file, cb) {
     // Allow images including HEIC
     if (!file.originalname.match(/\.(jpg|jpeg|png|gif|heic|heif)$/i)) {
@@ -20,6 +21,19 @@ const upload = multer({
     cb(null, true);
   }
 });
+
+// Wrap multer to return friendly errors (e.g., file too large)
+const uploadPostImage = (req, res, next) => {
+  upload.single('image')(req, res, function(err) {
+    if (err) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ success: false, message: 'Image is too large. Max size is 30MB.' });
+      }
+      return res.status(400).json({ success: false, message: err.message || 'Image upload failed.' });
+    }
+    next();
+  });
+};
 
 // Helper function to convert HEIC to JPEG
 async function convertHeicToJpeg(buffer) {
@@ -51,7 +65,7 @@ const handleValidationErrors = (req, res, next) => {
 router.post(
     '/', 
     auth, 
-    upload.single('image'), 
+    uploadPostImage, 
     [
         body('title', 'Title is required').not().isEmpty().trim(),
         body('content', 'Content is required').not().isEmpty().trim(),
@@ -116,15 +130,17 @@ router.post(
         // Handle image upload with Supabase Storage if an image was provided
         if (req.file) {
             let imageBuffer = req.file.buffer;
-            let mimeType = req.file.mimetype;
+            let mimeType = req.file.mimetype || '';
+            const originalExt = path.extname(req.file.originalname || '').toLowerCase();
             let fileExt = 'jpg'; // Default to jpg
 
-            // Convert HEIC to JPEG if needed
-            if (req.file.originalname.toLowerCase().endsWith('.heic') || 
-                req.file.originalname.toLowerCase().endsWith('.heif')) {
+            // Detect HEIC/HEIF by extension or mimetype and convert to JPEG
+            const isHeic = originalExt === '.heic' || originalExt === '.heif' || mimeType.includes('heic') || mimeType.includes('heif');
+            if (isHeic) {
                 try {
                     imageBuffer = await convertHeicToJpeg(req.file.buffer);
                     mimeType = 'image/jpeg';
+                    fileExt = 'jpg';
                 } catch (error) {
                     return res.status(400).json({
                         success: false,
@@ -132,7 +148,67 @@ router.post(
                     });
                 }
             } else {
-                fileExt = req.file.originalname.split('.').pop().toLowerCase();
+                // Normalize JPEGs (including CMYK/progressive) and mismatched extensions
+                const looksLikeJpeg = mimeType === 'image/jpeg' || mimeType === 'image/pjpeg' || originalExt === '.jpg' || originalExt === '.jpeg';
+                const looksLikePng = mimeType === 'image/png' || originalExt === '.png';
+                const looksLikeGif = mimeType === 'image/gif' || originalExt === '.gif';
+
+                try {
+                    if (looksLikeJpeg) {
+                        imageBuffer = await sharp(imageBuffer)
+                            .rotate() // respect EXIF orientation
+                            .resize({ width: 2048, height: 2048, fit: 'inside', withoutEnlargement: true })
+                            .jpeg({ quality: 90, mozjpeg: true })
+                            .toBuffer();
+                        mimeType = 'image/jpeg';
+                        fileExt = 'jpg';
+                    } else if (looksLikePng) {
+                        // Normalize PNG and limit max size
+                        imageBuffer = await sharp(imageBuffer)
+                            .rotate()
+                            .resize({ width: 2048, height: 2048, fit: 'inside', withoutEnlargement: true })
+                            .png({ compressionLevel: 9 })
+                            .toBuffer();
+                        fileExt = 'png';
+                        mimeType = 'image/png';
+                    } else if (looksLikeGif) {
+                        fileExt = 'gif';
+                        mimeType = 'image/gif';
+                    } else {
+                        // Fallback: convert any unknown formats to JPEG
+                        imageBuffer = await sharp(imageBuffer)
+                            .rotate()
+                            .resize({ width: 2048, height: 2048, fit: 'inside', withoutEnlargement: true })
+                            .jpeg({ quality: 90, mozjpeg: true })
+                            .toBuffer();
+                        mimeType = 'image/jpeg';
+                        fileExt = 'jpg';
+                    }
+                } catch (err) {
+                    // Fallback: if processing fails, try uploading the original buffer
+                    try {
+                        if (looksLikeJpeg) {
+                            mimeType = 'image/jpeg';
+                            fileExt = 'jpg';
+                        } else if (looksLikePng) {
+                            mimeType = 'image/png';
+                            fileExt = 'png';
+                        } else if (looksLikeGif) {
+                            mimeType = 'image/gif';
+                            fileExt = 'gif';
+                        } else {
+                            // Default to JPEG
+                            mimeType = 'image/jpeg';
+                            fileExt = 'jpg';
+                        }
+                        // leave imageBuffer as original
+                    } catch (fallbackErr) {
+                        return res.status(400).json({
+                            success: false,
+                            message: 'Failed to process image. Please try another JPG/PNG.'
+                        });
+                    }
+                }
             }
 
             const fileName = `posts/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
@@ -140,7 +216,7 @@ router.post(
             const { data: uploadData, error: uploadError } = await req.supabase.storage
                 .from(process.env.SUPABASE_BUCKET)
                 .upload(fileName, imageBuffer, {
-                    contentType: mimeType,
+                    contentType: mimeType || 'application/octet-stream',
                     upsert: true,
                 });
 
@@ -191,7 +267,7 @@ router.post(
 
         res.status(201).json({ success: true, post: newPost });
     } catch (err) {
-        res.status(500).json({ success: false, message: 'Server Error during post creation.' });
+        res.status(500).json({ success: false, message: err?.message || 'Server Error during post creation.' });
     }
 });
 

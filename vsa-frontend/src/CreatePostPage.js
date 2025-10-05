@@ -5,14 +5,88 @@ import MainLayout from './MainLayout';
 import { supabase } from './supabaseClient';
 import { useAuth } from './AuthContext';
 
-// Point groups for dropdown
+// Point groups for dropdown (updated per chart)
 const POINT_GROUPS = [
-  { points: 1, activities: ['Anh/chi and em hangout'] },
-  { points: 2, activities: ['Study Session', 'Post hang-out on ig story and tag VSA', 'Dining Hall Meal', 'Hang out on the lawns/low', 'On campus event (includes VSA GBM)', 'Movie night on campus', 'Dorm Room hang out', 'Grocery shopping near campus'] },
-  { points: 5, activities: ['Game night/Hex&Co', 'A meal near campus, +1 if Viet food', 'Workout together', 'Cafe Hang-Out (Non-on campus: Joes, Cafe East, Lizs, etc.)', 'Arts & Crafts Night', 'Movie Theaters / Outdoor Movie Theaters', 'Picnic on campus/riverside', 'Biking in the City', 'Go to park to see Cherry Blossoms (a walk through a park)', 'Go grocery shopping together (past 125th and 100th)'] },
-  { points: 7, activities: ['Go downtown together (lower than 60th) (dinner/drinks/etc)', 'Go to the Heights/Amity together', 'Attend VSA event together', 'Explore museum', 'Picnic in Central Park/Roosevelt/Prosper Park/etc.', 'Go to senior night together', 'Bowling/Arcade', 'Thrifting/Shopping', 'Ice Skating'] },
-  { points: 10, activities: ['Cooking/baking session together + 3 points if Viet themed', 'Win a trivia night at any bar', "Going to Co Chung's Vietnamese Chat Tables", 'Vietnam Consulate Tết Party', 'Karaoke Night', 'Attending WEAI/EALAC/Columbia Vietnam/Vietnamese events', 'Bottomless**', 'Go to Jersey'] },
-  { points: 13, activities: ['Trip to Upstate or Rockaway Beach (requires transit that is not the MTA)', 'Out-Of-State Trip (minus Jersey)', 'Apple Picking Upstate', 'Go to a concert together'] },
+  {
+    points: 2,
+    activities: [
+      'Dining hall meal',
+      'Dorm/apartment hangout',
+      'Anh/Chị–Em coffee or hangout',
+      'Lawns/Steps hangout',
+      'Study Session',
+      'Workout Together',
+      'Cafe Hang-Out (On campus: Joes, Cafe East, Lizs, etc.)',
+    ],
+  },
+  {
+    points: 3,
+    activities: [
+      'Attend VSA Event together (GBM, mixers)',
+      'Group study session',
+      'Attend another Columbia org event',
+      'Volunteer/tabling on campus',
+      'Workshop/Performance',
+      'Movie Night',
+    ],
+  },
+  {
+    points: 5,
+    activities: [
+      'Game night (Hex & Co)',
+      'Movie Theaters / Outdoor Movie Theaters',
+      'Arts & crafts night',
+      'Farmers market / neighborhood stroll',
+      'Grocery run together (with shared activity)',
+      'Cafe Hang-Out (Off campus)',
+    ],
+  },
+  {
+    points: 7,
+    activities: [
+      'Dinner/dessert downtown (Chinatown, K-town, etc.)',
+      'Museum visit (Met/MoMA/AMNH)',
+      'Picnic (Central Park/Roosevelt/Riverside)',
+      'Karaoke night (booked room)',
+      'NYC festival or night market',
+      'Neighborhood explore (SoHo, DUMBO, Flushing)',
+      'Go to New Jersey',
+    ],
+  },
+  {
+    points: 10,
+    activities: [
+      'Cook or bake together ',
+      'Attend WEAI/EALAC/Cô Chung events',
+      'Vietnam Consulate Tết Party',
+      'Perform/MC/organize a cultural show',
+      'Charity/volunteering together',
+      'Plan & host a VSA family event',
+      'Host Vietnamese dinner/potluck',
+    ],
+  },
+  {
+    points: 13,
+    activities: [
+      'Upstate / Rockaway / Bear Mountain day trip',
+      'Out-of-state trip (excl. NJ)',
+      'Apple/pumpkin picking',
+      'Beach day or amusement park',
+      'Concert / festival / Broadway',
+      'Overnight trip or retreat',
+    ],
+  },
+];
+
+// Optional bonus tags (+1 each; cap +3). Special rules below
+const BONUS_TAGS = [
+  'Birthday celebration',
+  'Homemade food',
+  'Cultural holiday (Tết/Mid-Autumn)',
+  'Grad photos together',
+  'Performance/competition',
+  'Unique event (eclipse/art show)',
+  'Viet-themed (+3)'
 ];
 
 function CreatePostPage() {
@@ -36,10 +110,12 @@ function CreatePostPage() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [openGroup, setOpenGroup] = useState(null);
   const [selectedActivity, setSelectedActivity] = useState('');
+  const [selectedBasePoints, setSelectedBasePoints] = useState(null);
   const [finalPoints, setFinalPoints] = useState(null);
   const [customActivity, setCustomActivity] = useState('');
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [customPoints, setCustomPoints] = useState(1);
+  const [selectedBonusTags, setSelectedBonusTags] = useState([]);
   const dropdownRef = useRef();
 
   useEffect(() => {
@@ -152,12 +228,46 @@ function CreatePostPage() {
   // If membersPresent changes, clear activity selection and points
   useEffect(() => {
     setSelectedActivity('');
+    setSelectedBasePoints(null);
     setFinalPoints(null);
     setPointValue('');
     setShowCustomInput(false);
     setCustomActivity('');
     setCustomPoints(1);
+    setSelectedBonusTags([]);
   }, [membersPresent]);
+
+  // Compute points including bonus tags (cap +3; Viet-themed is exclusive +3)
+  const computePointsWithBonus = (basePoints, bonusOverride) => {
+    const present = parseInt(membersPresent, 10) || 0;
+    // Hard caps based on attendance and category
+    if (present === 2) return 2; // absolute cap regardless of bonuses
+    if (basePoints >= 3 && basePoints <= 7 && present < 3) return 2; // require >=3 members
+
+    const base = calculatePoints(basePoints);
+    const bonusList = Array.isArray(bonusOverride) ? bonusOverride : selectedBonusTags;
+    if (!Array.isArray(bonusList) || bonusList.length === 0) return base;
+    const VIET_TAG = 'Viet-themed (+3)';
+    const hasViet = bonusList.includes(VIET_TAG);
+    // Viet-themed is exclusive and always +3; others are +1 each up to +3
+    const extraFromViet = hasViet ? 3 : 0;
+    const otherCount = hasViet ? 0 : bonusList.length;
+    const extraFromOthers = Math.min(3, otherCount);
+    const totalExtra = Math.min(3, extraFromViet > 0 ? 3 : extraFromOthers);
+    const total = base + totalExtra;
+
+    // If category is 10–13 and exactly 3 members, cap total at 7
+    if (basePoints >= 10 && basePoints <= 13 && present === 3) {
+      return Math.min(total, 7);
+    }
+    // If category is 10–13 and <4 members (i.e., 1–3), enforce earlier rules
+    if (basePoints >= 10 && basePoints <= 13 && present < 4) {
+      // present === 2 handled above; present === 1 treat as 2 cap
+      return present === 1 ? 2 : total;
+    }
+
+    return total;
+  };
 
   const handleCreatePost = async (e) => {
     e.preventDefault();
@@ -235,8 +345,9 @@ function CreatePostPage() {
   // Handle selection
   const handleDropdownSelect = (group, activity) => {
     const basePoints = group.points;
-    const points = calculatePoints(basePoints);
+    const points = computePointsWithBonus(basePoints);
     setSelectedActivity(`${group.points} - ${activity}`);
+    setSelectedBasePoints(basePoints);
     setFinalPoints(points);
     setDropdownOpen(false);
     setOpenGroup(null);
@@ -262,7 +373,10 @@ function CreatePostPage() {
   return (
     <MainLayout>
       <div className="w-full max-w-2xl bg-white rounded-lg shadow-md p-8">
-        <h2 className="text-2xl font-bold text-[#b32a2a] mb-6">Create New Post</h2>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold text-[#b32a2a]">Create New Post</h2>
+          <a href="/points-chart" className="text-sm text-[#b32a2a] underline hover:text-[#8a1f1f]">View points chart</a>
+        </div>
 
         {error && <div className="text-red-600 mb-4">{error}</div>}
         {postError && <div className="text-red-600 mb-4">{postError}</div>}
@@ -472,15 +586,63 @@ function CreatePostPage() {
                           disabled={!customActivity.trim()}
                           onClick={() => {
                             setSelectedActivity(customActivity.trim());
-                            setFinalPoints(customPoints);
+                            setSelectedBasePoints(customPoints);
+                            const pts = computePointsWithBonus(customPoints);
+                            setFinalPoints(pts);
                             setShowCustomInput(false);
-                            setPointValue(customPoints); // For backend submission
+                            setPointValue(pts); // For backend submission
                           }}
                         >
                           Select
                         </button>
                       </div>
                     )}
+                    {/* Bonus Tags */}
+                    <div className="mt-4 p-4 bg-gray-50 border rounded">
+                      <div className="font-semibold mb-2">Bonus tags (+1 each; cap +3)</div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {BONUS_TAGS.map(tag => {
+                          const checked = selectedBonusTags.includes(tag);
+                          const VIET_TAG = 'Viet-themed (+3)';
+                          const vietSelected = selectedBonusTags.includes(VIET_TAG);
+                          return (
+                            <label key={tag} className="flex items-center gap-2 text-sm">
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={(e) => {
+                                  let next = selectedBonusTags;
+                                  if (checked) {
+                                    next = selectedBonusTags.filter(t => t !== tag);
+                                  } else {
+                                    if (tag === VIET_TAG) {
+                                      // Viet-themed is exclusive; clear others
+                                      next = [VIET_TAG];
+                                    } else {
+                                      if (vietSelected) {
+                                        // ignore add when Viet-themed is selected
+                                        next = selectedBonusTags;
+                                      } else {
+                                        next = [...selectedBonusTags, tag];
+                                      }
+                                    }
+                                  }
+                                  setSelectedBonusTags(next);
+                                  // Recompute points using stored base points (supports custom)
+                                  if (selectedBasePoints) {
+                                    const pts = computePointsWithBonus(selectedBasePoints, next);
+                                    setFinalPoints(pts);
+                                    setPointValue(pts);
+                                  }
+                                }}
+                              />
+                              <span>{tag}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                      <div className="text-xs text-gray-500 mt-2">Bonuses apply to any hangout; total bonus is capped at +3. Viet-themed (+3) is exclusive and cannot be combined.</div>
+                    </div>
                   </>
                 )}
                 {finalPoints !== null && (

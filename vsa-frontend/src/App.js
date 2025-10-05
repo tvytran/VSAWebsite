@@ -18,6 +18,7 @@ import EventsPage from './Events';
 import EventDetailPage from './EventDetailPage';
 import PostPage from './PostPage';
 import JoinFamilyPage from './JoinFamilyPage';
+import PointsChart from './PointsChart';
 
 // Protected Route component
 const ProtectedRoute = ({ children, requireAdmin = false, skipFamilyCheck = false }) => {
@@ -31,7 +32,8 @@ const ProtectedRoute = ({ children, requireAdmin = false, skipFamilyCheck = fals
     ));
   // debug log removed
 
-  if (loading) return <div style={{ padding: 24 }}>Loading your session...</div>;
+  // Only block on loading for authenticated users; allow guests to proceed
+  if (loading && !isGuest) return <div style={{ padding: 24 }}>Loading your session...</div>;
   if (!isLoggedIn && !isGuest) {
     // If OAuth parameters are present, let Supabase complete the session exchange
     if (hasOAuthParams) {
@@ -41,8 +43,9 @@ const ProtectedRoute = ({ children, requireAdmin = false, skipFamilyCheck = fals
     return <Navigate to="/login" />;
   }
   if (isGuest) {
-    // Guests can only access /dashboard and /about
-    if (path !== '/dashboard' && path !== '/about') {
+    // Guests can only access these public pages
+    const guestAllowed = ['/dashboard', '/about', '/points-chart'];
+    if (!guestAllowed.includes(path)) {
       return <Navigate to="/dashboard" />;
     }
     return children;
@@ -99,6 +102,7 @@ function AppRoutes() {
       <Route path="/admin" element={<ProtectedRoute requireAdmin={true}><AdminDashboard /></ProtectedRoute>} />
       <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
       <Route path="/create-post" element={<ProtectedRoute skipFamilyCheck={true}><CreatePostPage /></ProtectedRoute>} />
+      <Route path="/points-chart" element={<PointsChart />} />
       <Route path="/create-family" element={<ProtectedRoute requireAdmin={true}><CreateFamilyPage /></ProtectedRoute>} />
       <Route path="/join-family" element={<ProtectedRoute><JoinFamilyPage /></ProtectedRoute>} />
     </Routes>
