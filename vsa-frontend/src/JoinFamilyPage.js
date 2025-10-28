@@ -57,7 +57,7 @@ const JoinFamilyPage = () => {
       <div className="max-w-md w-full bg-white p-8 rounded-lg shadow-lg text-center">
         <h2 className="text-2xl font-bold text-[#b32a2a] mb-4">Join a Family</h2>
         <p className="text-gray-600 mb-6">
-          Welcome! Your registration is almost complete. Please enter your family's code to continue. If you don't have a family code, please email <a href="mailto:columbia.vsa@gmail.com" className="text-[#b32a2a] underline">columbia.vsa@gmail.com</a> to request one.
+          Welcome! Your registration is almost complete. Please enter your family's code to continue. If you don't have a family code, please email <a href="mailto:columbia.vsa@gmail.com" className="text-[#b32a2a] underline">vsa@columbia.edu</a> to request one.
         </p>
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
