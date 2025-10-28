@@ -17,6 +17,19 @@ function AdminDashboard() {
   const { isLoggedIn, user, loading: authLoading } = useAuth();
   const scrollRestored = useRef(false);
   const [currentUser, setCurrentUser] = useState(null);
+  const [quickLinks, setQuickLinks] = useState([]);
+  const [linksLoading, setLinksLoading] = useState(false);
+  const [linksError, setLinksError] = useState('');
+  const isValidUrl = (u) => {
+    try {
+      const hasScheme = /^(https?:)\/\//i.test(u);
+      const url = new URL(hasScheme ? u : `https://${u}`);
+      return Boolean(url.hostname);
+    } catch {
+      return false;
+    }
+  };
+  const canSaveLinks = quickLinks.length > 0 && quickLinks.length <= 10 && quickLinks.every(l => (l.label || '').trim().length > 0 && isValidUrl((l.url || '').trim()));
 
   // State for editing posts/announcements
   const [editingPostId, setEditingPostId] = useState(null);
@@ -75,7 +88,6 @@ function AdminDashboard() {
         // Fetch current user data first
         const { data: { session } } = await supabase.auth.getSession();
         const token = session?.access_token;
-        console.log('AdminDashboard token:', token);
         const meRes = await api.get('/api/auth/me', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -104,6 +116,11 @@ function AdminDashboard() {
            headers: { 'Authorization': `Bearer ${token}` }
         });
         setAnnouncements(announcementsRes.data.posts || []);
+        // Fetch quick links (public endpoint)
+        try {
+          const d = await api.get('/api/settings/quick-links');
+          if (d?.data?.success && Array.isArray(d.data.links)) setQuickLinks(d.data.links);
+        } catch (e) {}
         // Fetch all posts for admin view
         const allPostsRes = await api.get('/api/posts/all', {
            headers: { 'Authorization': `Bearer ${token}` }
@@ -565,6 +582,16 @@ function AdminDashboard() {
             >
               All Posts
             </button>
+            <button
+              onClick={() => setActiveTab('links')}
+              className={`${
+                activeTab === 'links'
+                  ? 'border-[#b32a2a] text-[#b32a2a]'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              } whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm`}
+            >
+              Links
+            </button>
           </nav>
         </div>
 
@@ -951,6 +978,92 @@ function AdminDashboard() {
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Links Tab Content */}
+        {activeTab === 'links' && (
+          <div className="mt-8 max-w-2xl">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Login Page Quick Links</h2>
+            {linksError && <div className="text-red-600 mb-3 text-sm">{linksError}</div>}
+            <div className="space-y-3">
+              {quickLinks.map((link, idx) => (
+                <div key={idx} className="grid grid-cols-12 gap-2 items-center">
+                  <input
+                    className="col-span-6 border rounded px-2 py-2 text-sm"
+                    placeholder="Label"
+                    value={link.label}
+                    onChange={e => setQuickLinks(prev => prev.map((l,i) => i===idx ? { ...l, label: e.target.value } : l))}
+                  />
+                  <input
+                    className="col-span-6 border rounded px-2 py-2 text-sm"
+                    placeholder="URL"
+                    value={link.url}
+                    onChange={e => setQuickLinks(prev => prev.map((l,i) => i===idx ? { ...l, url: e.target.value } : l))}
+                  />
+                  <div className="col-span-12 flex justify-between">
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        className="text-sm px-2 py-1 border rounded disabled:opacity-40"
+                        disabled={idx === 0}
+                        onClick={() => setQuickLinks(prev => {
+                          const next = [...prev];
+                          [next[idx-1], next[idx]] = [next[idx], next[idx-1]];
+                          return next;
+                        })}
+                      >Up</button>
+                      <button
+                        type="button"
+                        className="text-sm px-2 py-1 border rounded disabled:opacity-40"
+                        disabled={idx === quickLinks.length - 1}
+                        onClick={() => setQuickLinks(prev => {
+                          const next = [...prev];
+                          [next[idx], next[idx+1]] = [next[idx+1], next[idx]];
+                          return next;
+                        })}
+                      >Down</button>
+                    </div>
+                    <button
+                      className="text-red-600 text-sm"
+                      onClick={() => setQuickLinks(prev => prev.filter((_,i) => i!==idx))}
+                    >Remove</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-between mt-4">
+              <button
+                className="px-3 py-2 text-sm border rounded disabled:opacity-50"
+                disabled={quickLinks.length >= 10}
+                onClick={() => setQuickLinks(prev => prev.length < 10 ? [...prev, { emoji: '', label: '', url: '' }] : prev)}
+              >Add Link</button>
+              <button
+                className="px-4 py-2 text-sm bg-[#b32a2a] text-white rounded disabled:opacity-50"
+                disabled={linksLoading || !canSaveLinks}
+                onClick={async () => {
+                  setLinksError('');
+                  setLinksLoading(true);
+                  try {
+                    const { data: { session } } = await supabase.auth.getSession();
+                    const token = session?.access_token;
+                    // sanitize urls to include https scheme
+                    const payload = quickLinks.slice(0,10).map(l => {
+                      const label = (l.label || '').trim();
+                      let url = (l.url || '').trim();
+                      if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
+                      return { label, url };
+                    });
+                    await api.put('/api/settings/quick-links', { links: payload }, { headers: { 'Authorization': `Bearer ${token}` } });
+                  } catch (e) {
+                    setLinksError(e.message || 'Failed to save links');
+                  } finally {
+                    setLinksLoading(false);
+                  }
+                }}
+              >{linksLoading ? 'Saving...' : 'Save Links'}</button>
+            </div>
+            <div className="text-xs text-gray-500 mt-2">Limit: 10 links maximum. Include full URLs (http/https); we’ll auto-add https if missing.</div>
           </div>
         )}
 

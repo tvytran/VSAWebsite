@@ -89,6 +89,7 @@ const familyRoutes = require('./routes/families');
 
 // console.log("Requiring eventsRouter");
 const eventsRouter = require('./routes/events');
+const settingsRouter = require('./routes/settings');
 
 // Import auth middleware
 const auth = require('./middleware/auth');
@@ -155,6 +156,8 @@ app.use('/api/families', auth, familyRoutes);
 
 // console.log("Registering /api/events");
 app.use('/api/events', eventsRouter);
+// Settings routes: GET is public, PUT guarded inside router
+app.use('/api/settings', settingsRouter);
 
 // Basic test route to verify the server is running
 // Vercel deployment test - Updated for deployment  

@@ -24,7 +24,6 @@ function CreateFamilyPage() {
         if (!isLoggedIn || !user) return; // Wait for auth
         const { data: { session } } = await supabase.auth.getSession();
         const token = session?.access_token;
-        console.log('Token used for /api/auth/me:', token);
         const res = await api.get('/api/auth/me', {
           headers: { 'Authorization': `Bearer ${token}` }
         });

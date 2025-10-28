@@ -54,7 +54,7 @@ function DashboardHome() {
   };
 
 
-  console.log("API_BASE_URL in production:", api.defaults.baseURL);
+  // debug removed
   const fetchPublicPosts = async () => {
     setLoadingPosts(true);
     setError('');
