@@ -138,8 +138,8 @@ function Login() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#faecd8] py-8 sm:py-12 flex items-center justify-center">
-      <div className="w-full max-w-md bg-white rounded-lg shadow p-8 flex flex-col items-center max-h-[calc(100vh-6rem)] overflow-auto">
+    <div className="min-h-screen bg-[#faecd8] py-8 sm:py-12 px-4 flex items-center justify-center">
+      <div className="w-full max-w-md bg-white rounded-lg shadow p-8 flex flex-col items-center max-h-[calc(100vh-6rem)] overflow-auto mx-auto">
         <img
           src="https://nnlbviehgtdyiucgdims.supabase.co/storage/v1/object/public/vsa-images/public/logo.PNG"
           alt="Columbia VSA University"
