@@ -9,6 +9,7 @@ const DEFAULT_LINKS = [];
 // Public: get quick links for login page
 router.get('/quick-links', async (req, res) => {
   try {
+    res.set('Cache-Control', 'no-store');
     const { data, error } = await supabaseAdmin
       .from('settings')
       .select('value')

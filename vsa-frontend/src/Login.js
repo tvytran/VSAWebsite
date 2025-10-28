@@ -122,10 +122,14 @@ function Login() {
     // Fetch quick links
     (async () => {
       try {
-        const res = await api.get('/api/settings/quick-links');
-        const data = res.data;
-        if (data?.success && Array.isArray(data.links)) {
-          setQuickLinks(data.links.slice(0,10));
+        const base = (api?.defaults?.baseURL || '').replace(/\/$/, '');
+        const url = `${base}/api/settings/quick-links`;
+        const res = await fetch(url, { headers: { 'Accept': 'application/json' }, cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.success && Array.isArray(data.links)) {
+            setQuickLinks(data.links.slice(0,10));
+          }
         }
       } catch (e) {
         // ignore, show nothing until saved
