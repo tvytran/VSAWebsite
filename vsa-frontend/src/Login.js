@@ -163,7 +163,6 @@ function Login() {
             {/* Divider */}
             <div className="w-full my-6 flex items-center text-gray-400">
               <span className="flex-1 h-px bg-gray-200" />
-              <span className="px-3 text-sm">Quick Links</span>
               <span className="flex-1 h-px bg-gray-200" />
             </div>
 
