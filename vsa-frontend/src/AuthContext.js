@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { supabase } from './supabaseClient';
 import api from './api';
 import { useNavigate } from 'react-router-dom';
@@ -14,6 +14,8 @@ export function AuthProvider({ children }) {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const navigateRef = useRef(navigate);
+  useEffect(() => { navigateRef.current = navigate; }, [navigate]);
 
   // Hard fallback: ensure loading cannot hang forever
   useEffect(() => {
@@ -53,14 +55,12 @@ export function AuthProvider({ children }) {
         if (!data.user.family_id) {
           // user has no family
           if (currentPath !== '/join-family') {
-            // navigate
-            navigate('/join-family');
+            navigateRef.current('/join-family');
           }
         } else {
           // user already has family
           if (currentPath === '/join-family') {
-            // navigate
-            navigate('/dashboard');
+            navigateRef.current('/dashboard');
           }
         }
       } else {
@@ -137,14 +137,14 @@ export function AuthProvider({ children }) {
     return () => {
       subscription?.unsubscribe();
     };
-  }, [navigate]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const logout = async () => {
     try {
       await supabase.auth.signOut();
       setUser(null);
       setIsLoggedIn(false);
-      navigate('/');
+      navigateRef.current('/');
     } catch (error) {
       // ignore error
     }
@@ -152,14 +152,11 @@ export function AuthProvider({ children }) {
 
   // Update user after joining family
   const updateUser = (updatedUser) => {
-    // update user in context
     setUser(updatedUser);
     setIsLoggedIn(true);
-    
-    // If the user now has a family_id and is on the join-family page, redirect to dashboard
+
     if (updatedUser.family_id && window.location.pathname === '/join-family') {
-      // navigate
-      navigate('/dashboard');
+      navigateRef.current('/dashboard');
     }
   };
 
