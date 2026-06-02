@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from './supabaseClient';
 import api from './api';
 import { useNavigate } from 'react-router-dom';
@@ -24,66 +24,49 @@ export function AuthProvider({ children }) {
     return () => clearTimeout(timer);
   }, [loading]);
 
-  // Helper to fetch user profile with a valid token
-  const fetchUserProfile = async (access_token) => {
+  // Stable ref for fetchUserProfile so the auth listener always calls the latest version
+  const fetchUserProfileRef = useRef(null);
+
+  const fetchUserProfile = useCallback(async (access_token) => {
     if (!access_token) {
-      // no access token
       setUser(null);
       setIsLoggedIn(false);
       setLoading(false);
       return;
     }
-    // fetch user profile
-    
-    // Use shared axios client to ensure correct base URL in all environments
+
     try {
       const res = await api.get('/api/auth/me', {
-        headers: {
-          'Authorization': `Bearer ${access_token}`
-        }
+        headers: { 'Authorization': `Bearer ${access_token}` }
       });
 
       if (res.status >= 200 && res.status < 300) {
         const data = res.data;
-        // set user profile
         setUser(data.user);
         setIsLoggedIn(true);
-        
-        // Only redirect if the user is not already on the correct page
+
         const currentPath = window.location.pathname;
-        
         if (!data.user.family_id) {
-          // user has no family
           if (currentPath !== '/join-family') {
             navigateRef.current('/join-family');
           }
         } else {
-          // user already has family
           if (currentPath === '/join-family') {
             navigateRef.current('/dashboard');
           }
         }
-      } else {
-        // fetch failed – do not clear session; retry shortly
-        if (res.status === 401) {
-          // For explicit auth failures, just stop here; onAuthStateChange will handle real sign-outs
-          setLoading(false);
-          return;
-        }
-        setTimeout(() => fetchUserProfile(access_token), 2000);
+      } else if (res.status === 401) {
         setLoading(false);
         return;
       }
     } catch (error) {
-      // Ignore transient errors; retry shortly and keep session
-      setTimeout(() => fetchUserProfile(access_token), 2000);
-      setLoading(false);
-      return;
+      // Keep existing session state on transient errors
     }
     setLoading(false);
-  };
+  }, []);
 
-  // Guest mode support
+  fetchUserProfileRef.current = fetchUserProfile;
+
   useEffect(() => {
     if (localStorage.getItem('isGuest') === 'true') {
       setUser(null);
@@ -91,21 +74,17 @@ export function AuthProvider({ children }) {
       setLoading(false);
       return;
     }
-    
-    // setup auth state listener
-    
-    // Listen for auth state changes (Supabase v2)
+
+    let mounted = true;
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      // Only hard-clear on explicit sign-out events; ignore transient null sessions
+      if (!mounted) return;
+
       if (session) {
-        // session found
         localStorage.removeItem('isGuest');
         setIsLoggedIn(true);
-        const access_token = session.access_token;
-        // token presence
-        await fetchUserProfile(access_token);
+        await fetchUserProfileRef.current(session.access_token);
       } else {
-        // For events other than explicit sign-out, keep current state
         if (event === 'SIGNED_OUT' || event === 'USER_DELETED') {
           setUser(null);
           setIsLoggedIn(false);
@@ -114,28 +93,42 @@ export function AuthProvider({ children }) {
       }
     });
 
-    // Initial session check (Supabase v2)
+    // Also check session directly in case onAuthStateChange INITIAL_SESSION is delayed
     (async () => {
       try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        if (error) {
-          // ignore error
-        }
-        // initial session
-        const access_token = session?.access_token;
-        if (access_token) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!mounted) return;
+        if (session?.access_token) {
           setIsLoggedIn(true);
+          await fetchUserProfileRef.current(session.access_token);
+        } else {
+          setLoading(false);
         }
-        await fetchUserProfile(access_token);
       } catch (error) {
-        // ignore error
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
     })();
 
-    // Cleanup for Supabase v2
+    // Re-check session when tab becomes visible again
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState !== 'visible') return;
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!mounted) return;
+        if (session?.access_token) {
+          setIsLoggedIn(true);
+          await fetchUserProfileRef.current(session.access_token);
+        }
+      } catch (error) {
+        // ignore
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     return () => {
+      mounted = false;
       subscription?.unsubscribe();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -146,21 +139,18 @@ export function AuthProvider({ children }) {
       setIsLoggedIn(false);
       navigateRef.current('/');
     } catch (error) {
-      // ignore error
+      // ignore
     }
   };
 
-  // Update user after joining family
   const updateUser = (updatedUser) => {
     setUser(updatedUser);
     setIsLoggedIn(true);
-
     if (updatedUser.family_id && window.location.pathname === '/join-family') {
       navigateRef.current('/dashboard');
     }
   };
 
-  // Force refresh user data
   const refreshUser = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -168,7 +158,7 @@ export function AuthProvider({ children }) {
         await fetchUserProfile(session.access_token);
       }
     } catch (error) {
-      // ignore error
+      // ignore
     }
   };
 
@@ -181,8 +171,6 @@ export function AuthProvider({ children }) {
     refreshUser
   };
 
-  // render
-
   return (
     <AuthContext.Provider value={value}>
       {children}
@@ -190,4 +178,4 @@ export function AuthProvider({ children }) {
   );
 }
 
-export default AuthContext; 
+export default AuthContext;
