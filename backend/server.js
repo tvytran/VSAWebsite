@@ -38,8 +38,8 @@ const corsOptions = {
     if (allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
-    // Block unknown origins in production
-    return callback(new Error('Not allowed by CORS'), false);
+    // Allow all origins for now (Vercel preview URLs vary)
+    return callback(null, true);
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
