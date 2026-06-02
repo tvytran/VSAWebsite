@@ -33,15 +33,13 @@ const allowedOrigins = [
 
 const corsOptions = {
   origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
+    // Allow requests with no origin (mobile apps, curl) and same-origin
     if (!origin) return callback(null, true);
     if (allowedOrigins.includes(origin)) {
       return callback(null, true);
-    } else {
-      // console.log('CORS blocked origin:', origin);
-      // Temporarily allow all origins for debugging
-      return callback(null, true);
     }
+    // Block unknown origins in production
+    return callback(new Error('Not allowed by CORS'), false);
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -213,13 +211,23 @@ app.get('/api/test-auth', (req, res) => {
 
 // Global error handling middleware
 app.use((err, req, res, next) => {
+    // Redact sensitive headers before logging
+    const redactedHeaders = { ...(req.headers || {}) };
+    if (redactedHeaders.authorization) redactedHeaders.authorization = 'REDACTED';
+    if (redactedHeaders.Authorization) redactedHeaders.Authorization = 'REDACTED';
+    if (redactedHeaders.cookie) redactedHeaders.cookie = 'REDACTED';
+    if (redactedHeaders['x-auth-token']) redactedHeaders['x-auth-token'] = 'REDACTED';
+
+    // Only log minimal body information to avoid leaking PII
+    const loggedBody = req && req.body ? '[REDACTED BODY]' : undefined;
+
     console.error('Error details:', {
         message: err.message,
         stack: err.stack,
         url: req.url,
         method: req.method,
-        headers: req.headers,
-        body: req.body
+        headers: redactedHeaders,
+        body: loggedBody
     });
     
     // Handle CORS errors specifically

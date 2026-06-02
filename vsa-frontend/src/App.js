@@ -45,6 +45,7 @@ const ProtectedRoute = ({ children, requireAdmin = false, skipFamilyCheck = fals
   if (isGuest) {
     // Guests can only access these public pages
     const guestAllowed = ['/dashboard', '/about', '/points-chart'];
+    if (path.startsWith('/post/')) return children;
     if (!guestAllowed.includes(path)) {
       return <Navigate to="/dashboard" />;
     }

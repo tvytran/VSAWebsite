@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate, Link, Navigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { PencilIcon, TrashIcon, HeartIcon, ChatBubbleLeftIcon } from '@heroicons/react/24/outline';
 import { HeartIcon as HeartIconSolid } from '@heroicons/react/24/solid';
 import api from './api';
@@ -86,18 +86,25 @@ const PostPage = () => {
   };
 
   useEffect(() => {
-    if (isGuest) return;
     const fetchPost = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        const token = session?.access_token;
-        let endpoint = `/api/posts/${id}`;
-        const headers = token ? { 'x-auth-token': token } : {};
-        const res = await api.get(endpoint, { headers });
-        if (res.data.success) {
-          setPost(res.data.post);
+        if (isGuest) {
+          const res = await api.get(`/api/posts/public/${id}`);
+          if (res.data.success) {
+            setPost(res.data.post);
+          } else {
+            setError('Failed to load post');
+          }
         } else {
-          setError('Failed to load post');
+          const { data: { session } } = await supabase.auth.getSession();
+          const token = session?.access_token;
+          const headers = token ? { 'x-auth-token': token } : {};
+          const res = await api.get(`/api/posts/${id}`, { headers });
+          if (res.data.success) {
+            setPost(res.data.post);
+          } else {
+            setError('Failed to load post');
+          }
         }
       } catch (err) {
         setError('Failed to load post');
@@ -107,15 +114,11 @@ const PostPage = () => {
   }, [id, isGuest]);
 
   useEffect(() => {
-    if (isGuest) return;
     if (post && user) {
       setIsAuthor(post.author_id === user.id);
       setIsAdmin(user.role === 'admin');
     }
-  }, [post, user, isGuest]);
-
-  // Now, after all hooks, you can safely return for guest mode
-  if (isGuest) return <Navigate to="/dashboard" />;
+  }, [post, user]);
 
   const handleLike = async () => {
     if (!isLoggedIn) {
